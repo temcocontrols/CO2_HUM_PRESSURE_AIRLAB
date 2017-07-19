@@ -67,7 +67,7 @@ typedef struct _CO2_STRUCT_
 } CO2_STR;
 
 extern CO2_STR far int_co2_str;
-extern CO2_STR far ext_co2_str[MAX_EXT_CO2];
+//extern CO2_STR far ext_co2_str[MAX_EXT_CO2];
 
 extern U16_T co2_int;
 //extern U16_T previous_co2;

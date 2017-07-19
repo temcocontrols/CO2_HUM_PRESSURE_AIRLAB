@@ -61,7 +61,7 @@ extern struct _CURSOR_ cursor;
 extern bit scrolling_flag;
 
 extern uint8 time[];
-
+extern uint8 const   AQI_LEVEL[6][15];
 // A0 = 0
 //[H0 :H1] = [0 : 0]
 #define CMD_SET_V0Range_LOW     0x04

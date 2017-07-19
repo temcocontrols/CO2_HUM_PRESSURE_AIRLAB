@@ -54,7 +54,7 @@ static uint8 const code new_ip_status_text[4][10] =
 	"Cannel",
 };
 
-static uint8 const code baudrate_text[5][7] = 
+  uint8 const code baudrate_text[5][7] = 
 {
 	"9600",
 	"19200",

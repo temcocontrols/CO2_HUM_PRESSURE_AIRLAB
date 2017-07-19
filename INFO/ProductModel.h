@@ -61,7 +61,7 @@
 
 
 #define PM_TESTER_JIG				202
-
+#define STM32_PM25					52
 #define STM32_CO2_NET				210
 #define STM32_CO2_RS485				211
 #define STM32_HUM_NET				212

@@ -88,7 +88,7 @@ u8 tapdev_init(void)
 	uip_listen(HTONS(modbus.listen_port));       // 10000, modbustcp
 //	tcp_app_init();
 	udp_scan_init();
-
+	bip_Init();
 }
 else
 {
@@ -97,7 +97,7 @@ else
 	dhcpc_request();	
 
 }
-	bip_Init();
+	
 	return res;	
 }
 

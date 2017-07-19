@@ -298,17 +298,17 @@ void dhcpc_configured(const struct dhcpc_state *s)
 		uint8 i;
 		for(i=0; i<4; i++)
 		{
-			modbus.ip_addr[i] = modbus.ghost_ip_addr[i] ;
-			modbus.mask_addr[i] = modbus.ghost_mask_addr[i] ;
-			modbus.gate_addr[i] = modbus.ghost_gate_addr[i] ;
+			modbus.ghost_ip_addr[i] = modbus.ip_addr[i];
+			modbus.ghost_mask_addr[i] = modbus.mask_addr[i];
+			modbus.ghost_gate_addr[i] = modbus.gate_addr[i];
 			
-			AT24CXX_WriteOneByte(EEP_IP_ADDRESS_1+i, modbus.ip_addr[i]);
-			AT24CXX_WriteOneByte(EEP_SUB_MASK_ADDRESS_1+i, modbus.mask_addr[i]);
-			AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_1+i, modbus.gate_addr[i]);						
+//			AT24CXX_WriteOneByte(EEP_IP_ADDRESS_1+i, modbus.ip_addr[i]);
+//			AT24CXX_WriteOneByte(EEP_SUB_MASK_ADDRESS_1+i, modbus.mask_addr[i]);
+//			AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_1+i, modbus.gate_addr[i]);						
 		}
 	}
 
 	uip_ipaddr(uip_hostaddr_submask, modbus.ip_addr[0], modbus.ip_addr[1], modbus.ip_addr[2],255);
 
-
+	bip_Init();
 }

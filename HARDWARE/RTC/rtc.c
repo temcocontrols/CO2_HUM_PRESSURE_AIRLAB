@@ -345,12 +345,11 @@ u8 Time_Adjust(void)
 //		/* Allow access to BKP Domain */
 //	PWR_BackupAccessCmd(ENABLE);												//使能后备寄存器访问 
 	
-	#if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
 		return RTC_Set(calendar.w_year,	calendar.w_month,	calendar.w_date,\
 					calendar.hour,	calendar.min,		calendar.sec);
-	#else
-		return 1;
-	#endif
+	else
+		return 1; 
 //	RCC_ClearFlag();
 	
 }

@@ -12,17 +12,18 @@
 #include "registerlist.h"
 #include "store.h"
 #include "config.h"
-#ifdef CO2_SENSOR
-	uint8_t panelname[21] = "CO2_NET";
-#elif defined PRESSURE_SENSOR	
-	uint8_t panelname[21] = "Pressure";
-#elif defined HUM_SENSOR	
-	uint8_t panelname[21] = "Humdity";
-#else
-	uint8_t panelname[21] = "CO2_NET";
-#endif 
+//#ifdef CO2_SENSOR
+//	uint8_t panelname[21] = "CO2_NET";
+//#elif defined PRESSURE_SENSOR	
+//	uint8_t panelname[21] = "Pressure";
+//#elif defined HUM_SENSOR	
+//	uint8_t panelname[21] = "Humdity";
+//#else
+//	uint8_t panelname[21] = "CO2_NET";
+//#endif 
 
-
+	uint8_t panelname[21];
+	
 //void bacnet_inital(void)
 //{
 //	uint8 i;
@@ -105,9 +106,13 @@ void Get_AVS(void)
 //----------------------------------------------
 float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 {	
+	float ftemp;
+	if(i == 0) return 1;    //start from var1.
+	else i -= 1;
 	switch(type)
-	{ 
+	{  
 		case AV: 
+			
 			if(i < MAX_AVS)
 			{ 
 				switch (i)
@@ -127,11 +132,11 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 					case 4: //product_model  
 						var[i].value = PRODUCT_ID;
 						break;
-					case 5: //Hardware version  
-						var[i].value = modbus.hardware_Rev;
+					case 5: //Instance
+						var[i].value = Instance;
 						break;
-					case 6: //humidity version 
-						var[i].value = humidity_version;
+					case 6: //Station
+						var[i].value = Station_NUM;
 						break;
 					case 7: //baud rate
 						var[i].value = modbus.baud;
@@ -145,69 +150,71 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 					case 10: //auto manual
 						var[i].value = output_auto_manual;
 						break;
-					case 11://humidity 
-						var[i].value = (float)HumSensor.humidity/10;
-						break;
-					case 12: //temperature 
-						if(deg_c_or_f == DEGREE_C)
-							var[i].value = (float)HumSensor.temperature_c/10;
-						else
-							var[i].value = (float)HumSensor.temperature_f/10;
-						break;
-					case 13: //co2 
-						var[i].value = int_co2_str.co2_int;
-						break; 
-					case 14: //dew point
+					 
+					case 11: //dew point
 						if(deg_c_or_f == DEGREE_C)
 							var[i].value = (float)HumSensor.dew_pt/10;
 						else
 							var[i].value = (float)HumSensor.dew_pt_F/10;
 						break; 
-					case 15://pws
+					case 12://pws
 						var[i].value = (float)HumSensor.Pws/10;
 						break;
-					case 16://MixRatio
+					case 13://MixRatio
 						var[i].value = (float)HumSensor.Mix_Ratio/10;
 						break;
-					case 17://Enthalpy
+					case 14://Enthalpy
 						var[i].value = (float)HumSensor.Enthalpy/10;
 						break;
-					case 18: //OffSet_H 
+					case 15: //OffSet_H 
 						if(table_sel == USER)
 							var[i].value = (float)HumSensor.offset_h/10;
 						else
 							var[i].value = (float)HumSensor.offset_h_default/10;
 						break;
-					case 19: //OffSet_T 
+					case 16: //OffSet_T 
 						var[i].value = (float)HumSensor.offset_t/10 ;
 						break; 
-					case 20: //OffSet_C 
+					case 17: //OffSet_C 
 						var[i].value = (float)HumSensor.offset_t;
+						break;
+					case 18: //OffSet_P 
+						if((Pressure.SNR_Model == PRS_26PCGFA)||(Pressure.SNR_Model == PRS_26PCDFA))
+							var[i].value = (float)Pressure.org_val_offset/10;
+						else
+							var[i].value = (float)Pressure.org_val_offset/100;
+						break;
+					case 19: //OfSe_P25 
+						var[i].value = (float)pm25_sensor.pm25_offset/10;
+						break;
+					case 20: //OfSe_P10 
+						var[i].value = (float)pm25_sensor.pm10_offset/10;
 						break; 
 					case 21: //Filter_H 
 						var[i].value = HumSensor.H_Filter;
-						break; 
+						break;  
 					case 22: //Filter_T 
 						var[i].value = HumSensor.T_Filter;
 						break; 
 					case 23: //Filter_C 
 						var[i].value = int_co2_filter;
+						break; 
+					case 24: //Filter_P 
+						var[i].value = Pressure.filter;
+						break; 
+					case 25: //Filter_PM25 
+						var[i].value = pm25_sensor.PM25_filter;
+						break;
+					case 26: //Filter_PM10 
+						var[i].value = pm25_sensor.PM10_filter;
 						break;  
-					case 24: //T_Unit 
+					case 27: //T_Unit 
 						var[i].value = deg_c_or_f;
 						break;  
-					case 25: //OutMode 
+					case 28: //OutMode 
 						var[i].value = output_mode;
 						break; 
-					case 26: //Output0 
-						var[i].value = (float)analog_output[CHANNEL_HUM]/100;
-						break; 
-					case 27: //Output1 
-						var[i].value = (float)analog_output[CHANNEL_TEMP]/100;
-						break;
-					case 28: //Output2 
-						var[i].value = (float)analog_output[CHANNEL_CO2]/100;
-						break; 
+					 
 					case 29: //MIN_RNG0 
 						var[i].value = (float)output_range_table[CHANNEL_HUM].min/10;
 						break; 
@@ -226,81 +233,139 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 					case 34: //MAX_RNG2 
 						var[i].value = output_range_table[CHANNEL_CO2].max;
 						break;
-					case 35: //PID_SEL 
-						var[i].value = mode_select;
-						break; 
-					case 36: //PID1_MODE 
-						var[i].value = controllers[0].action;
-						break; 
-					case 37: //PID1_SP 
-						var[i].value = (float)PID[0].EEP_SetPoint/10;
-						break; 
-					case 38: //PID1_P 
-						var[i].value = controllers[0].proportional;
+					case 35: //AQI 
+						var[i].value = pm25_sensor.AQI;
 						break;
-					case 39: //PID1_I 
-						var[i].value = controllers[0].reset;
-						break; 
-					case 40: //PID1_V 
-						var[i].value = PID[0].EEP_Pid;
-						break;
-					case 41: //PID2_MODE 
-						var[i].value = controllers[1].action;
-						break;
-					case 42: //PID2_SP 
-						var[i].value = (float)PID[1].EEP_SetPoint/10;
-						break;  
-					case 43: //PID2_P 
-						var[i].value = controllers[1].proportional;
-						break; 
-					case 44: //PID2_I 
-						var[i].value = controllers[1].reset;
-						break; 
-					case 45: //PID2_V 
-						var[i].value = PID[1].EEP_Pid;
-						break;
-					case 46: //PID3_MODE 
-						var[i].value = controllers[2].action;
-						break;
-					case 47: //PID3_SP 
-						var[i].value = PID[2].EEP_SetPoint;
-						break; 
-					case 48: //PID3_P 
-						var[i].value = controllers[2].proportional;
-						break;
-					case 49: //PID3_I 
-						var[i].value = controllers[2].reset;
-						break;
-					case 50: //PID3_V 
-						var[i].value = PID[2].EEP_Pid;
-						break; 
-					case 51: //AlarmAM 
-						var[i].value = alarm_state;
-						break;
-					case 52: //Alarm sp 
-						var[i].value = int_co2_str.alarm_setpoint;
-						break;
-					case 53: //PreAlarm sp 
-						var[i].value = int_co2_str.pre_alarm_setpoint;
-						break;
-					case 54: //Time_On 
-						var[i].value = pre_alarm_on_time;
-						break;
-					case 55: //Time_Off 
-						var[i].value = pre_alarm_off_time;
-						break;  
+//					case 35: //PID_SEL 
+//						var[i].value = mode_select;
+//						break; 
+//					case 36: //PID1_MODE 
+//						var[i].value = controllers[0].action;
+//						break; 
+//					case 37: //PID1_SP 
+//						var[i].value = (float)PID[0].EEP_SetPoint/10;
+//						break; 
+//					case 38: //PID1_P 
+//						var[i].value = controllers[0].proportional;
+//						break;
+//					case 39: //PID1_I 
+//						var[i].value = controllers[0].reset;
+//						break; 
+//					case 40: //PID1_V 
+//						var[i].value = PID[0].EEP_Pid;
+//						break;
+//					case 41: //PID2_MODE 
+//						var[i].value = controllers[1].action;
+//						break;
+//					case 42: //PID2_SP 
+//						var[i].value = (float)PID[1].EEP_SetPoint/10;
+//						break;  
+//					case 43: //PID2_P 
+//						var[i].value = controllers[1].proportional;
+//						break; 
+//					case 44: //PID2_I 
+//						var[i].value = controllers[1].reset;
+//						break; 
+//					case 45: //PID2_V 
+//						var[i].value = PID[1].EEP_Pid;
+//						break;
+//					case 46: //PID3_MODE 
+//						var[i].value = controllers[2].action;
+//						break;
+//					case 47: //PID3_SP 
+//						var[i].value = PID[2].EEP_SetPoint;
+//						break; 
+//					case 48: //PID3_P 
+//						var[i].value = controllers[2].proportional;
+//						break;
+//					case 49: //PID3_I 
+//						var[i].value = controllers[2].reset;
+//						break;
+//					case 50: //PID3_V 
+//						var[i].value = PID[2].EEP_Pid;
+//						break; 
+//					case 51: //AlarmAM 
+//						var[i].value = alarm_state;
+//						break;
+//					case 52: //Alarm sp 
+//						var[i].value = int_co2_str.alarm_setpoint;
+//						break;
+//					case 53: //PreAlarm sp 
+//						var[i].value = int_co2_str.pre_alarm_setpoint;
+//						break;
+//					case 54: //Time_On 
+//						var[i].value = pre_alarm_on_time;
+//						break;
+//					case 55: //Time_Off 
+//						var[i].value = pre_alarm_off_time;
+//						break;  
 					default: var[i].value =0;break;
 				}
 				
 				return var[i].value;
 			}
 			break;
-		case AI:  
-			//return inputs[i].value;
+		case AI:
+			if(i < MAX_INS)
+			{ 
+				switch (i)
+				{
+					case 0: //temperature
+						if(deg_c_or_f == DEGREE_C)
+							ftemp = (float)HumSensor.temperature_c/10;
+						else
+							ftemp = (float)HumSensor.temperature_f/10;
+						break;
+					case 1: //humidity
+						ftemp = (float)HumSensor.humidity/10;
+						break;
+					case 2://co2
+						ftemp = int_co2_str.co2_int;
+						break;
+					case 3://pressure
+						if((Pressure.SNR_Model == PRS_26PCGFA)||(Pressure.SNR_Model == PRS_26PCGFA))
+							ftemp = (float)Pressure.org_val/10;
+						else
+							ftemp =(float)Pressure.org_val/100;
+						break;
+					case 4://PM2.5
+						ftemp = (float)pm25_sensor.pm25/10;
+						break;
+					case 5://PM10
+						ftemp =(float)pm25_sensor.pm10/10;
+						break; 
+					case 6://light sensor
+						ftemp =(float)light.val;
+						break; 
+					default:break;
+						
+				}
+				return ftemp;
+			}
+						
+			 
 		break;
 		case AO: 
 			if(i < MAX_AOS)
-				return outputs[i].value ; 
+			{
+				switch (i)
+				{
+					case 0:
+						ftemp = (float)analog_output[CHANNEL_HUM]/100;	
+					break;
+					
+					case 1:
+						ftemp = (float)analog_output[CHANNEL_TEMP]/100;	
+					break;
+					
+					case 2:
+						ftemp = (float)analog_output[CHANNEL_CO2]/100;	
+					break;
+					
+					default:break;
+				}
+				return ftemp ; 
+			}
 		break;
 			
 		case BO:
@@ -318,32 +383,34 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 {
 
 		uint16 StartAdd;
+		if(i == 0) return;    //start from var1.
+		else i -= 1;
 		switch(type)
 		{
 			case AV:  
 				{
+					
 					switch (i)
 					{
 						case 3: //id address
 							StartAdd = MODBUS_ADDRESS;
 							var[i].value = value;
 							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 4: //product_model 
-							StartAdd = MODBUS_PRODUCT_MODEL;
+							break;  
+						case 5:  //instance
+							StartAdd = MODBUS_PROTOCOL_TYPE;
+							var[i].value = value;
+							Instance = value;
+							write_eeprom( EEP_INSTANCE_LOWORD     ,(uint8)Instance); 
+							write_eeprom((EEP_INSTANCE_LOWORD + 1),(uint8)(Instance >> 8)); 
+							write_eeprom((EEP_INSTANCE_LOWORD + 2),(uint8)(Instance >> 16)); 
+							write_eeprom((EEP_INSTANCE_LOWORD + 3),(uint8)(Instance >> 24)); 
+							break;
+						case 6: //StaNum
+							StartAdd = MODBUS_STATION_NUMBER;
 							var[i].value = value;
 							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
 							break;
-						case 5: //Hardware version 
-							StartAdd = MODBUS_HARDWARE_REV;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-//						case 6: //humidity version 
-//							StartAdd = MODBUS_HUM_VERSION;
-//							var[i].value = value;
-//							Data_Deal(StartAdd,var[i].value>>8,var[i]. value); 
-//							break;
 						case 7: //baud rate
 							StartAdd = MODBUS_BAUDRATE;
 							var[i].value = value;
@@ -359,196 +426,265 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 							var[i].value = value;
 							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
 							break; 
-						case 10: //auto manual
-							StartAdd = MODBUS_OUTPUT_AUTO_MANUAL;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 11://humidity 
-							StartAdd = MODBUS_HUMIDITY;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 12: //temperature 
-							if(deg_c_or_f == DEGREE_C)
-								StartAdd = MODBUS_EXTERNAL_TEMPERATURE_CELSIUS;
-							else
-								StartAdd = MODBUS_EXTERNAL_TEMPERATURE_FAHRENHEIT;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 13: //co2 
-							StartAdd = MODBUS_CO2_INTERNAL;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 18: //OffSet_H 
-							if(table_sel == USER)
-								StartAdd = MODBUS_HUM_OFFSET;
-							else
-								StartAdd = MODBUS_CAL_DEFAULT_HUM;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 19: //OffSet_T 
-							StartAdd = MODBUS_TEMP_OFFSET;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 20: //OffSet_C 
-							StartAdd = MODBUS_CO2_INTERNAL_OFFSET;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 21: //Filter_H 
-							StartAdd = MODBUS_HUIDITY_FILTER;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 22: //Filter_T 
-							StartAdd = MODBUS_EXT_TEMPRATURE_FILTER;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 23: //Filter_C 
-							StartAdd = MODBUS_CO2_FILTER;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;  
-						case 24: //T_Unit 
-							StartAdd = MODBUS_TEMPERATURE_DEGREE_C_OR_F;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
- 
-						case 29: //MIN_RNG0 
-							StartAdd = MODBUS_OUTPUT_RANGE_MIN_HUM;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 30: //MAX_RNG0 
-							StartAdd = MODBUS_OUTPUT_RANGE_MAX_HUM;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 31: //MIN_RNG1 
-							StartAdd = MODBUS_OUTPUT_RANGE_MIN_TEM;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 32: //MAX_RNG1 
-							StartAdd = MODBUS_OUTPUT_RANGE_MAX_TEM;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 33: //MIN_RNG2 
-							StartAdd = MODBUS_OUTPUT_RANGE_MIN_CO2;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 34: //MAX_RNG2 
-							StartAdd = MODBUS_OUTPUT_RANGE_MAX_CO2;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 35: //PID_SEL 
-							StartAdd = MODBUS_MODE_SELECT;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 36: //PID1_MODE 
-							StartAdd = MODBUS_PID1_MODE;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 37: //PID1_SP 
-							StartAdd = MODBUS_PID1_SETPOINT;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;  
-						case 38: //PID1_P 
-							StartAdd = MODBUS_PID1_PTERM;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 39: //PID1_I 
-							StartAdd = MODBUS_PID1_ITERM;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;  
-						case 41: //PID2_MODE 
-							StartAdd = MODBUS_PID2_MODE;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 42: //PID2_SP 
-							StartAdd = MODBUS_PID2_SETPOINT;
-							var[i].value = value*10;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;  
-						case 43: //PID2_P 
-							StartAdd = MODBUS_PID2_PTERM;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 44: //PID2_I 
-							StartAdd = MODBUS_PID2_ITERM;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;  
-						case 46: //PID3_MODE 
-							StartAdd = MODBUS_PID3_MODE;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 47: //PID3_SP 
-							StartAdd = MODBUS_PID3_SETPOINT;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 48: //PID3_P 
-							StartAdd = MODBUS_PID3_PTERM;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 49: //PID3_I 
-							StartAdd = MODBUS_PID3_ITERM;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break; 
-						case 51: //AlarmAM 
-							StartAdd = MODBUS_ALARM_AUTO_MANUAL;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 52: //Alarm sp 
-							StartAdd = MODBUS_CO2_INTERNAL_ALARM_SETPOINT;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 53: //PreAlarm sp 
-							StartAdd = MODBUS_CO2_INTERNAL_PREALARM_SETPOINT;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 54: //Time_On 
-							StartAdd = MODBUS_PRE_ALARM_SETTING_ON_TIME;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;
-						case 55: //Time_Off 
-							StartAdd = MODBUS_PRE_ALARM_SETTING_OFF_TIME;
-							var[i].value = value;
-							Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
-							break;  
-						default: break;
+						default:break;
 					}
-					
+//					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+					{
+						switch (i)
+						{ 
+							case 10: //auto manual 
+//								StartAdd = MODBUS_OUTPUT_AUTO_MANUAL;
+								var[i].value = value;
+								output_auto_manual = (uint8)value;
+								break; 
+							case 15: //OffSet_H 
+								var[i].value = value*10;
+								if(table_sel == USER)
+								{
+									HumSensor.offset_h = (int16)var[i].value;  
+									write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h);
+									write_eeprom(EEP_HUM_OFFSET + 1,HumSensor.offset_h >> 8);
+								}
+								else
+								{
+									HumSensor.offset_h_default = (int16)var[i].value;   
+									write_eeprom(EEP_CAL_DEFAULT_HUM ,HumSensor.offset_h_default);
+									write_eeprom(EEP_CAL_DEFAULT_HUM + 1,HumSensor.offset_h_default >> 8);
+								}
+//								var[i].value = value*10;
+//								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break;
+							case 16: //OffSet_T 
+//								StartAdd = MODBUS_TEMP_OFFSET;
+//								var[i].value = value*10;
+//								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								var[i].value = value*10;
+								HumSensor.offset_t = (int16)var[i].value;    
+								write_eeprom(EEP_TEMP_OFFSET,HumSensor.offset_t);
+								write_eeprom(EEP_TEMP_OFFSET + 1,HumSensor.offset_t>>8);
+								break; 
+							case 17: //OffSet_C   
+								var[i].value = value;
+ 								int_co2_str.co2_offset =  (int16)value;
+								write_eeprom(EEP_INT_CO2_OFFSET, (uint8)(int_co2_str.co2_offset));
+								write_eeprom(EEP_INT_CO2_OFFSET + 1, (uint8)(int_co2_str.co2_offset >> 8));
+								break; 
+							case 18: //OffSet_Pressure 
+								if((Pressure.SNR_Model == PRS_26PCGFA)||(Pressure.SNR_Model == PRS_26PCGFA))
+									var[i].value = value*10;
+								else
+									var[i].value = value*100;
+ 								Pressure.org_val_offset = (int16)var[i].value ;  
+								write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
+								write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
+								break;
+							case 19://offset pm2.5
+								var[i].value = value*10;
+								pm25_sensor.pm25_offset = (int16)var[i].value;
+								write_eeprom(EEP_PM25_OFFSET, pm25_sensor.pm25_offset);
+								write_eeprom(EEP_PM25_OFFSET + 1, pm25_sensor.pm25_offset>>8);
+								break;
+							case 20://offset pm10
+								var[i].value = value*10;
+								pm25_sensor.pm10_offset = (int16)var[i].value;
+								write_eeprom(EEP_PM10_OFFSET, pm25_sensor.pm10_offset);
+								write_eeprom(EEP_PM10_OFFSET + 1, pm25_sensor.pm10_offset>>8);
+								break;
+							case 21: //Filter_H 
+								var[i].value = value;
+								HumSensor.H_Filter = (uint8)var[i].value;
+								write_eeprom(EEP_HUMIDITY_FILTER,HumSensor.H_Filter); 
+//								StartAdd = MODBUS_HUIDITY_FILTER;
+//								var[i].value = value;
+//								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break; 
+							case 22: //Filter_T 
+								var[i].value = value;
+								HumSensor.T_Filter = (uint8)var[i].value;
+								write_eeprom(EEP_EXT_TEMPERATURE_FILTER,HumSensor.T_Filter);
+//								StartAdd = MODBUS_EXT_TEMPRATURE_FILTER;
+//								var[i].value = value;
+//								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break; 
+							case 23: //Filter_C 
+								var[i].value = value;
+								int_co2_filter = (uint8)var[i].value;
+								write_eeprom(EEP_CO2_FILTER, int_co2_filter);
+//								StartAdd = MODBUS_CO2_FILTER;
+//								var[i].value = value;
+//								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break; 
+							case 24://filter pressure
+								var[i].value = value;
+								Pressure.filter = (uint8)var[i].value;
+								write_eeprom(EEP_PRESSURE_FILTER,Pressure.filter);
+							case 25://filter pm2.5
+								var[i].value = value;
+								pm25_sensor.PM25_filter = (uint8)var[i].value;
+								write_eeprom(EEP_PM25_FILTER,pm25_sensor.PM25_filter);
+							case 26://filter pm10
+								var[i].value = value;
+								pm25_sensor.PM10_filter = (uint8)var[i].value;
+								write_eeprom(EEP_PM10_FILTER,pm25_sensor.PM10_filter);
+							case 27: //T_Unit 
+								var[i].value = value;
+								if(var[i].value)
+									deg_c_or_f = 1;
+								else
+									deg_c_or_f = 0;
+								write_eeprom(EEP_DEG_C_OR_F, (uint8)deg_c_or_f);
+//								StartAdd = MODBUS_TEMPERATURE_DEGREE_C_OR_F;
+//								var[i].value = value;
+//								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break;  
+							case 29: //MIN_RNG0 
+								StartAdd = MODBUS_OUTPUT_RANGE_MIN_HUM;
+								var[i].value = value*10;
+								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break; 
+							case 30: //MAX_RNG0 
+								StartAdd = MODBUS_OUTPUT_RANGE_MAX_HUM;
+								var[i].value = value*10;
+								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break; 
+							case 31: //MIN_RNG1 
+								StartAdd = MODBUS_OUTPUT_RANGE_MIN_TEM;
+								var[i].value = value*10;
+								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break; 
+							case 32: //MAX_RNG1 
+								StartAdd = MODBUS_OUTPUT_RANGE_MAX_TEM;
+								var[i].value = value*10;
+								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break; 
+							case 33: //MIN_RNG2 
+								StartAdd = MODBUS_OUTPUT_RANGE_MIN_CO2;
+								var[i].value = value;
+								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break; 
+							case 34: //MAX_RNG2 
+								StartAdd = MODBUS_OUTPUT_RANGE_MAX_CO2;
+								var[i].value = value;
+								Data_Deal(StartAdd,(int16)var[i].value>>8,var[i]. value); 
+								break;
+							 
+							default: break;
+						} 
+					}
+//					 
 				}
  
 			 
 			break;
 			case AI:
+				if(i < MAX_INS)
+				{ 	
+					s16 itemp;
+					switch (i)
+					{
+						case 0: //temperature
+							inputs[i].value = value*10;
+							if(deg_c_or_f == DEGREE_C)
+							{
+								external_operation_value = (int16)inputs[i].value;
+								if((output_auto_manual & 0x01) == 0x01)
+								{
+									output_manual_value_temp = external_operation_value;
+								}
+								else
+									external_operation_flag = TEMP_CALIBRATION;
+							} 
+							else
+							{
+								external_operation_value = ((int16)inputs[i].value - 320) * 5 / 9;
+								if((output_auto_manual & 0x01) == 0x01)
+								{
+									output_manual_value_temp = external_operation_value;
+								}
+								else
+									external_operation_flag = TEMP_CALIBRATION;
+							}
+							break;
+						case 1://humidity
+							inputs[i].value = value*10;
+							external_operation_value =  (int16)inputs[i].value;
+			
+							if(output_auto_manual & 0x02)
+								output_manual_value_humidity = external_operation_value;
+							else if(external_operation_value < 950)  //< 95%
+							{
+								external_operation_flag = HUM_CALIBRATION;
+								Run_Timer = 0;
+							}
+							break;
+						case 2://CO2
+							inputs[i].value = value;
+							if((output_auto_manual & 0x04) == 0x04)
+							{
+								output_manual_value_co2 =  (int16)inputs[i].value;	
+							}
+							else
+							{
+								int_co2_str.co2_offset += (int16)inputs[i].value - int_co2_str.co2_int;
+								write_eeprom(EEP_INT_CO2_OFFSET, (uint8)(int_co2_str.co2_offset));
+								write_eeprom(EEP_INT_CO2_OFFSET + 1, (uint8)(int_co2_str.co2_offset >> 8));
+							}
+						case 3://pressure
+							
+							if((Pressure.SNR_Model == PRS_26PCGFA)||(Pressure.SNR_Model == PRS_26PCGFA))
+							{
+								inputs[i].value = value*10;
+							}
+							else
+								inputs[i].value = value*100;
+							 
+							if(output_auto_manual & 0x04)	//manu mode
+							{
+								output_manual_value_co2 = (uint16)inputs[i].value;
+							}
+							else
+							{
+								itemp = (uint16)inputs[i].value;
+								Pressure.org_val_offset += (itemp - Pressure.org_val );
+								Pressure.org_val =  itemp;
+								write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
+								write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
+							}
+						break;
+						
+						case 4://pm2.5
+							inputs[i].value = value*10;
+							itemp = (unsigned int)inputs[i].value ;
+							if(itemp > 0)
+							{	
+				//				itemp -= pm25_sensor.pm25;
+								pm25_sensor.pm25_offset += (itemp - pm25_sensor.pm25);
+								pm25_sensor.pm25 = itemp;
+								write_eeprom(EEP_PM25_OFFSET, pm25_sensor.pm25_offset);
+								write_eeprom(EEP_PM25_OFFSET + 1, pm25_sensor.pm25_offset>>8);
+							}
+							break;
+						case 5://PM10
+							inputs[i].value = value*10;
+							itemp = (unsigned int)inputs[i].value;
+							if(itemp > 0)
+							{	
+				//				itemp -= pm25_sensor.pm10;
+								pm25_sensor.pm10_offset += (itemp - pm25_sensor.pm10);
+								pm25_sensor.pm10 = itemp;
+								write_eeprom(EEP_PM10_OFFSET, pm25_sensor.pm10_offset);
+								write_eeprom(EEP_PM10_OFFSET + 1, pm25_sensor.pm10_offset>>8);
+							}
+						case 6://Light sensor 
+							if(((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485)))
+							{
+								inputs[i].value = value;  
+								StartAdd = MODBUS_HUM_LIGHT_VALUE; 
+								Data_Deal(StartAdd,(int16)inputs[i].value>>8,inputs[i]. value); 
+							}
+						default:break;
+					}
+				}
 
 			break;
 			case BO:
@@ -569,11 +705,18 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 void write_bacnet_name_to_buf(uint8_t type,uint8_t priority,uint8_t i,char* str)
 {
  
+		if(i == 0) return;    //start from var1.
+		else i -= 1;
 		switch(type)
 		{
-//			case AI: 
-//				memcpy(inputs[i].label,str,8);
-//				break;
+			case AI: 
+				if(i < MAX_INS)
+				{
+					memcpy(inputs[i].label,str,9);
+					inputs[i].label[8] = 0;
+					write_page_en[IN_TYPE] = 1;
+				}
+				break;
 //			case BO:
 //				memcpy(outputs[i].label,str,8);
 //				break;
@@ -646,21 +789,22 @@ void add_remote_panel_db(uint32_t device_id,uint8_t panel)
 
 char* get_label(uint8_t type,uint8_t num)
 {
+	if(num == 0) return "null";    //start from var1.
+	else num -= 1;
+	
 	switch(type)
       {
          case AV: 
 			if(num < MAX_AVS)
 			{
 				return (char *)var[num].label; 
-			} 
-		 
+			}  
             break;
          case AI:
-//			 if(num < MAX_AIS)
-//				return (char *)Input_name[num];
+			 if(num < MAX_INS)
+				return (char *)inputs[num].label;
             break;
-         case AO:
-			 
+         case AO: 
 			 if(num < MAX_AOS)
 				return (char *)outputs[num].label; 
 	 
@@ -678,15 +822,18 @@ char* get_label(uint8_t type,uint8_t num)
 }
 char* get_description(uint8_t type,uint8_t num)
 {
+	if(num == 0) return "null";    //start from var1.
+	else num -= 1;
+	
 	switch(type)
       {
          case AV: 
 			if(num < MAX_AVS) 
-				return (char *)var[num].description;  
-		 
-		 
+				return (char *)var[num].description;   
             break;
          case AI: 
+			if(num < MAX_INS)
+				return (char *)inputs[num].description;
             break;
          case AO: 
 			 if(num < MAX_AOS)
@@ -716,6 +863,9 @@ void Set_Object_Name(char * name)
 void write_bacnet_description_to_buf(uint8_t type, uint8_t priority, uint8_t i, char* str)
 {
 	
+		if(i == 0) return ;    //start from var1.
+		else i -= 1;
+	
 		switch(type)
 		{ 
 			case AO:
@@ -723,6 +873,13 @@ void write_bacnet_description_to_buf(uint8_t type, uint8_t priority, uint8_t i, 
 				{
 					memcpy(outputs[i].description,str,20); 
 					write_page_en[OUT_TYPE] = 1;
+				} 
+				break;
+			case AI:
+				if(i < MAX_INS)
+				{
+					memcpy(inputs[i].description,str,20); 
+					write_page_en[IN_TYPE] = 1;
 				} 
 				break;
 			case AV:

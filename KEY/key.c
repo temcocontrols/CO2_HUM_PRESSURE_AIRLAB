@@ -1,7 +1,7 @@
 #include "key.h"  
 xQueueHandle qKey;
 u8 global_key = KEY_NON;
-
+u16 pre_key = KEY_NON;
 //按键初始化函数
 void KEY_Init(void)
 {
@@ -39,13 +39,13 @@ u8 KEY_Scan(void)
 	 
 	return  (key_val >> 12);
 }
- 
+ extern void watchdog(void);
 void vKEYTask( void *pvParameters )
 {
 	u16 key_temp;
-	static u16 pre_key = KEY_NON;
+	
 	static U8_T long_press_key_start = 0;
-	qKey = xQueueCreate(5, 2);
+	
  	KEY_Init();
 	print("Key Task\r\n");
 	delay_ms(100);
@@ -79,6 +79,7 @@ void vKEYTask( void *pvParameters )
 					long_press_key_start++;
 			}
 		} 
+		watchdog();
 		vTaskDelay(100 / portTICK_RATE_MS);
 //		stack_detect(&test[8]);
     }

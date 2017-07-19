@@ -9,7 +9,7 @@ uint16 test[20];
 //xQueueHandle qSubSerial;
 
 CO2_STR   int_co2_str;
-CO2_STR   ext_co2_str[MAX_EXT_CO2];
+//CO2_STR   ext_co2_str[MAX_EXT_CO2];
 
 U16_T co2_int = EXCEPTION_PPM;
 //U16_T pre_int_co2 = 0;
@@ -202,10 +202,10 @@ void co2_request(void)
 	else
 	{
 		output_manual_value_co2 = int_co2_str.co2_int;
-		poll_index++;
-		poll_index %= db_ctr;
-		if(poll_index != 0)  
- 			request_external_co2(poll_index); 
+//		poll_index++;
+//		poll_index %= db_ctr;
+//		if(poll_index != 0)  
+// 			request_external_co2(poll_index); 
 		
    		request_internal_co2();
 	}
@@ -342,16 +342,16 @@ void co2_init(void)
 //	int_co2_str.pre_alarm_setpoint = DEFAULT_PRE_ALARM_SP;
 	int_co2_str.fail_counter = 0;
 
-	for(i = 0; i < MAX_EXT_CO2; i++)
-	{
-		ext_co2_str[i].co2_int = EXCEPTION_PPM;
-		ext_co2_str[i].co2_offset = 0;
-		ext_co2_str[i].alarm_state = STOP_ALARM;
-		ext_co2_str[i].alarm_setpoint = EXCEPTION_PPM;
-		ext_co2_str[i].pre_alarm_setpoint = EXCEPTION_PPM;
-		ext_co2_str[i].fail_counter = 0;
-		ext_co2_str[i].warming_time = TRUE;
-	}
+//	for(i = 0; i < MAX_EXT_CO2; i++)
+//	{
+//		ext_co2_str[i].co2_int = EXCEPTION_PPM;
+//		ext_co2_str[i].co2_offset = 0;
+//		ext_co2_str[i].alarm_state = STOP_ALARM;
+//		ext_co2_str[i].alarm_setpoint = EXCEPTION_PPM;
+//		ext_co2_str[i].pre_alarm_setpoint = EXCEPTION_PPM;
+//		ext_co2_str[i].fail_counter = 0;
+//		ext_co2_str[i].warming_time = TRUE;
+//	}
 
 //	if((output_auto_manual & 0x04) == 0x04)
 //	{
@@ -448,43 +448,43 @@ void co2_alarm(void)
 
 			int_co2_str.alarm_state = alarm_temp;
 		}
-		else
-		{
-  			U16_T alarm_output_word;
-			if(ext_co2_str[index - 1].co2_int == EXCEPTION_PPM)
-			{
-				if(ext_co2_str[index - 1].warming_time == TRUE)
-					alarm_temp = STOP_ALARM;
-				else
-					alarm_temp = NO_SENSOR_ALARM;
-			}
-			else if(ext_co2_str[index - 1].co2_int >= ext_co2_str[index - 1].alarm_setpoint)
-				alarm_temp = CONTINUOUS_ALARM;
-			else if(ext_co2_str[index - 1].co2_int >= ext_co2_str[index - 1].pre_alarm_setpoint)
-				alarm_temp = PRE_ALARM;
-			else
-				alarm_temp = STOP_ALARM;
+//		else
+//		{
+//  			U16_T alarm_output_word;
+//			if(ext_co2_str[index - 1].co2_int == EXCEPTION_PPM)
+//			{
+//				if(ext_co2_str[index - 1].warming_time == TRUE)
+//					alarm_temp = STOP_ALARM;
+//				else
+//					alarm_temp = NO_SENSOR_ALARM;
+//			}
+//			else if(ext_co2_str[index - 1].co2_int >= ext_co2_str[index - 1].alarm_setpoint)
+//				alarm_temp = CONTINUOUS_ALARM;
+//			else if(ext_co2_str[index - 1].co2_int >= ext_co2_str[index - 1].pre_alarm_setpoint)
+//				alarm_temp = PRE_ALARM;
+//			else
+//				alarm_temp = STOP_ALARM;
 
-//			if(set_external_alarm(scan_db[index].id, alarm_temp) == TRUE)
-//				ext_co2_str[index - 1].alarm_state = alarm_temp;
+////			if(set_external_alarm(scan_db[index].id, alarm_temp) == TRUE)
+////				ext_co2_str[index - 1].alarm_state = alarm_temp;
 
-			switch(alarm_temp)	// write output byte
-			{
-				case NO_SENSOR_ALARM:
-				case CONTINUOUS_ALARM:
-					alarm_output_word = (1 << 3);
-					break;
-				case PRE_ALARM:
-					alarm_output_word = (1 << 2);
-					break;
-				case STOP_ALARM:
-					alarm_output_word = (1 << 1);
-					break;
-			}
+//			switch(alarm_temp)	// write output byte
+//			{
+//				case NO_SENSOR_ALARM:
+//				case CONTINUOUS_ALARM:
+//					alarm_output_word = (1 << 3);
+//					break;
+//				case PRE_ALARM:
+//					alarm_output_word = (1 << 2);
+//					break;
+//				case STOP_ALARM:
+//					alarm_output_word = (1 << 1);
+//					break;
+//			}
 
-			ext_co2_str[index - 1].alarm_state = alarm_temp;
-//			write_parameters_to_nodes(index, SLAVE_MODBUS_PIC_OUTPUT, alarm_output_word);
-		}
+//			ext_co2_str[index - 1].alarm_state = alarm_temp;
+////			write_parameters_to_nodes(index, SLAVE_MODBUS_PIC_OUTPUT, alarm_output_word);
+//		}
 
 		index++;
 		index %= db_ctr;
@@ -493,8 +493,8 @@ void co2_alarm(void)
 		{
 			if(i == 0)
 				alarm_state = int_co2_str.alarm_state;
-			else
-				alarm_state = (alarm_state > ext_co2_str[i - 1].alarm_state) ? alarm_state : ext_co2_str[i - 1].alarm_state;
+//			else
+//				alarm_state = (alarm_state > ext_co2_str[i - 1].alarm_state) ? alarm_state : ext_co2_str[i - 1].alarm_state;
 		}
 	}
 

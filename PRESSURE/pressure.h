@@ -6,8 +6,7 @@
 #include "define.h"
 #include "bitmap.h"   
 
-
-	#ifdef PRESSURE_SENSOR 
+ 
 /****************TYPE**********VALUE***R  A  N  G  E********/
 		#define	MS4515			30
 		#define DLVR_L01D		20  // -1WC -  +1WC
@@ -25,14 +24,14 @@
 			u8 SNR_Model; 
 //			s16 range_press[2]; 
 			u8 filter;
-//			u8 auto_manu;  
+ 			u8 auto_manu;  
 			u8 unit;
 			u8 default_unit;
 			u16 ad;
 			s16 org_val;
 			float pre_val;
 			s16 org_val_offset;
-//			s16 manu_val;
+// 			s16 manu_val;
 			float val_temp;
 			u16 index;			// 10^index	
 			s32 base; 			//最多9位有效数字 
@@ -74,5 +73,5 @@
  		void Pressure_initial(void);
 		s16 Get_DLVR_Pressure(void); 
 		void vUpdate_Pressure_Task( void *pvParameters );
-	#endif
+ 
 #endif

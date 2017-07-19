@@ -1,7 +1,7 @@
 #include "config.h"
 
 
-#ifdef PRESSURE_SENSOR
+ 
  
 _STR_PRESSURE_  Pressure;
 
@@ -299,7 +299,7 @@ void Pressure_Task(void)
 				
 		}
 	}
-	if(output_auto_manual & 0x04)	//manu mode
+	if((output_auto_manual & 0x04)||(Pressure.auto_manu))	//manu mode
 	{
 		Pressure.org_val = output_manual_value_co2;
 //		Pressure.org_val += Pressure.org_val_offset; 
@@ -336,7 +336,7 @@ void Pressure_Task(void)
  		Pressure.val_temp = (float)Pressure.org_val * get_units_ratio(Pressure.unit,Pressure.default_unit);			
 		datatype_convert(Pressure.val_temp,&(Pressure.base),&(Pressure.index),Pressure.unit,Pressure.default_unit);   	 
 	} 
-	var[CHANNEL_PRE]. value = Pressure.org_val;
+//	var[CHANNEL_PRE]. value = Pressure.org_val;
 }
 // *************************************************************************************
 // 	input: product model
@@ -450,9 +450,7 @@ void vUpdate_Pressure_Task( void *pvParameters )
 
 
 
-
  
-#endif
 
  
  

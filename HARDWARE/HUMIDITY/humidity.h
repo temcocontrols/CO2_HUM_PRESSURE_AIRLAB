@@ -15,6 +15,7 @@
 
 #define	CMD_READ_PARAMS				0xc1 //
 #define	CMD_READ_VERSION			0xc2 //
+#define CMD_LIGHT_READ              0xc4 
 #define	CMD_OVERRIDE_CAL			0xd3 //
 #define	CMD_READ_CAL_PT				0xd4
 #define	CMD_HEATING_CONTROL			0xd5 //
@@ -29,7 +30,7 @@
 
 typedef struct
 {
-	uint16 ad[2];
+	int16 ad[2];
 	uint16 humidity;
 	float pre_humidity;
 	int16 temperature_c;
@@ -49,6 +50,8 @@ typedef struct
 	uint16 Pws;
 	uint16 Mix_Ratio;
 	uint16 Enthalpy;  
+	int16 compensation_val;
+	int16 org_hum;
  
 }STR_HUMIDITY;
 
@@ -84,7 +87,7 @@ extern uint8 external_operation_flag;
 #define   CMD_TAB_SEL                  0xa0
 #define   CMD_USER_TAB_PT_SET          0xa1 
 
-
+#define   LIGHT_SENSOR 				   28
   
 	bit read_sensor(void); 
 	bit write_sensor_temp(int16 temp); 
@@ -101,6 +104,7 @@ extern uint8 external_operation_flag;
 
 	bit read_humidity_sensor_version(void);
 	
-	
+	void auto_heating(void);
+	bit pic_read_light_val(uint16 *val);
 #endif
 

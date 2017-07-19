@@ -47,7 +47,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>..\OBJ\</OutputDirectory>
-          <OutputName>TEST_REV18</OutputName>
+          <OutputName>CO2_HUM_RESSURE_REV25</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -985,6 +985,21 @@
               <FileName>pid.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\PID\pid.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>PM25</GroupName>
+          <Files>
+            <File>
+              <FileName>pm25.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\PM25\pm25.c</FilePath>
+            </File>
+            <File>
+              <FileName>aqi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\PM25\aqi.c</FilePath>
             </File>
           </Files>
         </Group>
