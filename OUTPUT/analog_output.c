@@ -234,7 +234,7 @@ static void Set_analog_output(uint8 mode, uint8 channel, int16 value)
 		analog_output[channel]  =  (uint32)real_ad_temp*60300/208896;//0.01mv//300*201/4096*51
 		
 	} 
-	outputs[channel].value  = analog_output[channel] ;
+//	outputs[channel].value  = analog_output[channel] ;
 	if(target_ad > real_ad)	 // symbol = 1
 	{
 		if(mode == _4_20MA)
@@ -277,24 +277,34 @@ static void Set_analog_output(uint8 mode, uint8 channel, int16 value)
  
 void refresh_output(void)
 { 
-#ifdef CO2_SENSOR
-	Set_analog_output(output_mode, CHANNEL_CO2, 	 int_co2_str.co2_int); 
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ) 
+	{
+		Set_analog_output(output_mode, CHANNEL_CO2, int_co2_str.co2_int); 
+		Set_analog_output(output_mode, CHANNEL_HUM,	HumSensor.humidity); 
+	}
 //#elif defined HUM_SENSOR
 //	Set_analog_output(output_mode, CHANNEL_CO2, 	 HumSensor.dew_pt   );
 //#elif defined PRESSURE_SENSOR 
 //		Set_analog_output(output_mode, CHANNEL_CO2, 	 Pressure.org_val);
-#endif
+ 
 
-#if defined HUM_SENSOR
-	if(analog_output_sel)
-		Set_analog_output(output_mode, CHANNEL_HUM, 	 HumSensor.dew_pt   );
-	else		
-		Set_analog_output(output_mode, CHANNEL_HUM,	HumSensor.humidity);
-#elif defined PRESSURE_SENSOR 
-	Set_analog_output(output_mode, CHANNEL_HUM, 	 Pressure.org_val);	
-#else
-	Set_analog_output(output_mode, CHANNEL_HUM,	HumSensor.humidity); 
-#endif
+	else if ((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485) )
+	{		
+		if(analog_output_sel)
+			Set_analog_output(output_mode, CHANNEL_HUM, 	 HumSensor.dew_pt   );
+		else		
+			Set_analog_output(output_mode, CHANNEL_HUM,	HumSensor.humidity);
+	}
+	else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) )
+	
+		Set_analog_output(output_mode, CHANNEL_HUM, 	 Pressure.org_val);	
+	else if(PRODUCT_ID == STM32_PM25) 
+	{
+		Set_analog_output(output_mode, CHANNEL_HUM,	pm25_sensor.pm25);
+		Set_analog_output(output_mode, CHANNEL_TEMP,pm25_sensor.pm10);
+		return;
+	}
+		
 	if((output_auto_manual & 0x01) == 0x01)
 	{
 		Set_analog_output(output_mode, CHANNEL_TEMP,output_manual_value_temp);
@@ -309,7 +319,7 @@ void refresh_output(void)
 	} 
 }
 
-extern void watchdog(void);
+//extern void watchdog(void);
 void vOutPutTask(void *pvParameters)
 {
 	analog_outputs_init();
@@ -323,7 +333,7 @@ void vOutPutTask(void *pvParameters)
 		output_mode = get_output_mode();
 		refresh_output(); 
 		vTaskDelay(200 / portTICK_RATE_MS);
-		watchdog();
+//		watchdog();
 //		 stack_detect(&test[7]);
 	}
 }

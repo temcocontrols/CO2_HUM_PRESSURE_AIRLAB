@@ -42,7 +42,7 @@
 
 extern xQueueHandle qKey;
 extern u8 global_key;
-
+extern u16 pre_key;
 void vKEYTask( void *pvParameters );
 					    
 #endif

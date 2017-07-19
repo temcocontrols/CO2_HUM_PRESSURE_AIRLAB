@@ -2,34 +2,27 @@
 #define _DEFINE_H
 #include "ProductModel.h"
 #define STM32F10X
+extern unsigned char PRODUCT_ID;
+ 
+//#if (PRODUCT_ID == STM32_CO2_NET)
+//		#define   	    CO2_SENSOR
+//		#define			NET_ENABLE
+//#elif (PRODUCT_ID == STM32_CO2_RS485) 
+//		#define   	    CO2_SENSOR
+//		
+//#elif (PRODUCT_ID == STM32_HUM_NET)
+//		#define   	    HUM_SENSOR
+// 		#define			NET_ENABLE
+//#elif (PRODUCT_ID == STM32_HUM_RS485) 
+//		#define   	    HUM_SENSOR
+//		
+//#elif (PRODUCT_ID == STM32_PRESSURE_NET)
+//		#define   	    PRESSURE_SENSOR
+//		#define			NET_ENABLE
+//#elif (PRODUCT_ID == STM32_PRESSURE_RS485) 
+//		#define   	    PRESSURE_SENSOR
 
-//      #define PRODUCT_ID    	 STM32_HUM_RS485	
-//      #define PRODUCT_ID    	 STM32_CO2_RS485	
-//      #define PRODUCT_ID       STM32_PRESSURE_RS485
-
-
-       #define PRODUCT_ID    	 STM32_HUM_NET
-//      #define PRODUCT_ID       STM32_CO2_NET
-//        #define PRODUCT_ID       STM32_PRESSURE_NET
-#if (PRODUCT_ID == STM32_CO2_NET)
-		#define   	    CO2_SENSOR
-		#define			NET_ENABLE
-#elif (PRODUCT_ID == STM32_CO2_RS485) 
-		#define   	    CO2_SENSOR
-		
-#elif (PRODUCT_ID == STM32_HUM_NET)
-		#define   	    HUM_SENSOR
- 		#define			NET_ENABLE
-#elif (PRODUCT_ID == STM32_HUM_RS485) 
-		#define   	    HUM_SENSOR
-		
-#elif (PRODUCT_ID == STM32_PRESSURE_NET)
-		#define   	    PRESSURE_SENSOR
-		#define			NET_ENABLE
-#elif (PRODUCT_ID == STM32_PRESSURE_RS485) 
-		#define   	    PRESSURE_SENSOR
-
-#endif
+//#endif
 
 //                	#define 		CO2_SENSOR
 //    	         	#define 		PRESSURE_SENSOR
@@ -39,15 +32,15 @@
 BIT:	 0		 1		 2		   3   		4 
 		CO2		HUM		TEMP	PRESSURE
 ***********************************************/
-#ifdef CO2_SENSOR
-	#define  SENSOR_TYPE	0x07
-#elif defined PRESSURE_SENSOR	
-	#define  SENSOR_TYPE	0x08
-#elif defined HUM_SENSOR	
-	#define  SENSOR_TYPE	0x06
-#else
-	#define  SENSOR_TYPE	0x00
-#endif
+//#ifdef CO2_SENSOR
+ 	#define  SENSOR_TYPE1	0x07
+//#elif defined PRESSURE_SENSOR	
+ 	#define  SENSOR_TYPE2	0x08
+//#elif defined HUM_SENSOR	
+ 	#define  SENSOR_TYPE3	0x06
+//#else
+//	#define  SENSOR_TYPE	0x00
+//#endif
 
 
 #ifdef STM32F10X
@@ -59,7 +52,7 @@ BIT:	 0		 1		 2		   3   		4
 #define READ_WRITE_PROPERTY 1
 
 
-#define SOFTREV    18
+#define SOFTREV    25
  
 
 #define DEFAULT_FILTER  5 
@@ -103,16 +96,16 @@ typedef enum{
 	MAX_AI_CHANNEL = 4,
 }MAP_INPUT;
  
-#define MAX_AIS         		0
-#define MAX_INS  				1 
+//#define MAX_AIS         		0
+#define MAX_INS  				7 		//temp,hum,co2,pressure,pm2.5,pm10,light,
 
  
-#define MAX_AOS					1
+#define MAX_AOS					3		//output1,output2,output3
 #define MAX_DO					0
-#define MAX_OUTS				1
+#define MAX_OUTS				(MAX_AOS + MAX_DO)
 
  
-#define MAX_AVS  				 56
+#define MAX_AVS  				 36
 //#define MAX_VARS				4 
 #define MAX_CONS				3
 
@@ -156,6 +149,8 @@ typedef enum{
 #define	MAX_EXT_CO2					254
 #define	SCAN_DB_SIZE				5
  
+ 
+
 // #define  printf	 my_print
 
 #endif 

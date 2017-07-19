@@ -52,9 +52,10 @@ void mass_flash_init(void) ;
 
 extern uint8_t write_page_en[MAX_TYPE] ;
 
+extern uint8 IO_Change_Flag[3];
 
 
-
+void io_control(void);
 
 
 

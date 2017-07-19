@@ -201,7 +201,7 @@ void sub_send_string(U8_T *p, U8_T length)
 
 
  
-static void serial1_restart(void)
+  void serial1_restart(void)
 { 
 	rece_count1 = 0;
 	dealwithTag1 = FALSE; 		    		  
@@ -221,7 +221,23 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 	{ 
 		buf = USART_ReceiveData(USART2); 
 // 		USART_ITConfig(USART2, USART_IT_RXNE, DISABLE);
-		if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200))
+		if(PRODUCT_ID == STM32_PM25)
+		{
+			if(rece_count1 < SUB_BUF_LEN)
+			{	
+				subnet_response_buf[rece_count1++] =buf; 
+			}
+			else
+				serial1_restart();
+//			if(rece_count1 >= PM25_PEL_LENTH)
+//			{	 
+//			// full packet received - turn off serial timeout
+////				serial_receive_timeout_count1 = 0;	  
+//				dealwithTag1 = TRUE;   
+//				
+//			}
+		}
+		else if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200))
 		{
 			 
 			xQueueSendFromISR(qSubSerial, (void *)&buf, (void *)&cTaskWokenByPost);
@@ -399,4 +415,8 @@ void read_from_slave(uint16 addr)
 	serial1_restart();
 }
 
+uint8 get_uart2_length(void)
+{
+	return rece_count1;
+}
 

@@ -493,14 +493,14 @@ void modify_master_id_in_database(U8_T old_id, U8_T set_id)
 #define TOTAL_BITMAP_BYTES	((MAX_EXT_CO2 + 1 + 7) >> 3)
 void get_parameters(uint8 index, uint8 *p)
 {
-	uint16 crc_check = crc16(p, 9); // crc16
-	if((HIGH_BYTE(crc_check) == p[9]) && (LOW_BYTE(crc_check) == p[10]))
-	{
-		ext_co2_str[index - 1].co2_offset = (int16)((p[3] << 8) | p[4]);
-		ext_co2_str[index - 1].alarm_setpoint = (p[5] << 8) | p[6];
-		ext_co2_str[index - 1].pre_alarm_setpoint = (p[7] << 8) | p[8];
-		get_para[index / 8] &= ~(1 << (index % 8));
-	}
+//	uint16 crc_check = crc16(p, 9); // crc16
+//	if((HIGH_BYTE(crc_check) == p[9]) && (LOW_BYTE(crc_check) == p[10]))
+//	{
+//		ext_co2_str[index - 1].co2_offset = (int16)((p[3] << 8) | p[4]);
+//		ext_co2_str[index - 1].alarm_setpoint = (p[5] << 8) | p[6];
+//		ext_co2_str[index - 1].pre_alarm_setpoint = (p[7] << 8) | p[8];
+//		get_para[index / 8] &= ~(1 << (index % 8));
+//	}
 }
 
 void get_parameters_from_nodes(void)

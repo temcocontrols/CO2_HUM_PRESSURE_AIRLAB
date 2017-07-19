@@ -1,6 +1,6 @@
 #include "config.h"
 
-#define MAX_MAIN_ITEMS	5
+#define MAX_MAIN_ITEMS	6
 static uint8 const code item_name[MAX_MAIN_ITEMS][16] = 
 {
 	"1.CO2",
@@ -8,6 +8,7 @@ static uint8 const code item_name[MAX_MAIN_ITEMS][16] =
 	"3.Humidity",
 	"4.Miscellaneous",
 	"5.Pressure",
+	"6.PM25"
 };
 
 static uint8 const code item[] = {MenuCo2_Conf, MenuTemp_Conf, MenuHum_Conf, MenuMisc, MenuPresConf}; 
@@ -17,18 +18,24 @@ static uint8 pre_item_index = 0;
 
 void Co2_Main_init(void)
 {
-	uint8 i;
+	uint8 i, display_lines;
 
 	if(use_password == FALSE)
 		menu_password = TRUE;
 
 	Lcd_Full_Screen(0);
-	for(i = 0; i < MAX_MAIN_ITEMS; i++)
+	if(((MAX_MAIN_ITEMS % MAX_ROW) == 0) || (item_index < (MAX_MAIN_ITEMS / 5 * 5)))
+		display_lines = MAX_ROW;
+	else
+		display_lines = MAX_MAIN_ITEMS % MAX_ROW;
+	for(i = 0; i < display_lines; i++)
 	{
-		if((i == item_index) && (menu_password == TRUE))
-			Lcd_Show_String(i, 0, DISP_INV, (uint8 *)item_name[i]);
+		u8 temp; 
+		temp = i + item_index / 5 * 5;
+		if((i == item_index% MAX_ROW) && (menu_password == TRUE))
+			Lcd_Show_String(i, 0, DISP_INV, (uint8 *)item_name[temp]);
 		else
-			Lcd_Show_String(i, 0, DISP_NOR, (uint8 *)item_name[i]);
+			Lcd_Show_String(i, 0, DISP_NOR, (uint8 *)item_name[temp]);
 	}
 
 	if(menu_password == FALSE)
@@ -58,8 +65,8 @@ void Co2_Main_display(void)
 	{
 		if(pre_item_index != item_index)
 		{
-			Lcd_Show_String(pre_item_index, 0, DISP_NOR, (uint8 *)item_name[pre_item_index]);
-			Lcd_Show_String(item_index, 0, DISP_INV, (uint8 *)item_name[item_index]);
+			Lcd_Show_String(pre_item_index% MAX_ROW, 0, DISP_NOR, (uint8 *)item_name[pre_item_index]);
+			Lcd_Show_String(item_index% MAX_ROW, 0, DISP_INV, (uint8 *)item_name[item_index]);
 			pre_item_index = item_index;
 		}
 	}
@@ -145,16 +152,26 @@ void Co2_Main_keycope(uint16 key_value)
 			case KEY_RIGHT_MASK:
 				// enter sub menu
 //				update_menu_state(item[item_index]);
-				#ifdef CO2_SENSOR
-				if(item[item_index] != MenuPresConf)
-					update_menu_state(item[item_index]);
-				#elif defined PRESSURE_SENSOR
+				if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
+				{
+					if(item[item_index] != MenuPresConf)
+						update_menu_state(item[item_index]);
+				}
+				else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
+				{	
 					if((item[item_index] != MenuCo2_Conf)&&(item[item_index] != MenuHum_Conf)&&(item[item_index] != MenuTemp_Conf))
 						update_menu_state(item[item_index]);
-				#elif defined HUM_SENSOR
+				}
+				else if (PRODUCT_ID == STM32_PM25)
+				{	
+					if((item[item_index] != MenuCo2_Conf)&&(item[item_index] != MenuHum_Conf)&&(item[item_index] != MenuTemp_Conf)&&(item[item_index] != MenuPresConf))
+						update_menu_state(item[item_index]);
+				}
+				else// defined HUM_SENSOR
+				{
 					if((item[item_index] != MenuCo2_Conf)&&(item[item_index] != MenuPresConf))
 						update_menu_state(item[item_index]);
-				#endif
+				}
 				break;
 		}
 	}

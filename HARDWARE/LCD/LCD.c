@@ -1105,117 +1105,194 @@ void get_time_text(void)
 {
 	sprintf((char *)time, "%04d-%02d-%02d %02d:%02d", (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date, (uint16)calendar.hour, (uint16)calendar.min);
 }
+extern uint8 const code baudrate_text[5][7];
+uint8 const   AQI_LEVEL[6][15] = 
+{
+	"Good",					//AQI:   0 ~ 50
+	"Moderate",				//AQI:  50 ~ 99
+	"Poor For Some",		//AQI:  99 ~ 149	
+	"Poor",					//AQI: 149 ~ 200
+	"Very Unhealthy",		//AQI: 200 ~ 300
+	"Hazardous"				//AQI: 300 ~ 500
+};
 void update_message_context(void)
 {
 	U8_T length;
 
 	scroll_message_length = 0;
- 
-// Date & Time
-	length = strlen((char *)time);
-	memcpy((U8_T *)message + scroll_message_length, time, length);
-	scroll_message_length += length;
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ) 
+	{	
+	// Date & Time
+		length = strlen((char *)time);
+		memcpy((U8_T *)message + scroll_message_length, time, length);
+		scroll_message_length += length;
 
-// Network
-	length = strlen((char *)network_status_text);
-	memcpy(message + scroll_message_length, network_status_text, length);
-	scroll_message_length += length;
-	// main net status
-	length = strlen((char *)main_net_status_text);
-	memcpy(message + scroll_message_length, main_net_status_text, length);
-	scroll_message_length += length;
-	if(main_net_status_ctr)
-	{
-		length = strlen((char *)net_status_ok_text);
-		memcpy(message + scroll_message_length, net_status_ok_text, length);
+	// Network
+		length = strlen((char *)network_status_text);
+		memcpy(message + scroll_message_length, network_status_text, length);
 		scroll_message_length += length;
-	}
-	else
-	{
-		length = strlen((char *)net_status_dead_text);
-		memcpy(message + scroll_message_length, net_status_dead_text, length);
+		// main net status
+		length = strlen((char *)main_net_status_text);
+		memcpy(message + scroll_message_length, main_net_status_text, length);
 		scroll_message_length += length;
-	}
-	// sub net status
-	length = strlen((char *)sub_net_status_text);
-	memcpy(message + scroll_message_length, sub_net_status_text, length);
-	scroll_message_length += length;
-	if(db_ctr == current_online_ctr)
-	{
-		length = strlen((char *)net_status_ok_text);
-		memcpy(message + scroll_message_length, net_status_ok_text, length);
-		scroll_message_length += length;
-	}
-	else
-	{
-		U8_T i, id_temp;
-		for(i = 0; i < db_ctr; i++)
+		if(main_net_status_ctr)
 		{
-			id_temp = scan_db[i].id;
-			if((current_online[id_temp / 8] & (1 << (id_temp % 8))) == 0x00)
-			{
-				if(i == 0) // internal co2 sensor
-					sprintf((char *)text, "%s,", internal_text);
-				else
-					sprintf((char *)text, "%s%u,", external_text, (U16_T)id_temp);
-
-				length = strlen((char *)text);
-				memcpy(message + scroll_message_length, text, length);
-				scroll_message_length += length;
-			}
+			length = strlen((char *)net_status_ok_text);
+			memcpy(message + scroll_message_length, net_status_ok_text, length);
+			scroll_message_length += length;
 		}
-		// clear the last ','
-		scroll_message_length--;
-
-		sprintf((char *)text, "%s", net_offline_text);
-		length = strlen((char *)text);
-		memcpy(message + scroll_message_length, text, length);
-		scroll_message_length += length;
-	}
-
-// Alarm
-	length = sizeof(alarm_text) - 1;
-	memcpy(message + scroll_message_length, alarm_text, length);
-	scroll_message_length += length;
-
-	if((alarm_state & (~ALARM_MANUAL)) == STOP_ALARM)
-	{
-		length = strlen((char *)alarm_status_text[STOP_ALARM]);
-		memcpy(message + scroll_message_length, alarm_status_text[STOP_ALARM], length);
-		scroll_message_length += length;
-	}
-	else
-	{
-		U8_T i, id_temp;
-		for(i = 0; i < db_ctr; i++)
+		else
 		{
-			id_temp = scan_db[i].id;
-			if(i == 0)
+			length = strlen((char *)net_status_dead_text);
+			memcpy(message + scroll_message_length, net_status_dead_text, length);
+			scroll_message_length += length;
+		}
+		// sub net status
+		length = strlen((char *)sub_net_status_text);
+		memcpy(message + scroll_message_length, sub_net_status_text, length);
+		scroll_message_length += length;
+		if(db_ctr == current_online_ctr)
+		{
+			length = strlen((char *)net_status_ok_text);
+			memcpy(message + scroll_message_length, net_status_ok_text, length);
+			scroll_message_length += length;
+		}
+		else
+		{
+			U8_T i, id_temp;
+			for(i = 0; i < db_ctr; i++)
 			{
-				if(internal_co2_exist == TRUE)
-				{ 
-					sprintf((char *)text, "%s:%s,", internal_text, alarm_status_text[int_co2_str.alarm_state]);
+				id_temp = scan_db[i].id;
+				if((current_online[id_temp / 8] & (1 << (id_temp % 8))) == 0x00)
+				{
+					if(i == 0) // internal co2 sensor
+						sprintf((char *)text, "%s,", internal_text);
+					else
+						sprintf((char *)text, "%s%u,", external_text, (U16_T)id_temp);
+
 					length = strlen((char *)text);
 					memcpy(message + scroll_message_length, text, length);
 					scroll_message_length += length;
 				}
 			}
-			else if(ext_co2_str[i - 1].alarm_state != STOP_ALARM)
-			{
-				sprintf((char *)text, "%s%u:%s,", external_text, (U16_T)id_temp, alarm_status_text[ext_co2_str[i - 1].alarm_state]);
-				length = strlen((char *)text);
-				memcpy(message + scroll_message_length, text, length);
-				scroll_message_length += length;
-			}
+			// clear the last ','
+			scroll_message_length--;
+
+			sprintf((char *)text, "%s", net_offline_text);
+			length = strlen((char *)text);
+			memcpy(message + scroll_message_length, text, length);
+			scroll_message_length += length;
 		}
 
-		memcpy(message + scroll_message_length - 1, " ", 1);
-	}
+	// Alarm
+		length = sizeof(alarm_text) - 1;
+		memcpy(message + scroll_message_length, alarm_text, length);
+		scroll_message_length += length;
 
-// SPACE
-	length = 3;
-	memcpy(message + scroll_message_length, "   ", length);
-	scroll_message_length += length;
+		if((alarm_state & (~ALARM_MANUAL)) == STOP_ALARM)
+		{
+			length = strlen((char *)alarm_status_text[STOP_ALARM]);
+			memcpy(message + scroll_message_length, alarm_status_text[STOP_ALARM], length);
+			scroll_message_length += length;
+		}
+		else
+		{
+			U8_T i, id_temp;
+	//		for(i = 0; i < db_ctr; i++)
+			{
+	//			id_temp = scan_db[i].id;
+	//			if(i == 0)
+				{
+					if(internal_co2_exist == TRUE)
+					{ 
+						sprintf((char *)text, "%s:%s,", internal_text, alarm_status_text[int_co2_str.alarm_state]);
+						length = strlen((char *)text);
+						memcpy(message + scroll_message_length, text, length);
+						scroll_message_length += length;
+					}
+				}
+	//			else if(ext_co2_str[i - 1].alarm_state != STOP_ALARM)
+	//			{
+	//				sprintf((char *)text, "%s%u:%s,", external_text, (U16_T)id_temp, alarm_status_text[ext_co2_str[i - 1].alarm_state]);
+	//				length = strlen((char *)text);
+	//				memcpy(message + scroll_message_length, text, length);
+	//				scroll_message_length += length;
+	//			}
+			}
+
+			memcpy(message + scroll_message_length - 1, " ", 1);
+		}
+
+	// SPACE
+		length = 3;
+		memcpy(message + scroll_message_length, "   ", length);
+		scroll_message_length += length;
+	}
+	else if(PRODUCT_ID == STM32_PM25)
+	{
+ 		if(pm25_sensor.menu.scroll_set&0x01)
+		{
+			//sensor status
+			strcpy((char *)text, (char *)"SensorStatus:"); 
+			if(pm25_sensor.status) strcat((char *)text, (char *)"OK");
+			else 
+				strcat((char *)text, (char *)"Offline");
+			
+			strcat((char *)text, (char *)" ");
+			
+			length = strlen((char *)text);
+			memcpy((U8_T *)message + scroll_message_length, text, length);
+			scroll_message_length += length;
+		}
+ 		if((pm25_sensor.menu.scroll_set>>1)&0x01)
+		{
+			//RX TX
+			strcpy((char *)text, (char *)"RX:"); 
+			itoa(uart.rx_count, int_text, 0);
+			strcat((char *)text, (char *)int_text); 
+			
+			strcat((char *)text, (char *)" TX:"); 
+			itoa(uart.tx_count, int_text, 0);
+			strcat((char *)text, (char *)int_text); 
+			strcat((char *)text, (char *)" ");
+			length = strlen((char *)text);
+			memcpy((U8_T *)message + scroll_message_length, text, length);
+			scroll_message_length += length;
+		}
+ 		if((pm25_sensor.menu.scroll_set>>2)&0x01)
+		{
+			//Baudrate
+			strcpy((char *)text, (char *)"Baudrate:"); 
+			strcat((char *)text, (char *)baudrate_text[modbus.baud]);
+			
+			strcat((char *)text, (char *)" ");
+			
+			length = strlen((char *)text);
+			memcpy((U8_T *)message + scroll_message_length, text, length);
+			scroll_message_length += length;
+		}
+ 		if((pm25_sensor.menu.scroll_set>>3)&0x01)
+		{
+			//AQI LEVEL
+			strcpy((char *)text, (char *)" AQI LEVEL:"); 
+			strcat((char *)text, (char *)AQI_LEVEL[pm25_sensor.level]);
+			
+			strcat((char *)text, (char *)" ");
+			
+			length = strlen((char *)text);
+			memcpy((U8_T *)message + scroll_message_length, text, length);
+			scroll_message_length += length;
+		}
+		if(pm25_sensor.menu.scroll_set == 0)
+		{
+			//null
+			strcpy((char *)text, (char *)"       ");  
+			length = strlen((char *)text);
+			memcpy((U8_T *)message + scroll_message_length, text, length);
+			scroll_message_length += length;
+		}
+		
+	}
 }
 
 void display_character_with_start_bit(U8_T row, U8_T start_line, U8_T start_bit, U8_T end_bit, U8_T c, U8_T disp_mode)
@@ -1305,7 +1382,8 @@ void scrolling_message(void)
 U8_T bl_timer = 0;
 void start_back_light(U8_T timer)
 {
-	BL_ON();
+	if(timer == 0) BL_OFF();
+	else BL_ON();
 	bl_timer = timer;
 	bl_timer_start = xTaskGetTickCount();
 }
@@ -1313,7 +1391,7 @@ void start_back_light(U8_T timer)
 
 void poll_back_light(void)
 {
-	if(bl_timer)
+	if((bl_timer!=0)&&(bl_timer!=0xff))
 	{
 		bl_timer_end = xTaskGetTickCount();
 		if((bl_timer_end - bl_timer_start) >= (bl_timer * SWTIMER_COUNT_SECOND))

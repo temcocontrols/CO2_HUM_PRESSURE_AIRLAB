@@ -770,30 +770,28 @@ void Write_Pres_Char(uint8 row, uint8 line, uint8 c)
 #define TOTAL_LINE		9
 void Lcd_Show_Pres(uint8 pos_row, uint8 pos_line,uint8 *str)
 {
-#ifdef HUM_SENSOR
 	uint8 loop = 0;
 	uint8 length = strlen((char *)str); 
-	if(pos_line > 8) pos_line = 8; //the total line is nine.
-	if(length > pos_line + 1)		
-		length = pos_line + 1; 
-	for(loop = 0; loop < length; loop++)						//Right head
-		Write_Pres_Char(pos_row, pos_line - loop,str[length - 1 - loop]);
-	
-	for(loop = 0; loop < pos_line + 1 - length;loop++)			//the head part is ' '
-		Write_Pres_Char(pos_row,  loop,' '); 
-	for(loop = pos_line + 1; loop <TOTAL_LINE;loop++)			//the end part is ' '
-		Write_Pres_Char(pos_row,  loop,' '); 
-#elif defined PRESSURE_SENSOR
-	uint8 loop = 0;
-	uint8 length = strlen((char *)str); 
-
-	if(length > (9 - pos_line))
-		length = 9 - pos_line; 
-	for(loop = 0; loop < length; loop++)
-		Write_Pres_Char(pos_row, pos_line + loop,str[loop]); 
-	
-#endif
-
+	if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485)||(PRODUCT_ID == STM32_PM25))
+	{
+		if(pos_line > 8) pos_line = 8; //the total line is nine.
+		if(length > pos_line + 1)		
+			length = pos_line + 1; 
+		for(loop = 0; loop < length; loop++)						//Right head
+			Write_Pres_Char(pos_row, pos_line - loop,str[length - 1 - loop]);
+		
+		for(loop = 0; loop < pos_line + 1 - length;loop++)			//the head part is ' '
+			Write_Pres_Char(pos_row,  loop,' '); 
+		for(loop = pos_line + 1; loop <TOTAL_LINE;loop++)			//the end part is ' '
+			Write_Pres_Char(pos_row,  loop,' '); 
+	}
+	else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
+	{
+		if(length > (9 - pos_line))
+			length = 9 - pos_line; 
+		for(loop = 0; loop < length; loop++)
+			Write_Pres_Char(pos_row, pos_line + loop,str[loop]); 
+	} 
 	
 	
 //	for(loop = 0; loop < length; loop++)						//Left head

@@ -12,16 +12,16 @@
 #define	PWM_CHN_CO2		PCA_MODULE4
 
 #define OUT_FAULT	0
-#ifdef CO2_SENSOR
-	#define _4_20MA		1
-	#define	_0_5V		2
-	#define	_0_10V		3
-#else
+//#ifdef CO2_SENSOR
+//	#define _4_20MA		1
+//	#define	_0_5V		2
+//	#define	_0_10V		3
+//#else
 	#define _4_20MA		3
 	#define	_0_5V		2
 	#define	_0_10V		1
 
-#endif
+//#endif
 
 #define	OUT_VOLTMODE	P3_0
 #define OUT_AMPSMODE	P3_1

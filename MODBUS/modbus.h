@@ -152,6 +152,13 @@ typedef struct
 	
 }STR_MODBUS ;
 
+typedef struct
+{
+	u8 rx_count;
+	u8 tx_count;
+}STR_UART;
+extern STR_UART uart;
+
 extern STR_MODBUS modbus ;
 extern vu8 serial_receive_timeout_count ;
  void dealwithData(void) ;

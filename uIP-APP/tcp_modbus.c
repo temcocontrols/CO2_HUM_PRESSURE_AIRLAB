@@ -49,6 +49,7 @@ void tcp_server_appcall(void)
 		}
 		else if(tcp_server_databuf[6] == modbus.address 
 		|| ((tcp_server_databuf[6] == 255))
+		|| ((tcp_server_databuf[6] == 0))
 		)
 		{	
 			net_tx_count  = 2 ;

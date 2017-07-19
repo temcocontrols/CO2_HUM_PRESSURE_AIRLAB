@@ -212,11 +212,10 @@ void vStartPIDTask(void *pvParameters)
 	
 	while(1)
 	{
-		#if defined PRESSURE_SENSOR 
+		if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) ) 
 			PID[0].EEP_Input_Value = (int32)Pressure.org_val;	
-		#else 
-			PID[0].EEP_Input_Value =(int32)HumSensor.humidity;
-		#endif
+		else
+			PID[0].EEP_Input_Value =(int32)HumSensor.humidity; 
 		if((output_auto_manual & 0x01) == 0x01)
 		{
 			PID[1].EEP_Input_Value = (int32)output_manual_value_temp;
@@ -279,7 +278,7 @@ void vStartPIDTask(void *pvParameters)
 			for(i = 0;i < MAX_CONS; i++)
 			{					
 				pid_controller( i );
-				test[1]++;
+ 
 			}
 			count_10s = 0;		 
 		} 

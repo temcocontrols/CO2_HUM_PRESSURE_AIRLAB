@@ -26,8 +26,8 @@ void set_subnet_parameters(U8_T io, U8_T length);
 void read_from_slave(uint16 addr);
 int8 DEAL_TEMCO_SENSOR(void);
 void sub_net_init(void);
-
-
+uint8 get_uart2_length(void);
+void serial1_restart(void);
 #endif
 
 

@@ -74,7 +74,7 @@ unsigned int conver_by_unit_custable(uint8_t point,uint8_t sample)
 // 返回最大input数目
 uint8_t get_max_input(void)
 {	
-	return MAX_AIS;
+	return MAX_INS;
 }
 // 返回最大output数目
 #ifdef T38AI8AO6DO

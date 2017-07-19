@@ -112,6 +112,7 @@ void update_menu_state(uint8 MenuId)
 	}
 
 	memcpy((void *)&CurrentState, (void *)&StateArray[MenuId], sizeof(struct _MENU_STATE_));
+	 
 	CurrentState.InitAction();
 }
 
@@ -146,7 +147,7 @@ void menu_init(void)
 	menu_system_start = TRUE;
 	update_menu_state(MenuIdle);
 }
-
+extern void watchdog(void);
 void MenuTask(void *pvParameters)
 {
 	static U8_T refresh_screen_timer = 0;
@@ -198,6 +199,7 @@ void MenuTask(void *pvParameters)
 	//		scrolling_message();
 		}
 		poll_back_light();
+		
 		vTaskDelay(xDelayPeriod);//50ms
 //		stack_detect(&test[9]);
 	}	
@@ -255,12 +257,12 @@ void CursorTask(void *pvParameters)
 
 void vStartMenuTask(unsigned char uxPriority)
 { 
-	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE  , NULL, uxPriority, NULL);
+	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE , NULL, uxPriority, NULL);
 		
   	xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE, NULL, uxPriority, NULL);
-	#ifdef CO2_SENSOR
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_PM25) )
 		xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE , NULL, uxPriority, NULL);
-	#endif
+	 
 }
 
 void vStartScrollingTask(unsigned char uxPriority)
@@ -270,17 +272,17 @@ void vStartScrollingTask(unsigned char uxPriority)
 
 void print(char *p)
 {
-	uint8 length,i;
-	vTaskSuspendAll();
-	length  = strlen(p) + 1;
-	TXEN = SEND;
-	for(i=0;i<length;i++)
-	{
-		while(USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
-		USART_SendData(USART1, *(p + i));
-	}
-	TXEN = RECEIVE;	
-	xTaskResumeAll();
+//	uint8 length,i;
+//	vTaskSuspendAll();
+//	length  = strlen(p) + 1;
+//	TXEN = SEND;
+//	for(i=0;i<length;i++)
+//	{
+//		while(USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
+//		USART_SendData(USART1, *(p + i));
+//	}
+//	TXEN = RECEIVE;	
+//	xTaskResumeAll();
 	
 }
 //void my_print(char *p)
