@@ -15,3 +15,6 @@ Inside View:
 ![alt text][logo]
 
 [logo]: https://github.com/temcocontrols/CO2_HUM_PRESSURE/blob/master/Docs/HUM2.jpg "Inside view of humidity sensor"
+
+Typical Wiring Diagram: 
+![alt text](https://github.com/temcocontrols/CO2_HUM_PRESSURE/blob/master/Docs/HUM3.jpg "Wiring for both transducer mode and RS485 mode is shown, ethernet port is also available")
