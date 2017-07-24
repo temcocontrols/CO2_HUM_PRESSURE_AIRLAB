@@ -70,6 +70,10 @@
 #include "stm32f10x_iwdg.h"
  
 #include "../PID/pid.h"
+
+#include "../PM25/pm25.h" 
+#include "../PM25/aqi.h" 
+
 #endif
 
 

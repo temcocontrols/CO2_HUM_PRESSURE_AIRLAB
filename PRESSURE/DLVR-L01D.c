@@ -1,9 +1,6 @@
 #include "config.h"
 #include "myiic.h"
-
-
-#if defined PRESSURE_SENSOR 
-
+ 
 //static u32 Read_DLVR()
 //{ 
 //	u32 buf_in = 0 ;
@@ -259,6 +256,5 @@ s16 Get_DLVR_Pressure(void)
 	return 10000;
 	
 }
-
-#endif
+ 
 

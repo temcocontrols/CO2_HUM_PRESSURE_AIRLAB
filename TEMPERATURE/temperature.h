@@ -26,6 +26,8 @@ extern int16 internal_temperature_c;
 extern int16 internal_temperature_f;
 extern int16 internal_temperature_offset;
 extern uint8 analog_output_sel;
+extern uint8 auto_heat_enable;
+
 void update_temperature(void);
 void update_temperature_display(uint8 ForceUpdate);
  
@@ -65,7 +67,17 @@ extern int16 xdata humidity_back;
 extern float  xdata k_line;
 extern float  xdata b_line;
 void vUpdate_Temperature_Task( void *pvParameters );
- 
+
+typedef struct
+{
+	uint16 val;
+	uint16 pre_val;
+	uint8 filter;
+	uint16 ad;
+	uint16 k;
+}STR_LIGHT_SENSOR;
+
+extern STR_LIGHT_SENSOR light;
 	 
 #endif
 

@@ -83,103 +83,103 @@ void set_uart3_parameters(U8_T io, U8_T length)
 
 void receive_external_co2_ppm(U8_T index, U8_T *p)
 {
-	U16_T crc_check;
+//	U16_T crc_check;
 
-	if(p[0] != scan_db[index].id)
-		return;
+//	if(p[0] != scan_db[index].id)
+//		return;
 
-	crc_check =	crc16(p, 5);
-	if(crc_check != (((U16_T)p[5] << 8) | p[6]))
-		return;
-	 
-	ext_co2_str[index - 1].co2_int = ((U16_T)p[3] << 8) | p[4];
-	if(ext_co2_str[index - 1].co2_int == ISP_PPM)
-	{
-		ext_co2_str[index - 1].co2_int = EXCEPTION_PPM;
-		ext_co2_str[index - 1].warming_time = TRUE;
-		remove_id_from_db(index);
-	}
-	else
-	{
-		if(ext_co2_str[index - 1].co2_int == EXCEPTION_PPM)
-		{
-			 ext_co2_str[index - 1].warming_time = TRUE;
-		}
-		else
-		{
-			ext_co2_str[index - 1].co2_int	+= ext_co2_str[index - 1].co2_offset;
-			ext_co2_str[index - 1].warming_time = FALSE;
-		}
+//	crc_check =	crc16(p, 5);
+//	if(crc_check != (((U16_T)p[5] << 8) | p[6]))
+//		return;
+//	 
+//	ext_co2_str[index - 1].co2_int = ((U16_T)p[3] << 8) | p[4];
+//	if(ext_co2_str[index - 1].co2_int == ISP_PPM)
+//	{
+//		ext_co2_str[index - 1].co2_int = EXCEPTION_PPM;
+//		ext_co2_str[index - 1].warming_time = TRUE;
+//		remove_id_from_db(index);
+//	}
+//	else
+//	{
+//		if(ext_co2_str[index - 1].co2_int == EXCEPTION_PPM)
+//		{
+//			 ext_co2_str[index - 1].warming_time = TRUE;
+//		}
+//		else
+//		{
+//			ext_co2_str[index - 1].co2_int	+= ext_co2_str[index - 1].co2_offset;
+//			ext_co2_str[index - 1].warming_time = FALSE;
+//		}
 
-		ext_co2_str[index - 1].fail_counter = 0;
-		if((current_online[scan_db[index].id / 8] & (1 << (scan_db[index].id % 8))) == 0x00)
-		{
-			current_online[scan_db[index].id / 8] |= (1 << (scan_db[index].id % 8));
-			current_online_ctr++;
-		}
-	}
+//		ext_co2_str[index - 1].fail_counter = 0;
+//		if((current_online[scan_db[index].id / 8] & (1 << (scan_db[index].id % 8))) == 0x00)
+//		{
+//			current_online[scan_db[index].id / 8] |= (1 << (scan_db[index].id % 8));
+//			current_online_ctr++;
+//		}
+//	}
 }
 
 void request_external_co2(U8_T index)
 {
-	U8_T buf[8], length;
-	U16_T crc_check;
-	U8_T uart3_response_buf[UART3_BUF_LEN];
-	
-	buf[0] = scan_db[index].id;
-	if(db_occupy[buf[0]	/ 8] & (1 << (buf[0] % 8)))
-		return;
-
-	 
-	
-//	if(cSemaphoreTake(sem_subnet_tx, 5) == pdFALSE)
+//	U8_T buf[8], length;
+//	U16_T crc_check;
+//	U8_T uart3_response_buf[UART3_BUF_LEN];
+//	
+//	buf[0] = scan_db[index].id;
+//	if(db_occupy[buf[0]	/ 8] & (1 << (buf[0] % 8)))
 //		return;
-//	if(wait_for_subnet_idle(5) == FALSE)
-//		return;
-//	subnet_idle = FALSE;
 
-	buf[1] = READ_VARIABLES;
-	buf[2] = HIGH_BYTE(SLAVE_MODBUS_CO2);
-	buf[3] = LOW_BYTE(SLAVE_MODBUS_CO2); // start address
-	buf[4] = 0;
-	buf[5] = 1; // read one register
+//	 
+//	
+////	if(cSemaphoreTake(sem_subnet_tx, 5) == pdFALSE)
+////		return;
+////	if(wait_for_subnet_idle(5) == FALSE)
+////		return;
+////	subnet_idle = FALSE;
 
-	crc_check = crc16(buf, 6); // crc16
-	buf[6] = HIGH_BYTE(crc_check);
-	buf[7] = LOW_BYTE(crc_check);
+//	buf[1] = READ_VARIABLES;
+//	buf[2] = HIGH_BYTE(SLAVE_MODBUS_CO2);
+//	buf[3] = LOW_BYTE(SLAVE_MODBUS_CO2); // start address
+//	buf[4] = 0;
+//	buf[5] = 1; // read one register
 
-	
- 	uart3_send_string(buf, 8);
-	
- 	set_uart3_parameters(RECEIVE, 7);
-	
- 	 
- 	if((length = wait_uart3_response(10)) != 0)
-	{
-		U8_T i; 
-		for(i = 0; i < length; i++)
-		{
-			xQueueReceive(qSubSerial3, uart3_response_buf+i, 0); 
-		}
- 		 
- 		receive_external_co2_ppm(index, uart3_response_buf);
-	}
-	
-	else
-	{
-		if(ext_co2_str[index - 1].fail_counter < MAX_CO2_REQUIRE_FAIL_CTR)
-			ext_co2_str[index - 1].fail_counter++;
-		else
-		{
-			ext_co2_str[index - 1].co2_int	= EXCEPTION_PPM;
-			if(current_online[scan_db[index].id / 8] & (1 << (scan_db[index].id % 8)))
-			{
-				current_online[scan_db[index].id / 8] &= ~(1 << (scan_db[index].id % 8));
-				current_online_ctr--;
-			}
-		}
-	} 
-  	set_uart3_parameters(SEND, 0);
+//	crc_check = crc16(buf, 6); // crc16
+//	buf[6] = HIGH_BYTE(crc_check);
+//	buf[7] = LOW_BYTE(crc_check);
+
+//	
+// 	uart3_send_string(buf, 8);
+//	
+// 	set_uart3_parameters(RECEIVE, 7);
+//	
+// 	 
+// 	if((length = wait_uart3_response(10)) != 0)
+//	{
+//		U8_T i; 
+//		for(i = 0; i < length; i++)
+//		{
+//			xQueueReceive(qSubSerial3, uart3_response_buf+i, 0); 
+//		}
+// 		 
+// 		receive_external_co2_ppm(index, uart3_response_buf);
+//	}
+//	
+//	else
+//	{
+//		if(ext_co2_str[index - 1].fail_counter < MAX_CO2_REQUIRE_FAIL_CTR)
+//			ext_co2_str[index - 1].fail_counter++;
+//		else
+//		{
+//			ext_co2_str[index - 1].co2_int	= EXCEPTION_PPM;
+//			if(current_online[scan_db[index].id / 8] & (1 << (scan_db[index].id % 8)))
+//			{
+//				current_online[scan_db[index].id / 8] &= ~(1 << (scan_db[index].id % 8));
+//				current_online_ctr--;
+//			}
+//		}
+//	} 
+//  	set_uart3_parameters(SEND, 0);
 //	cSemaphoreGive(sem_subnet_tx);
 //	subnet_idle = TRUE;
 }

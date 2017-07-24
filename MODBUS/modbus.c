@@ -46,6 +46,7 @@ u8 receive_delay_time;
 
 u8 reply_done;
 u8 uart1_parity;
+STR_UART uart;
 void USART1_IRQHandler(void)                	//串口1中断服务程序
 {		
 	u8 receive_buf ;
@@ -119,6 +120,8 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 							serial_receive_timeout_count = 0;
 							dealwithTag = 2;		// making this number big to increase delay
 							rx_count = 2 ;
+							uart.rx_count++;
+							if(uart.rx_count > 99) uart.rx_count = 0;
 						}
 		
 			}
@@ -160,8 +163,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 								}
 								else
 									serial_restart(); 	
-					 } 
-							
+					 }  				
 		   }
      }
 	 
@@ -218,14 +220,10 @@ void modbus_init(void)
 	reply_delay_time = read_eeprom(EEP_REPLY_DELAY);
 	if(reply_delay_time > 100) reply_delay_time = 10;
 	receive_delay_time = read_eeprom(EEP_RECEIVE_DELAY);
-	if(receive_delay_time > 100) receive_delay_time = 10;
-//	laddress = read_eeprom(EEP_ADDRESS);
-//	if((laddress == 255) || (laddress == 0))
-//	{
-//		laddress = 254;
-//	}
-//	laddress = 254;
-//	update_flash = 0;
+	if(receive_delay_time > 100) receive_delay_time = 10; 
+	
+	uart.rx_count = 0;
+	uart.tx_count = 0;
 }
 void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData) 
 {
@@ -244,7 +242,8 @@ void write_user_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData)
 		if((StartAdd - MODBUS_INPUT_BLOCK_FIRST) % ((sizeof(Str_in_point) + 1	) / 2) == 0)
 		{
 			i = (StartAdd - MODBUS_INPUT_BLOCK_FIRST) / ((sizeof(Str_in_point) + 1) / 2);
-			memcpy(&inputs[i],&pData[HeadLen + 7],sizeof(Str_in_point)); 	
+			memcpy(&inputs[i],&pData[HeadLen + 7],sizeof(Str_in_point)); 
+			IO_Change_Flag[IN_TYPE] = 1;
 		}
 	}
 	else if(StartAdd  >= MODBUS_VAR_BLOCK_FIRST && StartAdd  <= MODBUS_VAR_BLOCK_LAST)
@@ -424,23 +423,24 @@ void internalDeal(u8 type,  u8 *pData)
 				IP_Change = 1 ;
 				modbus.mac_enable = 0 ;
 			}
-		}
-#ifdef HUM_SENSOR		 
-		else if(StartAdd  >= TSTAT_NAME1 && StartAdd <= TSTAT_NAME8)
-		{
-			if(pData[HeadLen +6] <= 20)
-			{
-				for(i=0;i<pData[HeadLen + 6];i++)			//	(data_buffer[6]*2)
-				{
-	 				write_eeprom((EEP_TSTAT_NAME1 + i),pData[HeadLen + 7+i]);
- 					panelname[i] = pData[HeadLen + 7+i];
-				}
-			}
-		} 
-#endif		
+		} 	
 		else if(StartAdd  >= MODBUS_USER_BLOCK_FIRST && StartAdd  <= MODBUS_USER_BLOCK_LAST)
 		{  
 			write_user_data_by_block(StartAdd,HeadLen,pData);
+		}
+		if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+		{
+			if(StartAdd  >= TSTAT_NAME1 && StartAdd <= TSTAT_NAME8)
+			{
+				if(pData[HeadLen +6] <= 20)
+				{
+					for(i=0;i<pData[HeadLen + 6];i++)			//	(data_buffer[6]*2)
+					{
+						write_eeprom((EEP_TSTAT_NAME1 + i),pData[HeadLen + 7+i]);
+						panelname[i] = pData[HeadLen + 7+i];
+					}
+				}
+			}
 		}
 	}
  	else if(pData[HeadLen + 1] == WRITE_VARIABLES)
@@ -455,7 +455,7 @@ void internalDeal(u8 type,  u8 *pData)
 void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)	
 {
 	u8 address_temp ;
-	if(StartAdd  <= 99 )
+	if(StartAdd  < ORIGINALADDRESSVALUE )
 	{								
 		// If writing to Serial number Low word, set the Serial number Low flag
 		if(StartAdd <= MODBUS_SERIALNUMBER_LOWORD+1)
@@ -510,6 +510,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		{
 			AT24CXX_WriteOneByte((u16)EEP_PRODUCT_MODEL, Data_L);
 			modbus.product	= Data_L ;
+			PRODUCT_ID = Data_L;
 			modbus.SNWriteflag |= 0x08;
 			AT24CXX_WriteOneByte((u16)EEP_SERIALNUMBER_WRITE_FLAG, modbus.SNWriteflag);
 		}
@@ -520,7 +521,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			modbus.SNWriteflag |= 0x04;
 			AT24CXX_WriteOneByte((u16)EEP_SERIALNUMBER_WRITE_FLAG, modbus.SNWriteflag);
 		} 
-		else if((StartAdd == MODBUS_BAUDRATE )||(StartAdd == MODBUS_BAUDRATE_SPARE ))
+		else if(StartAdd == MODBUS_BAUDRATE )
 		{			
 			modbus.baud = Data_L ;
 			switch(modbus.baud)
@@ -638,20 +639,21 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					write_eeprom(EEP_USER_PASSWORD3, user_password[3]);	
 					
 					
-					write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,BACKLIGHT_KEEP_SECONDS_DEFAULT);  
+//					write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,BACKLIGHT_KEEP_SECONDS_DEFAULT);  
 					write_eeprom(EEP_HUMIDITY_FILTER,DEFAULT_FILTER);   
 					write_eeprom(EEP_EXT_TEMPERATURE_FILTER,DEFAULT_FILTER);   
 					write_eeprom(EEP_INT_TEMPERATURE_FILTER,DEFAULT_FILTER);
 
-					#ifdef CO2_SENSOR 
+					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 						sprintf((char *)panelname,"%s", (char *)"CO2_NET");
-					#elif defined PRESSURE_SENSOR	 
+					else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) )
 						sprintf((char *)panelname,"%s", (char *)"Pressure");
-					#elif defined HUM_SENSOR	 
+					else if(PRODUCT_ID == STM32_PM25)
+						sprintf((char *)panelname,"%s", (char *)"PM25");
+					else //if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 						sprintf((char *)panelname,"%s", (char *)"Humdity");
-					#else
-						sprintf((char *)panelname,"%s", (char *)"CO2_NET");
-					#endif 
+					
+					 
 					for(i=0;i<20;i++)			 
 					{
 						write_eeprom((EEP_TSTAT_NAME1 + i),panelname[i]); 
@@ -668,6 +670,12 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					STMFLASH_Unlock();	
 					STMFLASH_ErasePage(AV_PAGE_FLAG);
 					STMFLASH_WriteHalfWord(AV_PAGE_FLAG, 0xffff) ;
+					
+					STMFLASH_ErasePage(IN_PAGE_FLAG);
+					STMFLASH_WriteHalfWord(IN_PAGE_FLAG, 0xffff) ;
+					
+					STMFLASH_ErasePage(OUT_PAGE_FLAG);
+					STMFLASH_WriteHalfWord(OUT_PAGE_FLAG, 0xffff) ;
 					STMFLASH_Lock();
 					
 //-----------------IP Mode-----------------------					
@@ -693,8 +701,26 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //-----------------Listen Port-----------------------	    
 					AT24CXX_WriteOneByte(EEP_LISTEN_PORT_HI, (u8)(502>>8));
 					AT24CXX_WriteOneByte(EEP_LISTEN_PORT_LO, (u8)502);
-
-
+  
+					write_eeprom(EEP_AUTO_HEAT_CONTROL,0);
+					write_eeprom(EEP_OUTPUT_SEL,0);
+					if(PRODUCT_ID == STM32_PM25)
+					{
+						pm25_reset_factory();
+					}
+					for(i=0;i<4;i++)			 
+					{
+						write_eeprom((EEP_INSTANCE_LOWORD + i),0xff); 
+					}
+					 
+					write_eeprom(EEP_STATION_NUMBER,DEFAULT_STATION_NUMBER);
+					
+					light.filter = DEFAULT_FILTER;
+					write_eeprom(EEP_LIGHT_FILTER,DEFAULT_FILTER);
+					light.k = 100;
+					write_eeprom(EEP_LIGHT_K,	 light.k); 
+					write_eeprom(EEP_LIGHT_K + 1,light.k>>8); 
+					
 					Lcd_Full_Screen(0);
 					Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
 					Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
@@ -709,6 +735,25 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				AT24CXX_WriteOneByte(EEP_MODBUS_COM_CONFIG, Data_L);
 					modbus.protocal = Data_L ;
 			}
+		}
+		else if(StartAdd == MODBUS_INSTANCE_LOWORD)
+		{
+			Instance &= 0xffff0000;
+			Instance |= ((uint16)Data_H << 8 | Data_L); 
+			write_eeprom(EEP_INSTANCE_LOWORD,Data_L);
+			write_eeprom(EEP_INSTANCE_LOWORD + 1,Data_H); 
+		}
+		else if(StartAdd == MODBUS_INSTANCE_HIWORD)
+		{
+			Instance &= 0x0000ffff;
+			Instance |= (uint32)((uint16)Data_H << 8 | Data_L) << 16; 
+			write_eeprom(EEP_INSTANCE_HIWORD,Data_L);
+			write_eeprom(EEP_INSTANCE_HIWORD + 1,Data_H); 
+		} 
+		else if(StartAdd == MODBUS_STATION_NUMBER)
+		{ 
+			Station_NUM=  Data_L; 
+			write_eeprom(EEP_STATION_NUMBER,Data_L);  
 		}
 		else if(( StartAdd >= MODBUS_MAC_ADDRESS_1 )&&( StartAdd <= MODBUS_MAC_ADDRESS_6 ))
 		{
@@ -787,8 +832,954 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			modbus.mac_enable = Data_L ;	
 		} 
 	}
-		else if((StartAdd == MODBUS_BAUDRATE )||(StartAdd == MODBUS_BAUDRATE_SPARE ))
+	else if((StartAdd < MODBUS_HUM_END)&&((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485)))
+	{
+		 
+		if(StartAdd == MODBUS_HUM_BAUDRATE) 
+		{			
+			modbus.baud = Data_L ;
+			switch(modbus.baud)
+			{
+				case 0:
+					modbus.baudrate = BAUDRATE_9600 ;
+					uart1_init(BAUDRATE_9600);
+					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);					
+					SERIAL_RECEIVE_TIMEOUT = 6;
+				break ;
+				case 1:
+					modbus.baudrate = BAUDRATE_19200 ;
+					uart1_init(BAUDRATE_19200);
+					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
+					SERIAL_RECEIVE_TIMEOUT = 3;
+				break;
+				case 2:
+					modbus.baudrate = BAUDRATE_38400 ;
+					uart1_init(BAUDRATE_38400);
+					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
+					SERIAL_RECEIVE_TIMEOUT = 2;
+				break;
+				case 3:
+					modbus.baudrate = BAUDRATE_57600 ;
+					uart1_init(BAUDRATE_57600);
+					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
+					SERIAL_RECEIVE_TIMEOUT = 1;
+				break;
+				case 4:
+					modbus.baudrate = BAUDRATE_115200 ;
+					uart1_init(BAUDRATE_115200);
+					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
+					SERIAL_RECEIVE_TIMEOUT = 1;		
+				default:
+				break ;				
+			}
+			modbus_init();
+		} 
+		else if(StartAdd == MODBUS_HUM_TEMPERATURE_DEGREE_C_OR_F)
+		{
+			if(Data_L)
+				deg_c_or_f = 1;
+			else
+				deg_c_or_f = 0;
+			write_eeprom(EEP_DEG_C_OR_F, (uint8)deg_c_or_f);
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_EXTERNAL_TEMPERATURE_CELSIUS)	
+		{
+			external_operation_value = (int16)(((uint16)Data_H << 8) | Data_L);
+			if((output_auto_manual & 0x01) == 0x01)
+			{
+				output_manual_value_temp = external_operation_value;
+			}
+			else
+				external_operation_flag = TEMP_CALIBRATION; 
+		}
+		else if(StartAdd == MODBUS_HUM_EXTERNAL_TEMPERATURE_FAHRENHEIT)
+		{
+			external_operation_value = ((int16)(((uint16)Data_H << 8) | Data_L) - 320) * 5 / 9;
+			if((output_auto_manual & 0x01) == 0x01)
+			{
+				output_manual_value_temp = external_operation_value;
+			}
+			else
+				external_operation_flag = TEMP_CALIBRATION;
+		} 
+		else if((StartAdd == MODBUS_HUM_HUMIDITY)||(StartAdd == MODBUS_HUM_HUMIDITY1))
+		{
+			external_operation_value =  (int16)(((uint16)Data_H << 8) | Data_L);
+			
+			if(output_auto_manual & 0x02)
+				output_manual_value_humidity = external_operation_value;
+			else if(external_operation_value < 950)  //< 95%
+			{
+				external_operation_flag = HUM_CALIBRATION;
+				Run_Timer = 0;
+			}
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_SENSOR_HEATING)
+		{
+			if(Data_L)
+				external_operation_value = 1;
+			else
+				external_operation_value = 0;
+			external_operation_flag = HUM_HEATER;
+		} 
+		 
+		else if(StartAdd == MODBUS_HUM_PASSWORD_ENABLE)
+		{
+			if(Data_L)
+				use_password = 1;
+			else
+				use_password = 0;
+			write_eeprom(EEP_USE_PASSWORD,use_password);
+//	
+//				start_data_save_timer();
+//				flash_write_int(FLASH_USE_PASSWORD, use_password);
+		}
+		else if((StartAdd >= MODBUS_HUM_USER_PASSWORD0) && (StartAdd <= MODBUS_HUM_USER_PASSWORD3))
+		{
+			uint16 itemp;
+			if((Data_L >= '0') && (Data_L <= '9'))
+			{
+				itemp = StartAdd - MODBUS_HUM_USER_PASSWORD0;
+				user_password[itemp] = Data_L;
+				write_eeprom(EEP_USER_PASSWORD0+itemp,user_password[itemp]);  
+//					flash_write_int(FLASH_USER_PASSWORD0 + start_address - MODBUS_USER_PASSWORD0, main_data_buffer[5]);
+			}
+		}
+		else if(StartAdd == MODBUS_HUM_LIGHT_VALUE)
+		{ 
+			uint32 itemp;
+			itemp = (uint32)((uint16)Data_H << 8) | Data_L;
+			light.k = itemp*light.k/light.val;
+			light.pre_val = (uint16)itemp;
+			light.val = light.pre_val;
+			write_eeprom(EEP_LIGHT_K,light.k); 
+			write_eeprom(EEP_LIGHT_K + 1,light.k>>8); 
+		} 
+		else if(StartAdd == MODBUS_HUM_LIGHT_FILTER )
+		{ 
+			light.filter = Data_L;
+			write_eeprom(EEP_LIGHT_FILTER,Data_L); 
+		}
+		else if(StartAdd == MODBUS_HUM_LIGHT_K )
+		{ 
+			light.k = ((uint16)Data_H << 8) | Data_L;
+			write_eeprom(EEP_LIGHT_K,Data_L); 
+			write_eeprom(EEP_LIGHT_K + 1,Data_H); 
+		} 		
+		else if(StartAdd == MODBUS_HUM_OUTPUT_AUTO_MANUAL)
+		{
+			output_auto_manual = Data_L;
+//				start_data_save_timer();
+		}
+		else if(StartAdd == MODBUS_HUM_OUTPUT_MANUAL_VALUE_TEM)
+		{
+			output_manual_value_temp = ((uint16)Data_H << 8) | Data_L;
+//				start_data_save_timer();
+		}
+		else if(StartAdd == MODBUS_HUM_OUTPUT_MANUAL_VALUE_HUM)
+		{
+			output_manual_value_humidity = ((uint16)Data_H << 8) | Data_L;
+//				start_data_save_timer();
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_OUTPUT_RANGE_MIN_TEM)
+		{
+//				if(output_range_table[CHANNEL_TEMP].max > ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_TEMP].min = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN, Data_L);
+				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN + 1, Data_H);
+			}
+		}
+		else if(StartAdd == MODBUS_HUM_OUTPUT_RANGE_MAX_TEM)
+		{
+//				if(output_range_table[CHANNEL_TEMP].min < ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_TEMP].max = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MAX, Data_L);
+				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MAX + 1, Data_H);
+			}
+		}
+		else if(StartAdd == MODBUS_HUM_OUTPUT_RANGE_MIN_HUM)
+		{
+//				if(output_range_table[CHANNEL_HUM].max > ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_HUM].min = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN, Data_L);
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN + 1, Data_H);
+			}
+		}
+		else if(StartAdd == MODBUS_HUM_OUTPUT_RANGE_MAX_HUM)
+		{
+//				if(output_range_table[CHANNEL_HUM].min < ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_HUM].max = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MAX, Data_L);
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MAX + 1, Data_H);
+			}
+		}
+		   
+		else if(StartAdd == MODBUS_HUM_BACKLIGHT_KEEP_SECONDS)
+		{
+			backlight_keep_seconds = Data_L;
+			write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,backlight_keep_seconds);
+			start_back_light(backlight_keep_seconds);
+			
+			
+//				start_data_save_timer();
+//				flash_write_int(FLASH_BACKLIGHT_KEEP_SECONDS, backlight_keep_seconds);
+			
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_EXT_TEMPRATURE_FILTER) 
+		{
+			HumSensor.T_Filter = Data_L;
+			write_eeprom(EEP_EXT_TEMPERATURE_FILTER,Data_L); 
+		}
+		else if(StartAdd == MODBUS_HUM_HUIDITY_FILTER) 
+		{
+			HumSensor.H_Filter = Data_L;
+			write_eeprom(EEP_HUMIDITY_FILTER,Data_L); 
+		} 
+		else if(StartAdd == MODBUS_HUM_TABLE_SEL)
+		{
+			if((Data_L == USER)||(Data_L == FACTORY))
+			{
+					table_sel = Data_L;
+					new_write_eeprom(EEP_TABLE_SEL,table_sel);  
+					
+					table_sel_enable = 1; 
+					
+					HumSensor.offset_h = 0;
+					new_write_eeprom(EEP_HUM_OFFSET+1,0);
+					new_write_eeprom(EEP_HUM_OFFSET,0); 
+				
+					hum_size_copy = 0;		 
+					new_write_eeprom(EEP_USER_POINTS,0);    //hum_size_copy
+			} 
+		}
+		else if(StartAdd == MODBUS_HUM_USER_POINTS)
+		{
+			if(Data_L < 10)
+			{
+				hum_size_copy = Data_L;		 
+				new_write_eeprom(EEP_USER_POINTS,Data_L);
+				table_sel_enable = 1;
+			}
+		}
+		else if((StartAdd >= MODBUS_HUM_USER_RH1)&&(StartAdd<= MODBUS_HUM_USER_FRE10))
+		{
+			uint8 temp,i,j;
+			int16 itemp;
+			temp = StartAdd - MODBUS_HUM_USER_RH1;
+			i = temp /2;
+			j = temp %2;
+			
+			table_sel_enable = 1;
+			
+			HumSensor.offset_h = 0;
+			new_write_eeprom(EEP_HUM_OFFSET,0); 
+			new_write_eeprom(EEP_HUM_OFFSET+1,0); 
+			if(j == 0)
+			{
+				itemp = ((uint16)Data_H << 8) | Data_L; 
+				if(itemp == -1)
+				{
+					new_write_eeprom(EEP_USER_RH1 + i*4,255);
+					new_write_eeprom(EEP_USER_RH1 + i*4 + 1,255);
+					new_write_eeprom(EEP_USER_RH1 + i*4 + 2,255);
+					new_write_eeprom(EEP_USER_RH1 + i*4 + 3,255); 
+				}
+				else if(itemp == 0)
+				{
+					new_write_eeprom(EEP_USER_RH1 + i*4,0);
+					new_write_eeprom(EEP_USER_RH1 + i*4 + 1,0);
+					new_write_eeprom(EEP_USER_RH1 + i*4 + 2,0);
+					new_write_eeprom(EEP_USER_RH1 + i*4 + 3,0);
+					 
+				}
+				else
+				{	   
+					 new_write_eeprom(EEP_USER_RH1 + i*4 +2,HumSensor.frequency);			  
+					 new_write_eeprom(EEP_USER_RH1 + i*4 +3,HumSensor.frequency >> 8); 
+					 new_write_eeprom(EEP_USER_RH1 + i*4 ,Data_L);
+					 new_write_eeprom(EEP_USER_RH1 + i*4 +1,Data_H); 
+					 if((StartAdd == MODBUS_HUM_USER_RH1)&&(hum_size_copy == 1))
+					 {     
+							HumSensor.offset_h = (signed int)itemp- humidity_back;
+							new_write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h); 
+							new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8); 					
+					 }
+				}
+			}
+			else
+			{
+				new_write_eeprom( EEP_USER_FRE1 + i * 4, Data_L ) ;
+				new_write_eeprom( EEP_USER_FRE1 + i * 4 + 1 , Data_H ) ;
+			}
+		} 
+		else if(StartAdd == MODBUS_HUM_DIS_INFO)
+		{ 
+			dis_hum_info =  Data_L;  				
+		}	
+		else if(StartAdd == MODBUS_HUM_OUTPUT_SEL)
+		{  
+			analog_output_sel = Data_L; 
+			write_eeprom(EEP_OUTPUT_SEL,analog_output_sel);
+		}	 			
+		else if(StartAdd == MODBUS_HUM_TEMP_OFFSET)
+		{ 
+			HumSensor.offset_t = ((uint16)Data_H << 8) | Data_L;    
+			write_eeprom(EEP_TEMP_OFFSET,Data_L);
+			write_eeprom(EEP_TEMP_OFFSET + 1,Data_H);				
+		}
+		else if(StartAdd == MODBUS_HUM_HUMIDITY_OFFSET)
+		{ 
+			HumSensor.offset_h = ((uint16)Data_H << 8) | Data_L;  
+			write_eeprom(EEP_HUM_OFFSET,Data_L);
+			write_eeprom(EEP_HUM_OFFSET + 1,Data_H);					
+		}
+		else if(StartAdd == MODBUS_HUM_CAL_DEFAULT_HUM)
+		{ 	
+			HumSensor.offset_h_default = ((uint16)Data_H << 8) | Data_L;  
+			write_eeprom(EEP_CAL_DEFAULT_HUM ,Data_L);
+			write_eeprom(EEP_CAL_DEFAULT_HUM + 1,Data_H);	
+		} 
+		else if(StartAdd == MODBUS_HUM_REPLY_DELAY)
+		{  
+			reply_delay_time = Data_L; 
+			write_eeprom(EEP_REPLY_DELAY,reply_delay_time);
+		}
+		else if(StartAdd == MODBUS_HUM_RECEIVE_DELAY)
+		{  
+			receive_delay_time = Data_L; 
+			write_eeprom(EEP_RECEIVE_DELAY,receive_delay_time);
+		}
+		else if(StartAdd == MODBUS_HUM_UART1_PARITY)
+		{  
+			if((Data_L == NONE_PARITY)||( Data_L == ODD_PARITY)||( Data_L == EVEN_PARITY))
+			{
+				uart1_parity = Data_L; 
+				write_eeprom(EEP_UART1_PARITY,uart1_parity);
+				switch(modbus.baud)
+				{
+					case 0:
+						modbus.baudrate = BAUDRATE_9600 ;
+						uart1_init(BAUDRATE_9600);
+				
+						SERIAL_RECEIVE_TIMEOUT = 6;
+					break ;
+					case 1:
+						modbus.baudrate = BAUDRATE_19200 ;
+						uart1_init(BAUDRATE_19200);	
+						SERIAL_RECEIVE_TIMEOUT = 3;
+					break;
+					case 2:
+						modbus.baudrate = BAUDRATE_38400 ;
+						uart1_init(BAUDRATE_38400);
+						SERIAL_RECEIVE_TIMEOUT = 2;
+					break;
+					case 3:
+						modbus.baudrate = BAUDRATE_57600 ;
+						uart1_init(BAUDRATE_57600);	
+						SERIAL_RECEIVE_TIMEOUT = 1;
+					break;
+					case 4:
+						modbus.baudrate = BAUDRATE_115200 ;
+						uart1_init(BAUDRATE_115200);	
+						SERIAL_RECEIVE_TIMEOUT = 1;
+					break;
+					default:
+					break ;				
+				}
+				Lcd_Full_Screen(0);
+				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
+				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+				SoftReset();
+			}
+		}
+		else if(StartAdd == MODBUS_HUM_AUTO_HEAT_CONTROL)
+		{  
+			if((Data_L == 0)||(Data_L == 1))
+			{
+				auto_heat_enable = Data_L; 
+				write_eeprom(EEP_AUTO_HEAT_CONTROL,Data_L);
+				external_operation_value = 0;
+				external_operation_flag = HUM_HEATER;
+			}  
+		}
+		else if(StartAdd == MODBUS_HUM_DEW_PT_MIN)
+		{
+//				if(output_range_table[CHANNEL_CO2].max > ((pData[HeadLen+4] << 8) |pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_CO2].min = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_CO2_RANGE_MIN, Data_L);
+				write_eeprom(EEP_OUTPUT_CO2_RANGE_MIN + 1, Data_H);
+			}
+		}
+//------------------------pid1---------------------------------		
+		else if(StartAdd == MODBUS_HUM_PID1_MODE)
+		{  
+			if(Data_L) Data_L = 1;
+			else
+				Data_L = 0;
+			controllers[0].action = Data_L; 
+			write_eeprom(EEP_PID1_MODE,Data_L);
+			 
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_PID1_SETPOINT)
+		{  
+			PID[0].EEP_SetPoint =(((unsigned int)Data_H<<8)+Data_L) ;
+			controllers[0].setpoint_value =  (int32)PID[0].EEP_SetPoint  * 100;
+			write_eeprom(EEP_PID1_SETPOINT,Data_L);
+			write_eeprom(EEP_PID1_SETPOINT+1,Data_H);
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_PID1_PTERM)
+		{  
+			controllers[0].proportional = Data_L;
+			 
+			write_eeprom(EEP_PID1_PTERM,Data_L);
+		}
+		else if(StartAdd == MODBUS_HUM_PID1_ITERM)
+		{  
+			controllers[0].reset = Data_L;
+			 
+			write_eeprom(EEP_PID1_ITERM,Data_L);
+		}
+//------------------------pid2--------------------------------			
+		else if(StartAdd == MODBUS_HUM_PID2_MODE)
+		{  
+			if(Data_L) Data_L = 1;
+			else
+				Data_L = 0;
+			controllers[1].action = Data_L; 
+			write_eeprom(EEP_PID2_MODE,Data_L);
+			 
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_PID2_SETPOINT)
+		{  
+			PID[1].EEP_SetPoint =(((unsigned int)Data_H<<8)+Data_L) ;
+			controllers[1].setpoint_value =  (int32)PID[1].EEP_SetPoint  * 100;
+			write_eeprom(EEP_PID2_SETPOINT,Data_L);
+			write_eeprom(EEP_PID2_SETPOINT+1,Data_H);
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_PID2_PTERM)
+		{  
+			controllers[1].proportional = Data_L;
+			 
+			write_eeprom(EEP_PID2_PTERM,Data_L);
+		}
+		else if(StartAdd == MODBUS_HUM_PID2_ITERM)
+		{  
+			controllers[1].reset = Data_L;
+			 
+			write_eeprom(EEP_PID2_ITERM,Data_L);
+		} 
+//------------------------pid3--------------------------------			
+		else if(StartAdd == MODBUS_HUM_PID3_MODE)
+		{  
+			if(Data_L) Data_L = 1;
+			else
+				Data_L = 0;
+			controllers[2].action = Data_L; 
+			write_eeprom(EEP_PID3_MODE,Data_L);
+			 
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_PID3_SETPOINT)
+		{  
+			
+			PID[2].EEP_SetPoint =(((unsigned int)Data_H<<8)+Data_L) ;
+			controllers[2].setpoint_value =  (int32)PID[2].EEP_SetPoint  * 1000;
+			write_eeprom(EEP_PID3_SETPOINT,Data_L);
+			write_eeprom(EEP_PID3_SETPOINT+1,Data_H);
+		}
+		 
+		else if(StartAdd == MODBUS_HUM_PID3_PTERM)
+		{  
+			controllers[2].proportional = Data_L;
+			 
+			write_eeprom(EEP_PID3_PTERM,Data_L);
+		}
+		else if(StartAdd == MODBUS_HUM_PID3_ITERM)
+		{  
+			controllers[2].reset = Data_L;
+			 
+			write_eeprom(EEP_PID3_ITERM,Data_L);
+		} 
+		else if(StartAdd == MODBUS_HUM_MODE_SELECT)
+		{  
+			if(Data_L)
+				mode_select = PID_MODE; 
+			else
+				mode_select = TRANSMIT_MODE;
+			write_eeprom(EEP_MODE_SELECT,Data_L);
+		}  
+	} 
+	else if((StartAdd < MODBUS_PRESSURE_END)&&((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485)))
+	{   
+ 		
+		if(StartAdd == MODBUS_OUTPUT_RANGE_MIN_PRESSURE)
+		{
+//				if(output_range_table[CHANNEL_HUM].max > ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_HUM].min = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN, Data_L);
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN + 1, Data_H);
+			}
+		}
+		else if(StartAdd == MODBUS_OUTPUT_RANGE_MAX_PRESSURE)
+		{
+//				if(output_range_table[CHANNEL_HUM].min < ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_HUM].max = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MAX, Data_L);
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MAX + 1, Data_H);
+			}
+		}
+		else if(StartAdd == MODBUS_PRESSURE_PASSWORD_ENABLE)
+		{
+			if(Data_L)
+				use_password = 1;
+			else
+				use_password = 0;
+			write_eeprom(EEP_USE_PASSWORD,use_password);
+//	
+//				start_data_save_timer();
+//				flash_write_int(FLASH_USE_PASSWORD, use_password);
+		}
+		else if((StartAdd >= MODBUS_PRESSURE_USER_PASSWORD0) && (StartAdd <= MODBUS_PRESSURE_USER_PASSWORD3))
+		{
+			uint16 itemp;
+			if((Data_L >= '0') && (Data_L <= '9'))
+			{
+				itemp = StartAdd - MODBUS_PRESSURE_USER_PASSWORD0;
+				user_password[itemp] = Data_L;
+				write_eeprom(EEP_USER_PASSWORD0+itemp,user_password[itemp]);  
+//					flash_write_int(FLASH_USER_PASSWORD0 + start_address - MODBUS_USER_PASSWORD0, main_data_buffer[5]);
+			}
+		}
 	 
+		else if(StartAdd == MODBUS_PRESSURE_BACKLIGHT_KEEP_SECONDS)
+		{
+			backlight_keep_seconds = Data_L;
+			write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,backlight_keep_seconds);
+			start_back_light(backlight_keep_seconds);
+			 	
+		}
+		 
+		else if(StartAdd == MODBUS_PRESSURE_SENSOR_MODEL) // 0=26PCF (0-100PSI),1=26PCG (0-250PSI), 10 = MPXV7002(-8 ~ +8 inWC),11=MPXV7007(-27 ~ +27 inWC)
+		{
+			Pressure.SNR_Model = Data_L;
+			write_eeprom(EEP_PRESSURE_SENSOR_MODEL,Data_L);
+			Pressure.default_unit = get_default_unit(Pressure.SNR_Model);
+		}
+		else if(StartAdd == MODBUS_PRESSURE_UNIT)
+		{
+			Pressure.unit = Data_L;
+			Pressure.unit_change = 1;
+			write_eeprom(EEP_PRESSURE_UNIT,Data_L);
+		}	 	 
+	//		else if(start_address == MODBUS_OUTPUT_RANGE_MIN_PRESSURE)
+	//		{
+	//			Pressure.range_press[0] = ((uint16)data_buffer[4] << 8) | data_buffer[5];
+	//			write_eeprom(EEP_OUTPUT_RANGE_MIN_PRESSURE,data_buffer[5]);
+	//			write_eeprom(EEP_OUTPUT_RANGE_MIN_PRESSURE + 1,data_buffer[4]); 
+	//		}
+	//		else if(start_address == MODBUS_OUTPUT_RANGE_MAX_PRESSURE)
+	//		{
+	//			Pressure.range_press[1] = ((uint16)data_buffer[4] << 8) | data_buffer[5];
+	//			write_eeprom(EEP_OUTPUT_RANGE_MAX_PRESSURE,data_buffer[5]);
+	//			write_eeprom(EEP_OUTPUT_RANGE_MAX_PRESSURE + 1,data_buffer[4]); 
+	//		}
+			else if(StartAdd == MODBUS_PRESSURE_FILTER)
+			{
+				Pressure.filter = Data_L;
+				write_eeprom(EEP_PRESSURE_FILTER,Data_L);
+			}	 	 
+	 		else if(StartAdd == MODBUS_INPUT_AUTO_MANUAL_PRE)//0 = AUTO,1 = MANUAL
+	 		{
+	 			Pressure.auto_manu = Data_L;
+//	 			write_eeprom(EEP_INPUT_AUTO_MANUAL_PRE,data_buffer[5]);
+	 		}
+	 		else if(StartAdd == MODBUS_INPUTPUT_MANUAL_VALUE_PRE)
+	 		{
+	 			output_manual_value_co2 =  ((uint16)Data_H << 8) |Data_L;
+			} 
+			else if(StartAdd == MODBUS_PRESSURE_VALUE_ORG)
+			{
+				s16 itemp; 
+				if(output_auto_manual & 0x04)	//manu mode
+				{
+					output_manual_value_co2 = ((uint16)Data_H << 8) | Data_L;;
+				}
+				else
+				{
+					itemp = ((uint16)Data_H << 8) | Data_L;
+					Pressure.org_val_offset += (itemp - Pressure.org_val );
+					Pressure.org_val =  itemp;
+					write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
+					write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
+				}	
+			} 	 	
+			else if(StartAdd == MODBUS_PRESSURE_VALUE_ORG_OFFSET)
+			{
+				Pressure.org_val_offset = ((uint16)Data_H << 8) | Data_L;  
+				write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
+				write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
+			} 	 
+			else if(StartAdd == MODBUS_PRESSURE_CAL_POINT)
+			{
+				Pressure.cal_point = Data_L;
+				write_eeprom(EEP_PRESSURE_CAL_POINT,Data_L);
+			}
+			else if((StartAdd >= MODBUS_PRESSURE_CAL_PR0) && (StartAdd <= MODBUS_PRESSURE_CAL_AD9))
+			{
+				u8 temp;
+				temp = StartAdd- MODBUS_PRESSURE_CAL_PR0;
+				if(temp%2 == 0)
+				{
+					temp/=2;
+					Pressure.cal_pr[temp] =  ((uint16)Data_H << 8) | Data_L;
+					if(Pressure.cal_pr[temp] == 0xffff)	Pressure.cal_ad[temp] = 0xffff; 
+					else
+						Pressure.cal_ad[temp] = Pressure.ad;
+					write_eeprom(EEP_CAL_PR0+temp*4 + 1 , Data_H); 
+					write_eeprom(EEP_CAL_PR0+temp*4     , Data_L); 
+					write_eeprom(EEP_CAL_AD0+temp*4 + 1 , Pressure.cal_ad[temp] >> 8);
+					write_eeprom(EEP_CAL_AD0+temp*4     , Pressure.cal_ad[temp]);
+					Pressure.cal_table_enable = 1;
+				}
+				 
+			} 
+			else if(StartAdd == MODBUS_PRESSURE_TABLE_SEL)
+			{
+				if((Data_L == USER_TABLE)||(Data_L == FACTORY_TABLE))
+				{
+					Pressure.table_sel = Data_L;
+					write_eeprom(EEP_TABLE_SEL , Data_L);  
+					Pressure.cal_table_enable = 1;
+					Pressure.org_val_offset = 0;  
+					write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
+					write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
+				} 
+			} 
+			else if(StartAdd == MODBUS_PRESSURE_USER_CAL_POINT)
+			{
+				Pressure.user_cal_point = Data_L;
+				write_eeprom(EEP_USER_CAL_POINT,Data_L); 
+				Pressure.cal_table_enable = 1;
+				Pressure.org_val_offset = 0;  
+				write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
+				write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
+			}
+			else if((StartAdd >= MODBUS_PRESSURE_USER_CAL_PR0) && (StartAdd <= MODBUS_PRESSURE_USER_CAL_AD9))
+			{
+				u8 temp;
+				temp = StartAdd- MODBUS_PRESSURE_USER_CAL_PR0;
+				if(temp%2 == 0)
+				{ 
+					temp/=2;
+					Pressure.user_cal_pr[temp] =  ((uint16)Data_H << 8) | Data_L;
+					if(Pressure.user_cal_pr[temp] == 0xffff)	Pressure.user_cal_ad[temp] = 0xffff; 
+					else
+						Pressure.user_cal_ad[temp] = Pressure.ad;
+					write_eeprom(EEP_USER_CAL_PR0+temp*4 + 1 , Data_H); 
+					write_eeprom(EEP_USER_CAL_PR0+temp*4     , Data_L); 
+					write_eeprom(EEP_USER_CAL_AD0+temp*4 + 1 , Pressure.user_cal_ad[temp] >> 8);
+					write_eeprom(EEP_USER_CAL_AD0+temp*4     , Pressure.user_cal_ad[temp]);
+					Pressure.cal_table_enable = 1;
+				}  
+			}
+ 
+		else if(StartAdd == MODBUS_PRESSURE_REPLY_DELAY)
+		{  
+			reply_delay_time = Data_L; 
+			write_eeprom(EEP_REPLY_DELAY,reply_delay_time);
+		}
+		else if(StartAdd == MODBUS_PRESSURE_RECEIVE_DELAY)
+		{  
+			receive_delay_time = Data_L; 
+			write_eeprom(EEP_RECEIVE_DELAY,receive_delay_time);
+		}
+		else if(StartAdd == MODBUS_PRESSURE_UART1_PARITY)
+		{  
+			if((Data_L == NONE_PARITY)||( Data_L == ODD_PARITY)||( Data_L == EVEN_PARITY))
+			{
+				uart1_parity = Data_L; 
+				write_eeprom(EEP_UART1_PARITY,uart1_parity);
+				switch(modbus.baud)
+				{
+					case 0:
+						modbus.baudrate = BAUDRATE_9600 ;
+						uart1_init(BAUDRATE_9600);
+				
+						SERIAL_RECEIVE_TIMEOUT = 6;
+					break ;
+					case 1:
+						modbus.baudrate = BAUDRATE_19200 ;
+						uart1_init(BAUDRATE_19200);	
+						SERIAL_RECEIVE_TIMEOUT = 3;
+					break;
+					case 2:
+						modbus.baudrate = BAUDRATE_38400 ;
+						uart1_init(BAUDRATE_38400);
+						SERIAL_RECEIVE_TIMEOUT = 2;
+					break;
+					case 3:
+						modbus.baudrate = BAUDRATE_57600 ;
+						uart1_init(BAUDRATE_57600);	
+						SERIAL_RECEIVE_TIMEOUT = 1;
+					break;
+					case 4:
+						modbus.baudrate = BAUDRATE_115200 ;
+						uart1_init(BAUDRATE_115200);	
+						SERIAL_RECEIVE_TIMEOUT = 1;
+					break;
+					default:
+					break ;				
+				}
+				Lcd_Full_Screen(0);
+				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
+				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+				SoftReset();
+			}
+		}
+		 
+//------------------------pid1---------------------------------		
+		else if(StartAdd == MODBUS_PRESSURE_PID1_MODE)
+		{  
+			if(Data_L) Data_L = 1;
+			else
+				Data_L = 0;
+			controllers[0].action = Data_L; 
+			write_eeprom(EEP_PID1_MODE,Data_L);
+			 
+		}
+		 
+		else if(StartAdd == MODBUS_PRESSURE_PID1_SETPOINT)
+		{  
+			PID[0].EEP_SetPoint =(((unsigned int)Data_H<<8)+Data_L) ;
+			controllers[0].setpoint_value =  (int32)PID[0].EEP_SetPoint  * 100;
+			write_eeprom(EEP_PID1_SETPOINT,Data_L);
+			write_eeprom(EEP_PID1_SETPOINT+1,Data_H);
+		}
+		 
+		else if(StartAdd == MODBUS_PRESSURE_PID1_PTERM)
+		{  
+			controllers[0].proportional = Data_L;
+			 
+			write_eeprom(EEP_PID1_PTERM,Data_L);
+		}
+		else if(StartAdd == MODBUS_PRESSURE_PID1_ITERM)
+		{  
+			controllers[0].reset = Data_L;
+			 
+			write_eeprom(EEP_PID1_ITERM,Data_L);
+		}
+//------------------------pid2--------------------------------			
+		else if(StartAdd == MODBUS_PRESSURE_PID2_MODE)
+		{  
+			if(Data_L) Data_L = 1;
+			else
+				Data_L = 0;
+			controllers[1].action = Data_L; 
+			write_eeprom(EEP_PID2_MODE,Data_L);
+			 
+		}
+		 
+		else if(StartAdd == MODBUS_PRESSURE_PID2_SETPOINT)
+		{  
+			PID[1].EEP_SetPoint =(((unsigned int)Data_H<<8)+Data_L) ;
+			controllers[1].setpoint_value =  (int32)PID[1].EEP_SetPoint  * 100;
+			write_eeprom(EEP_PID2_SETPOINT,Data_L);
+			write_eeprom(EEP_PID2_SETPOINT+1,Data_H);
+		}
+		 
+		else if(StartAdd == MODBUS_PRESSURE_PID2_PTERM)
+		{  
+			controllers[1].proportional = Data_L;
+			 
+			write_eeprom(EEP_PID2_PTERM,Data_L);
+		}
+		else if(StartAdd == MODBUS_PRESSURE_PID2_ITERM)
+		{  
+			controllers[1].reset = Data_L;
+			 
+			write_eeprom(EEP_PID2_ITERM,Data_L);
+		} 
+//------------------------pid3--------------------------------			
+		else if(StartAdd == MODBUS_PRESSURE_PID3_MODE)
+		{  
+			if(Data_L) Data_L = 1;
+			else
+				Data_L = 0;
+			controllers[2].action = Data_L; 
+			write_eeprom(EEP_PID3_MODE,Data_L);
+			 
+		}
+		 
+		else if(StartAdd == MODBUS_PRESSURE_PID3_SETPOINT)
+		{  
+			
+			PID[2].EEP_SetPoint =(((unsigned int)Data_H<<8)+Data_L) ;
+			controllers[2].setpoint_value =  (int32)PID[2].EEP_SetPoint  * 1000;
+			write_eeprom(EEP_PID3_SETPOINT,Data_L);
+			write_eeprom(EEP_PID3_SETPOINT+1,Data_H);
+		}
+		 
+		else if(StartAdd == MODBUS_PRESSURE_PID3_PTERM)
+		{  
+			controllers[2].proportional = Data_L;
+			 
+			write_eeprom(EEP_PID3_PTERM,Data_L);
+		}
+		else if(StartAdd == MODBUS_PRESSURE_PID3_ITERM)
+		{  
+			controllers[2].reset = Data_L;
+			 
+			write_eeprom(EEP_PID3_ITERM,Data_L);
+		} 
+		else if(StartAdd == MODBUS_PRESSURE_MODE_SELECT)
+		{  
+			if(Data_L)
+				mode_select = PID_MODE; 
+			else
+				mode_select = TRANSMIT_MODE;
+			write_eeprom(EEP_MODE_SELECT,Data_L);
+		}
+ 			
+	}
+	else if((StartAdd < MODBUS_PM25_END)&&((PRODUCT_ID == STM32_PM25)))
+	{
+		if(StartAdd == MODBUS_SENSOR_PERIOD)
+		{
+			if(Data_L	< MAX_WORK_PERIOD)
+				pm25_sensor.period = Data_L;
+			write_eeprom(EEP_SENSOR_WORK_PERIOD, Data_L);
+		} 
+		else if(StartAdd == MODBUS_PM25_VAL)
+		{ 
+			int16 itemp;
+			itemp = ((unsigned int)Data_H<<8)+Data_L;
+			if(pm25_sensor.auto_manual&0xfe)
+			{
+				pm25_sensor.pm25 = itemp;
+			}
+			else if(itemp > 0)
+			{	
+//				itemp -= pm25_sensor.pm25;
+				pm25_sensor.pm25_offset += (itemp - pm25_sensor.pm25);
+				pm25_sensor.pm25 = itemp;
+				write_eeprom(EEP_PM25_OFFSET, pm25_sensor.pm25_offset);
+				write_eeprom(EEP_PM25_OFFSET + 1, pm25_sensor.pm25_offset>>8);
+			}
+		}
+		else if(StartAdd == MODBUS_PM10_VAL)
+		{ 
+			int16 itemp;
+			itemp = ((unsigned int)Data_H<<8)+Data_L;
+			if((pm25_sensor.auto_manual>>1)&0xfe)
+			{
+				pm25_sensor.pm10 = itemp;
+			}
+			else if(itemp > 0)
+			{	
+//				itemp -= pm25_sensor.pm10;
+				pm25_sensor.pm10_offset += (itemp - pm25_sensor.pm10);
+				pm25_sensor.pm10 = itemp;
+				write_eeprom(EEP_PM10_OFFSET, pm25_sensor.pm10_offset);
+				write_eeprom(EEP_PM10_OFFSET + 1, pm25_sensor.pm10_offset>>8);
+			}
+		}
+		else if(StartAdd == MODBUS_MENU_SET)
+		{ 
+			pm25_sensor.menu.menu_set = Data_L;
+			write_eeprom(EEP_MENU_SET, Data_L);
+		}
+		else if(StartAdd == MODBUS_SCROLL_SET)
+		{ 
+			pm25_sensor.menu.scroll_set = Data_L;
+			write_eeprom(EEP_SCROLL_SET, Data_L);
+		}
+		else if(StartAdd == MODBUS_MENU_SWITCH_SECONDS)
+		{ 
+			pm25_sensor.menu.seconds = Data_L;
+			write_eeprom(EEP_MENU_SWITCH_SECONDS, Data_L);
+		}
+		else if(StartAdd == MODBUS_PM25_OFFSET)
+		{ 
+			pm25_sensor.pm25_offset = ((int16)Data_H<<8)|Data_L;
+			write_eeprom(EEP_PM25_OFFSET, Data_L);
+			write_eeprom(EEP_PM25_OFFSET + 1, Data_H);
+		}
+		else if(StartAdd == MODBUS_PM10_OFFSET)
+		{ 
+			pm25_sensor.pm10_offset = ((int16)Data_H<<8)|Data_L;
+			write_eeprom(EEP_PM10_OFFSET, Data_L);
+			write_eeprom(EEP_PM10_OFFSET + 1, Data_H);
+		}
+		else if(StartAdd == MODBUS_PM25_FILTER)
+		{ 
+			pm25_sensor.PM25_filter = Data_L;
+			write_eeprom(EEP_PM25_FILTER, Data_L); 
+		}
+		else if(StartAdd == MODBUS_PM10_FILTER)
+		{ 
+			pm25_sensor.PM10_filter = Data_L;
+			write_eeprom(EEP_PM10_FILTER, Data_L); 
+		}
+		else if(StartAdd == MODBUS_PM_AUTO_MANUAL)
+		{ 
+			pm25_sensor.auto_manual = Data_L; 
+		}
+		else if(StartAdd == MODBUS_PM25_RANGE_MIN)
+		{
+//				if(output_range_table[CHANNEL_TEMP].max > ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_TEMP].min = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN, Data_L);
+				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN + 1, Data_H);
+			}
+		}
+		else if(StartAdd == MODBUS_PM25_RANGE_MAX)
+		{
+//				if(output_range_table[CHANNEL_TEMP].min < ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_TEMP].max = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MAX, Data_L);
+				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MAX + 1, Data_H);
+			}
+		}
+		else if(StartAdd == MODBUS_PM10_RANGE_MIN)
+		{
+//				if(output_range_table[CHANNEL_HUM].max > ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_HUM].min = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN, Data_L);
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN + 1, Data_H);
+			}
+		}
+		else if(StartAdd == MODBUS_PM10_RANGE_MAX)
+		{
+//				if(output_range_table[CHANNEL_HUM].min < ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
+			{
+				output_range_table[CHANNEL_HUM].max = ((uint16)Data_H << 8) | Data_L;
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MAX, Data_L);
+				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MAX + 1, Data_H);
+			}
+		}
+		   
+	}
+	else //if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+	{ 
+ 		if((StartAdd == MODBUS_BAUDRATE )||(StartAdd == MODBUS_HUM_BAUDRATE )) 
 		{			
 			modbus.baud = Data_L ;
 			switch(modbus.baud)
@@ -853,7 +1844,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				temperature_sensor_select = 0; 
 			write_eeprom(EEP_SENSOR_SELECT, temperature_sensor_select);
 		}
-		else if(StartAdd == MODBUS_TEMPERATURE_DEGREE_C_OR_F)
+		else if(StartAdd == MODBUS_TEMPERATURE_DEGREE_C_OR_F) 
 		{
 			if(Data_L)
 				deg_c_or_f = 1;
@@ -873,7 +1864,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 0, (uint8)(internal_temperature_offset & 0x00ff));
 			write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 1, (uint8)(internal_temperature_offset >> 8));
 		}
-		else if(StartAdd == MODBUS_EXTERNAL_TEMPERATURE_CELSIUS)
+		else if(StartAdd == MODBUS_EXTERNAL_TEMPERATURE_CELSIUS) 	
 		{
 			external_operation_value = (int16)(((uint16)Data_H << 8) | Data_L);
 			if((output_auto_manual & 0x01) == 0x01)
@@ -883,7 +1874,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			else
 				external_operation_flag = TEMP_CALIBRATION;
 		}
-		else if(StartAdd == MODBUS_EXTERNAL_TEMPERATURE_FAHRENHEIT)
+		else if(StartAdd == MODBUS_EXTERNAL_TEMPERATURE_FAHRENHEIT) 
 		{
 			external_operation_value = ((int16)(((uint16)Data_H << 8) | Data_L) - 320) * 5 / 9;
 			if((output_auto_manual & 0x01) == 0x01)
@@ -899,7 +1890,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 0, (uint8)(internal_temperature_offset & 0x00ff));
 			write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 1, (uint8)(internal_temperature_offset >> 8));
 		}
-		else if((StartAdd == MODBUS_HUMIDITY)||(StartAdd == MODBUS_HUMIDITY_SPARE))
+		else if(StartAdd == MODBUS_HUMIDITY)
 		{
 			external_operation_value =  (int16)(((uint16)Data_H << 8) | Data_L);
 			
@@ -915,7 +1906,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		{
 			// read only
 		}
-		else if(StartAdd == MODBUS_HUM_SENSOR_HEATING)
+		else if(StartAdd == MODBUS_HUMIDITY_SENSOR_HEATING)
 		{
 			if(Data_L)
 				external_operation_value = 1;
@@ -954,30 +1945,30 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			write_eeprom(EEP_INT_ALARM_SETPOINT, Data_L);
 			write_eeprom(EEP_INT_ALARM_SETPOINT + 1, Data_H);
 		}
-		else if((StartAdd >= MODBUS_CO2_EXTERNAL_START) && (StartAdd < MODBUS_CO2_EXTERANL_END))
-		{
-			int16 temp = ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_START].co2_offset + (((uint16)Data_H << 8) | Data_L) - ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_START].co2_int;
-			write_parameters_to_nodes(StartAdd - MODBUS_CO2_EXTERNAL_START + 1, SLAVE_MODBUS_CO2_OFFSET, (uint16)temp);
-			ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_START].co2_offset = temp;
-		}
-		else if((StartAdd >= MODBUS_CO2_EXTERNAL_OFFSET_START) && (StartAdd < MODBUS_CO2_EXTERNAL_OFFSET_END))
-		{
-			int16 temp = ((uint16)Data_H << 8) | Data_L;
-			write_parameters_to_nodes(StartAdd - MODBUS_CO2_EXTERNAL_OFFSET_START + 1, SLAVE_MODBUS_CO2_OFFSET, (uint16)temp);
-			ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_OFFSET_START].co2_offset = temp;
-		}
-		else if((StartAdd >= MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START) && (StartAdd < MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_END))
-		{
-			uint16 temp = ((uint16)Data_H << 8) | Data_L;
-			write_parameters_to_nodes(StartAdd - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START + 1, SLAVE_MODBUS_CO2_PRE_ALARM_SETPOINT, temp);
-			ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START].pre_alarm_setpoint = temp;
-		}
-		else if((StartAdd >= MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START) && (StartAdd < MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_END))
-		{
-			uint16 temp = ((uint16)Data_H << 8) | Data_L;
-			write_parameters_to_nodes(StartAdd - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START + 1, SLAVE_MODBUS_CO2_ALARM_SETPOINT, temp);
-			ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START].alarm_setpoint = temp;
-		}
+//		else if((StartAdd >= MODBUS_CO2_EXTERNAL_START) && (StartAdd < MODBUS_CO2_EXTERANL_END))
+//		{
+//			int16 temp = ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_START].co2_offset + (((uint16)Data_H << 8) | Data_L) - ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_START].co2_int;
+//			write_parameters_to_nodes(StartAdd - MODBUS_CO2_EXTERNAL_START + 1, SLAVE_MODBUS_CO2_OFFSET, (uint16)temp);
+//			ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_START].co2_offset = temp;
+//		}
+//		else if((StartAdd >= MODBUS_CO2_EXTERNAL_OFFSET_START) && (StartAdd < MODBUS_CO2_EXTERNAL_OFFSET_END))
+//		{
+//			int16 temp = ((uint16)Data_H << 8) | Data_L;
+//			write_parameters_to_nodes(StartAdd - MODBUS_CO2_EXTERNAL_OFFSET_START + 1, SLAVE_MODBUS_CO2_OFFSET, (uint16)temp);
+//			ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_OFFSET_START].co2_offset = temp;
+//		}
+//		else if((StartAdd >= MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START) && (StartAdd < MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_END))
+//		{
+//			uint16 temp = ((uint16)Data_H << 8) | Data_L;
+//			write_parameters_to_nodes(StartAdd - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START + 1, SLAVE_MODBUS_CO2_PRE_ALARM_SETPOINT, temp);
+//			ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START].pre_alarm_setpoint = temp;
+//		}
+//		else if((StartAdd >= MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START) && (StartAdd < MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_END))
+//		{
+//			uint16 temp = ((uint16)Data_H << 8) | Data_L;
+//			write_parameters_to_nodes(StartAdd - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START + 1, SLAVE_MODBUS_CO2_ALARM_SETPOINT, temp);
+//			ext_co2_str[StartAdd - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START].alarm_setpoint = temp;
+//		}
 		else if(StartAdd == MODBUS_CO2_SLOPE_DETECT_VALUE)
 		{
 			co2_slope_detect_value = ((uint16)Data_H << 8) | Data_L;
@@ -1104,31 +2095,31 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			alarm_delay_time = Data_L;
 			write_eeprom(EEP_ALARM_DELAY_TIME, alarm_delay_time);
 		}
-		else if((StartAdd == MODBUS_OUTPUT_AUTO_MANUAL)||(StartAdd == MODBUS_OUTPUT_AUTO_MANUAL_SPARE)||(StartAdd == MODBUS_INPUT_AUTO_MANUAL_PRE))
+		else if(StartAdd == MODBUS_OUTPUT_AUTO_MANUAL)
 		{
 			output_auto_manual = Data_L;
 //				start_data_save_timer();
 		}
-		else if((StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_TEM)||(StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_TEM_SPARE))
+		else if(StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_TEM)
 		{
 			output_manual_value_temp = ((uint16)Data_H << 8) | Data_L;
 //				start_data_save_timer();
 		}
-		else if((StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_HUM)||(StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_HUM_SPARE))
+		else if(StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_HUM)
 		{
 			output_manual_value_humidity = ((uint16)Data_H << 8) | Data_L;
 //				start_data_save_timer();
 		}
-		else if((StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_CO2)||(StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_CO2_SPARE)||(StartAdd == MODBUS_INPUTPUT_MANUAL_VALUE_PRE))
+		else if(StartAdd == MODBUS_OUTPUT_MANUAL_VALUE_CO2)
 		{
 			output_manual_value_co2 = ((uint16)Data_H << 8) | Data_L;
 //				start_data_save_timer();
 		}
-		else if(StartAdd == MODBUS_OUTPUT_MODE)
-		{
-			// read only
-		}
-		else if((StartAdd == MODBUS_OUTPUT_RANGE_MIN_TEM)||(StartAdd == MODBUS_OUTPUT_RANGE_MIN_TEM_SPARE))
+//		else if((StartAdd == MODBUS_OUTPUT_MODE)||(StartAdd == MODBUS_HUM_OUTPUT_MODE))
+//		{
+//			// read only
+//		}
+		else if(StartAdd == MODBUS_OUTPUT_RANGE_MIN_TEM)
 		{
 //				if(output_range_table[CHANNEL_TEMP].max > ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
 			{
@@ -1137,7 +2128,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN + 1, Data_H);
 			}
 		}
-		else if((StartAdd == MODBUS_OUTPUT_RANGE_MAX_TEM)||(StartAdd == MODBUS_OUTPUT_RANGE_MAX_TEM_SPARE))
+		else if(StartAdd == MODBUS_OUTPUT_RANGE_MAX_TEM)
 		{
 //				if(output_range_table[CHANNEL_TEMP].min < ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
 			{
@@ -1146,7 +2137,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MAX + 1, Data_H);
 			}
 		}
-		else if((StartAdd == MODBUS_OUTPUT_RANGE_MIN_HUM)||(StartAdd == MODBUS_OUTPUT_RANGE_MIN_HUM_SPARE)||(StartAdd == MODBUS_OUTPUT_RANGE_MIN_PRESSURE))
+		else if(StartAdd == MODBUS_OUTPUT_RANGE_MIN_HUM)
 		{
 //				if(output_range_table[CHANNEL_HUM].max > ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
 			{
@@ -1155,7 +2146,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN + 1, Data_H);
 			}
 		}
-		else if((StartAdd == MODBUS_OUTPUT_RANGE_MAX_HUM)||(StartAdd == MODBUS_OUTPUT_RANGE_MAX_HUM_SPARE)||(StartAdd == MODBUS_OUTPUT_RANGE_MAX_PRESSURE))
+		else if(StartAdd == MODBUS_OUTPUT_RANGE_MAX_HUM)
 		{
 //				if(output_range_table[CHANNEL_HUM].min < ((pData[HeadLen+4] << 8) | pData[HeadLen+5]))
 			{
@@ -1164,7 +2155,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MAX + 1, Data_H);
 			}
 		}
-		else if((StartAdd == MODBUS_OUTPUT_RANGE_MIN_CO2)||(StartAdd == MODBUS_DEW_PT_MIN)||(StartAdd == MODBUS_OUTPUT_RANGE_MIN_CO2_SPARE))
+		else if((StartAdd == MODBUS_OUTPUT_RANGE_MIN_CO2)||(StartAdd == MODBUS_DEW_PT_MIN))
 		{
 //				if(output_range_table[CHANNEL_CO2].max > ((pData[HeadLen+4] << 8) |pData[HeadLen+5]))
 			{
@@ -1173,7 +2164,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				write_eeprom(EEP_OUTPUT_CO2_RANGE_MIN + 1, Data_H);
 			}
 		}
-		else if((StartAdd == MODBUS_OUTPUT_RANGE_MAX_CO2)||(StartAdd == MODBUS_DEW_PT_MAX)||(StartAdd == MODBUS_OUTPUT_RANGE_MAX_CO2_SPARE))
+		else if((StartAdd == MODBUS_OUTPUT_RANGE_MAX_CO2)||(StartAdd == MODBUS_DEW_PT_MAX))
 		{
 //				if(output_range_table[CHANNEL_CO2].min < ((pData[HeadLen+4] << 8) |pData[HeadLen+5]))
 			{
@@ -1192,8 +2183,12 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		{
 			backlight_keep_seconds = Data_L;
 			write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,backlight_keep_seconds);
+			start_back_light(backlight_keep_seconds);
+			
+			
 //				start_data_save_timer();
 //				flash_write_int(FLASH_BACKLIGHT_KEEP_SECONDS, backlight_keep_seconds);
+			
 		}
 		else if(StartAdd == MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY)
 		{
@@ -1231,147 +2226,22 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		
 
 		
-	else if(StartAdd == MODBUS_INT_TEMPRATURE_FILTER) 
-	{
-		Temperature_Filter =Data_L;
-		write_eeprom(EEP_INT_TEMPERATURE_FILTER,Data_L); 
-	}
-	else if(StartAdd == MODBUS_EXT_TEMPRATURE_FILTER) 
-	{
-		HumSensor.T_Filter = Data_L;
-		write_eeprom(EEP_EXT_TEMPERATURE_FILTER,Data_L); 
-	}
-	else if(StartAdd == MODBUS_HUIDITY_FILTER) 
-	{
-		HumSensor.H_Filter = Data_L;
-		write_eeprom(EEP_HUMIDITY_FILTER,Data_L); 
-	}
-#ifdef PRESSURE_SENSOR
-	else if(StartAdd == MODBUS_PRESSURE_SENSOR_MODEL) // 0=26PCF (0-100PSI),1=26PCG (0-250PSI), 10 = MPXV7002(-8 ~ +8 inWC),11=MPXV7007(-27 ~ +27 inWC)
-	{
-		Pressure.SNR_Model = Data_L;
-		write_eeprom(EEP_PRESSURE_SENSOR_MODEL,Data_L);
-		Pressure.default_unit = get_default_unit(Pressure.SNR_Model);
-	}
-	else if(StartAdd == MODBUS_PRESSURE_UNIT)
-	{
-		Pressure.unit = Data_L;
-		Pressure.unit_change = 1;
-		write_eeprom(EEP_PRESSURE_UNIT,Data_L);
-	}	 	 
-//		else if(start_address == MODBUS_OUTPUT_RANGE_MIN_PRESSURE)
-//		{
-//			Pressure.range_press[0] = ((uint16)data_buffer[4] << 8) | data_buffer[5];
-//			write_eeprom(EEP_OUTPUT_RANGE_MIN_PRESSURE,data_buffer[5]);
-//			write_eeprom(EEP_OUTPUT_RANGE_MIN_PRESSURE + 1,data_buffer[4]); 
-//		}
-//		else if(start_address == MODBUS_OUTPUT_RANGE_MAX_PRESSURE)
-//		{
-//			Pressure.range_press[1] = ((uint16)data_buffer[4] << 8) | data_buffer[5];
-//			write_eeprom(EEP_OUTPUT_RANGE_MAX_PRESSURE,data_buffer[5]);
-//			write_eeprom(EEP_OUTPUT_RANGE_MAX_PRESSURE + 1,data_buffer[4]); 
-//		}
-	else if(StartAdd == MODBUS_PRESSURE_FILTER)
-	{
-		Pressure.filter = Data_L;
-		write_eeprom(EEP_PRESSURE_FILTER,Data_L);
-	}	 	 
-//		else if(start_address == MODBUS_INPUT_AUTO_MANUAL_PRE)//0 = AUTO,1 = MANUAL
-//		{
-//			Pressure.auto_manu = data_buffer[5];
-//			write_eeprom(EEP_INPUT_AUTO_MANUAL_PRE,data_buffer[5]);
-//		}
-//		else if(start_address == MODBUS_INPUTPUT_MANUAL_VALUE_PRE)
-//		{
-//			Pressure.manu_val =  ((uint16)data_buffer[4] << 8) | data_buffer[5];
-//		} 
-	else if(StartAdd == MODBUS_PRESSURE_VALUE_ORG)
-	{
-		s16 itemp; 
-		if(output_auto_manual & 0x04)	//manu mode
+		else if(StartAdd == MODBUS_INT_TEMPRATURE_FILTER) 
 		{
-			output_manual_value_co2 = ((uint16)Data_H << 8) | Data_L;;
+			Temperature_Filter =Data_L;
+			write_eeprom(EEP_INT_TEMPERATURE_FILTER,Data_L); 
 		}
-		else
+		else if(StartAdd == MODBUS_EXT_TEMPRATURE_FILTER) 
 		{
-			itemp = ((uint16)Data_H << 8) | Data_L;
-			Pressure.org_val_offset += (itemp - Pressure.org_val );
-			Pressure.org_val =  itemp;
-			write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
-			write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
-		}	
-	} 	 	
-	else if(StartAdd == MODBUS_PRESSURE_VALUE_ORG_OFFSET)
-	{
-		Pressure.org_val_offset = ((uint16)Data_H << 8) | Data_L;  
-		write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
-		write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
-	} 	 
-	else if(StartAdd == MODBUS_PRESSURE_CAL_POINT)
-	{
-		Pressure.cal_point = Data_L;
-		write_eeprom(EEP_PRESSURE_CAL_POINT,Data_L);
-	}
-	else if((StartAdd >= MODBUS_PRESSURE_CAL_PR0) && (StartAdd <= MODBUS_PRESSURE_CAL_AD9))
-	{
-		u8 temp;
-		temp = StartAdd- MODBUS_PRESSURE_CAL_PR0;
-		if(temp%2 == 0)
-		{
-			temp/=2;
-			Pressure.cal_pr[temp] =  ((uint16)Data_H << 8) | Data_L;
-			if(Pressure.cal_pr[temp] == 0xffff)	Pressure.cal_ad[temp] = 0xffff; 
-			else
-				Pressure.cal_ad[temp] = Pressure.ad;
-			write_eeprom(EEP_CAL_PR0+temp*4 + 1 , Data_H); 
-			write_eeprom(EEP_CAL_PR0+temp*4     , Data_L); 
-			write_eeprom(EEP_CAL_AD0+temp*4 + 1 , Pressure.cal_ad[temp] >> 8);
-			write_eeprom(EEP_CAL_AD0+temp*4     , Pressure.cal_ad[temp]);
-			Pressure.cal_table_enable = 1;
+			HumSensor.T_Filter = Data_L;
+			write_eeprom(EEP_EXT_TEMPERATURE_FILTER,Data_L); 
 		}
-		 
-	} 
-	else if(StartAdd == MODBUS_TABLE_SEL)
-	{
-		if((Data_L == USER_TABLE)||(Data_L == FACTORY_TABLE))
+		else if(StartAdd == MODBUS_HUIDITY_FILTER) 
 		{
-			Pressure.table_sel = Data_L;
-			write_eeprom(EEP_TABLE_SEL , Data_L);  
-			Pressure.cal_table_enable = 1;
-			Pressure.org_val_offset = 0;  
-			write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
-			write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
-		} 
-	} 
-	else if(StartAdd == MODBUS_USER_CAL_POINT)
-	{
-		Pressure.user_cal_point = Data_L;
-		write_eeprom(EEP_USER_CAL_POINT,Data_L); 
-		Pressure.cal_table_enable = 1;
-		Pressure.org_val_offset = 0;  
-		write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET,Pressure.org_val_offset);
-		write_eeprom(EEP_PRESSURE_VALUE_ORG_OFFSET + 1,Pressure.org_val_offset >> 8);
-	}
-	else if((StartAdd >= MODBUS_USER_CAL_PR0) && (StartAdd <= MODBUS_USER_CAL_AD9))
-	{
-		u8 temp;
-		temp = StartAdd- MODBUS_USER_CAL_PR0;
-		if(temp%2 == 0)
-		{ 
-			temp/=2;
-			Pressure.user_cal_pr[temp] =  ((uint16)Data_H << 8) | Data_L;
-			if(Pressure.user_cal_pr[temp] == 0xffff)	Pressure.user_cal_ad[temp] = 0xffff; 
-			else
-				Pressure.user_cal_ad[temp] = Pressure.ad;
-			write_eeprom(EEP_USER_CAL_PR0+temp*4 + 1 , Data_H); 
-			write_eeprom(EEP_USER_CAL_PR0+temp*4     , Data_L); 
-			write_eeprom(EEP_USER_CAL_AD0+temp*4 + 1 , Pressure.user_cal_ad[temp] >> 8);
-			write_eeprom(EEP_USER_CAL_AD0+temp*4     , Pressure.user_cal_ad[temp]);
-			Pressure.cal_table_enable = 1;
+			HumSensor.H_Filter = Data_L;
+			write_eeprom(EEP_HUMIDITY_FILTER,Data_L); 
 		}
-		 
-	}
-#else
+ 
 		else if(StartAdd == MODBUS_TABLE_SEL)
 		{
 			if((Data_L == USER)||(Data_L == FACTORY))
@@ -1475,9 +2345,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			HumSensor.offset_h_default = ((uint16)Data_H << 8) | Data_L;  
 			write_eeprom(EEP_CAL_DEFAULT_HUM ,Data_L);
 			write_eeprom(EEP_CAL_DEFAULT_HUM + 1,Data_H);	
-		}
-	 
-#endif
+		} 
 		else if(StartAdd == MODBUS_REPLY_DELAY)
 		{  
 			reply_delay_time = Data_L; 
@@ -1530,6 +2398,16 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
 				SoftReset();
 			}
+		}
+		else if(StartAdd == MODBUS_AUTO_HEAT_CONTROL)
+		{  
+			if((Data_L == 0)||(Data_L == 1))
+			{
+				auto_heat_enable = Data_L; 
+				write_eeprom(EEP_AUTO_HEAT_CONTROL,Data_L);
+				external_operation_value = 0;
+				external_operation_flag = HUM_HEATER;
+			}  
 		}
 //------------------------pid1---------------------------------		
 		else if(StartAdd == MODBUS_PID1_MODE)
@@ -1672,6 +2550,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			write_eeprom(EEP_OUTPUT_CO2_CUR_OFFSET ,Data_L);
 			write_eeprom(EEP_OUTPUT_CO2_CUR_OFFSET + 1,Data_H);	
 		} 
+	} 
 } 
 
 
@@ -1686,9 +2565,10 @@ void responseCmd(u8 type, u8* pData)
 	u16  RegNum;
 	u8 cmd  ;
 	u16 StartAdd ;
+	
 	if(type == 0)
 	{
-		HeadLen = 0 ;	
+		HeadLen = 0 ;	 
 	}
 	else
 	{
@@ -1696,8 +2576,12 @@ void responseCmd(u8 type, u8* pData)
 		for(i=0; i<6; i++)
 		{
 			sendbuf[i] = 0 ;	
-		}
-		
+		} 
+	}
+	if(pData[HeadLen] == 0)
+	{
+		serial_restart();
+		return;  // if id = 0, it is the broadcast cmd, we reply nothing.
 	}
 	cmd = pData[HeadLen + 1]; 
 	StartAdd = (u16)(pData[HeadLen + 2] <<8 ) + pData[HeadLen + 3];
@@ -1798,283 +2682,317 @@ void responseCmd(u8 type, u8* pData)
 		for(i = 0; i < RegNum; i++)
 		{
 			address = StartAdd + i;
-			if(address <= MODBUS_SERIALNUMBER_HIWORD + 1)
-			{
-				temp1 = 0 ;
-				temp2 = modbus.serial_Num[address] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_VERSION_NUMBER_LO)
-			{
-				temp1 = 0 ;
-				temp2 =  (u8)(SOFTREV) ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);		
-			}
-			else if(address == MODBUS_VERSION_NUMBER_HI)
-			{
-				temp1 = 0 ;
-				temp2 =  (u8)(SOFTREV >> 8) ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);	
-			}
-			else if(address == MODBUS_ADDRESS)
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.address;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);		
-			}
-			else if(address == MODBUS_PRODUCT_MODEL)
-			{
-				temp1 = 0 ;
-				temp2 =  PRODUCT_ID;//modbus.product;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_HARDWARE_REV)
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.hardware_Rev;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);				
-			} 
-			else if(address == MODBUS_SENSOR_TYPE)
-			{ 
-				temp1 = 0 ;
-				temp2 =  SENSOR_TYPE;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);	
-			}
-			else if((address == MODBUS_BAUDRATE)||(address == MODBUS_BAUDRATE_SPARE)) 
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.baud;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);				
-			}
-			
-//			else if(address == MODBUS_BASE_ADDRESS)
-//			{
-//				temp1 = 0 ;
-//				temp2 =  0;
-//				uart_send[send_cout++] = temp1 ;
-//				uart_send[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
-			else if(address == MODBUS_UPDATE_STATUS)
-			{
-				temp1 = 0 ;
-				temp2 =   modbus.update;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_SERINALNUMBER_WRITE_FLAG)
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.SNWriteflag ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PROTOCOL_TYPE)
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.protocal ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_MAC_ADDRESS_1)&&(address<= MODBUS_MAC_ADDRESS_6))
-			{
-				address_temp = address - MODBUS_MAC_ADDRESS_1 ;
-				temp1 = 0 ;
-				temp2 =  modbus.mac_addr[address_temp] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_IP_MODE)
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.ip_mode ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_IP_ADDRESS_1)&&(address<= MODBUS_IP_ADDRESS_4))
-			{
-				address_temp = address - MODBUS_IP_ADDRESS_1 ;
-				temp1 = 0 ;
-				temp2 =  modbus.ip_addr[address_temp] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_SUB_MASK_ADDRESS_1)&&(address<= MODBUS_SUB_MASK_ADDRESS_4))
-			{
-				address_temp = address - MODBUS_SUB_MASK_ADDRESS_1 ;
-				temp1 = 0 ;
-				temp2 =  modbus.mask_addr[address_temp] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_GATEWAY_ADDRESS_1)&&(address<= MODBUS_GATEWAY_ADDRESS_4))
-			{
-				address_temp = address - MODBUS_GATEWAY_ADDRESS_1 ;
-				temp1 = 0 ;
-				temp2 =  modbus.gate_addr[address_temp] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_TCP_SERVER)
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.tcp_server ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_LISTEN_PORT)
-			{
-				temp1 = (modbus.listen_port>>8)&0xff ;
-				temp2 =  modbus.listen_port &0xff ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_GHOST_IP_MODE)
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.ghost_ip_mode;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_GHOST_IP_ADDRESS_1)&&(address<= MODBUS_GHOST_IP_ADDRESS_4))
-			{
-				address_temp = address - MODBUS_GHOST_IP_ADDRESS_1 ;
-				temp1 = 0 ;
-				temp2 =  modbus.ghost_ip_addr[address_temp] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			
-			else if((address >= MODBUS_GHOST_SUB_MASK_ADDRESS_1)&&(address<= MODBUS_GHOST_SUB_MASK_ADDRESS_4))
-			{
-				address_temp = address - MODBUS_GHOST_SUB_MASK_ADDRESS_1 ;
-				temp1 = 0 ;
-				temp2 =  modbus.ghost_mask_addr[address_temp] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_GHOST_GATEWAY_ADDRESS_1)&&(address<= MODBUS_GHOST_GATEWAY_ADDRESS_4))
-			{
-				address_temp = address - MODBUS_GHOST_GATEWAY_ADDRESS_1 ;
-				temp1 = 0 ;
-				temp2 =  modbus.ghost_gate_addr[address_temp] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_GHOST_TCP_SERVER)
-			{
-				temp1 = 0 ;
-				temp2 =  modbus.ghost_tcp_server ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_GHOST_LISTEN_PORT)
-			{
-				temp1 = (modbus.ghost_listen_port>>8)&0xff ;
-				temp2 =  modbus.ghost_listen_port &0xff ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_WRITE_GHOST_SYSTEM)
+			if(address  < ORIGINALADDRESSVALUE)
+			{	
+				if(address <= MODBUS_SERIALNUMBER_HIWORD + 1)
 				{
-				temp1 = 0 ;
-				temp2 = modbus.write_ghost_system;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_MAC_ENABLE)
-			{				
-				temp1 = 0 ;
-				temp2 = modbus.mac_enable;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);	
-			} 
-			else if(address == MODBUS_RESET)
-			{ 				
+					temp1 = 0 ;
+					temp2 = modbus.serial_Num[address] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_VERSION_NUMBER_LO)
+				{
+					temp1 = 0 ;
+					temp2 =  (u8)(SOFTREV) ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);		
+				}
+				else if(address == MODBUS_VERSION_NUMBER_HI)
+				{
+					temp1 = 0 ;
+					temp2 =  (u8)(SOFTREV >> 8) ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);	
+				}
+				else if(address == MODBUS_ADDRESS)
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.address;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);		
+				}
+				else if(address == MODBUS_PRODUCT_MODEL)
+				{
+					temp1 = 0 ;
+					temp2 =   PRODUCT_ID;//modbus.product;//44 for test
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HARDWARE_REV)
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.hardware_Rev;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				} 
+				else if(address == MODBUS_HUM_VERSION)
+				{ 
+					temp1= 0;
+					temp2= humidity_version;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
+				else if(address == MODBUS_SENSOR_TYPE)
+				{ 
+					temp1 = 0 ;
+					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)) 
+						temp2 =  SENSOR_TYPE1;
+					else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) ) 
+						temp2 =  SENSOR_TYPE2;
+					else
+						temp2 =  SENSOR_TYPE3;
+					
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);	
+				}
+				else if(address == MODBUS_BAUDRATE) 
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.baud;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
 				
-				temp1 = 0 ;
-				temp2 = modbus.reset ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			
-			
+	 
+				else if(address == MODBUS_UPDATE_STATUS)
+				{
+					temp1 = 0 ;
+					temp2 =   modbus.update;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SERINALNUMBER_WRITE_FLAG)
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.SNWriteflag ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PROTOCOL_TYPE)
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.protocal ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(i + address == MODBUS_INSTANCE_LOWORD)
+				{   
+					temp1 = Instance>>8 ;
+					temp2 = Instance;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(i + address == MODBUS_INSTANCE_HIWORD)
+				{   
+					temp1 = Instance>>24;
+					temp2 =  Instance>>16;
+					sendbuf[send_cout++] = temp1;
+					sendbuf[send_cout++] = temp2;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(i + address == MODBUS_STATION_NUMBER)
+				{   
+					temp1 = 0 ;
+					temp2 =  Station_NUM;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_MAC_ADDRESS_1)&&(address<= MODBUS_MAC_ADDRESS_6))
+				{
+					address_temp = address - MODBUS_MAC_ADDRESS_1 ;
+					temp1 = 0 ;
+					temp2 =  modbus.mac_addr[address_temp] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_IP_MODE)
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.ip_mode ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_IP_ADDRESS_1)&&(address<= MODBUS_IP_ADDRESS_4))
+				{
+					address_temp = address - MODBUS_IP_ADDRESS_1 ;
+					temp1 = 0 ;
+					temp2 =  modbus.ip_addr[address_temp] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_SUB_MASK_ADDRESS_1)&&(address<= MODBUS_SUB_MASK_ADDRESS_4))
+				{
+					address_temp = address - MODBUS_SUB_MASK_ADDRESS_1 ;
+					temp1 = 0 ;
+					temp2 =  modbus.mask_addr[address_temp] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_GATEWAY_ADDRESS_1)&&(address<= MODBUS_GATEWAY_ADDRESS_4))
+				{
+					address_temp = address - MODBUS_GATEWAY_ADDRESS_1 ;
+					temp1 = 0 ;
+					temp2 =  modbus.gate_addr[address_temp] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_TCP_SERVER)
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.tcp_server ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_LISTEN_PORT)
+				{
+					temp1 = (modbus.listen_port>>8)&0xff ;
+					temp2 =  modbus.listen_port &0xff ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_GHOST_IP_MODE)
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.ghost_ip_mode;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_GHOST_IP_ADDRESS_1)&&(address<= MODBUS_GHOST_IP_ADDRESS_4))
+				{
+					address_temp = address - MODBUS_GHOST_IP_ADDRESS_1 ;
+					temp1 = 0 ;
+					temp2 =  modbus.ghost_ip_addr[address_temp] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if((address >= MODBUS_GHOST_SUB_MASK_ADDRESS_1)&&(address<= MODBUS_GHOST_SUB_MASK_ADDRESS_4))
+				{
+					address_temp = address - MODBUS_GHOST_SUB_MASK_ADDRESS_1 ;
+					temp1 = 0 ;
+					temp2 =  modbus.ghost_mask_addr[address_temp] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_GHOST_GATEWAY_ADDRESS_1)&&(address<= MODBUS_GHOST_GATEWAY_ADDRESS_4))
+				{
+					address_temp = address - MODBUS_GHOST_GATEWAY_ADDRESS_1 ;
+					temp1 = 0 ;
+					temp2 =  modbus.ghost_gate_addr[address_temp] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_GHOST_TCP_SERVER)
+				{
+					temp1 = 0 ;
+					temp2 =  modbus.ghost_tcp_server ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_GHOST_LISTEN_PORT)
+				{
+					temp1 = (modbus.ghost_listen_port>>8)&0xff ;
+					temp2 =  modbus.ghost_listen_port &0xff ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_WRITE_GHOST_SYSTEM)
+					{
+					temp1 = 0 ;
+					temp2 = modbus.write_ghost_system;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_MAC_ENABLE)
+				{				
+					temp1 = 0 ;
+					temp2 = modbus.mac_enable;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);	
+				}
+				else
+				{
+					temp1 = 0 ;
+					temp2 = 0;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+			} 
 			else if((address >= MODBUS_TEST0)&&(address <= MODBUS_TEST19))
 			{ 				
 				
-				test[0] = sizeof(Str_out_point); //45
-				test[1] = sizeof(Str_in_point);  //46
-				test[2] = sizeof(Str_variable_point);//39
-				test[3] = sizeof(Str_program_point); //37
-				test[4] = sizeof(Str_weekly_routine_point);//42
-				test[5] = sizeof(Str_annual_routine_point);//33
-				test[6] = sizeof(Wr_one_day); //16
-				test[7] = sizeof(Str_controller_point);//28
-				test[8] = MODBUS_CONTROLLER_BLOCK_FIRST;
-				test[9] = MODBUS_CONTROLLER_BLOCK_LAST;
+//				test[0] = sizeof(Str_out_point); //45
+//				test[1] = sizeof(Str_in_point);  //46
+//				test[2] = sizeof(Str_variable_point);//39
+//				test[3] = sizeof(Str_program_point); //37
+//				test[4] = sizeof(Str_weekly_routine_point);//42
+//				test[5] = sizeof(Str_annual_routine_point);//33
+//				test[6] = sizeof(Wr_one_day); //16
+//				test[7] = sizeof(Str_controller_point);//28
+//				test[8] = MODBUS_CONTROLLER_BLOCK_FIRST;
+//				test[9] = MODBUS_CONTROLLER_BLOCK_LAST;
 				temp1 = test[address - MODBUS_TEST0] >> 8 ;
 				temp2 = test[address - MODBUS_TEST0] ;
 				
@@ -2083,86 +3001,7 @@ void responseCmd(u8 type, u8* pData)
 				crc16_byte(temp1);
 				crc16_byte(temp2);
 			}
-//			else if(address == MODBUS_TEST3)
-//			{ 				
-//				temp1 = test[1] >> 8 ;
-//				temp2 = test[1] ;
-//				
-//				sendbuf[send_cout++] = temp1 ;
-//				sendbuf[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
-//			else if(address == MODBUS_TEST4)
-//			{ 				
-//				temp1 = test[2] >> 8 ;
-//				temp2 = test[2] ;
-//				
-//				sendbuf[send_cout++] = temp1 ;
-//				sendbuf[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
-//			else if(address == MODBUS_TEST5)
-//			{ 				
-//				temp1 = test[3] >> 8 ;
-//				temp2 = test[3] ;
-//				
-//				sendbuf[send_cout++] = temp1 ;
-//				sendbuf[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
-//			else if(address == MODBUS_TEST6)
-//			{ 				
-//				temp1 = test[4] >> 8 ;
-//				temp2 = test[4] ;
-//				
-//				sendbuf[send_cout++] = temp1 ;
-//				sendbuf[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
-//			else if(address == MODBUS_TEST7)
-//			{ 				 
-//				temp1 = test[5] >> 8 ;
-//				temp2 = test[5] ;
-//				
-//				sendbuf[send_cout++] = temp1 ;
-//				sendbuf[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
-//			else if(address == MODBUS_TEST8)
-//			{ 				
-//				temp1 = test[6] >> 8 ;
-//				temp2 = test[6] ;
-//				
-//				sendbuf[send_cout++] = temp1 ;
-//				sendbuf[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
-//			else if(address == MODBUS_TEST9)
-//			{ 				
-//				temp1 = test[7] >> 8 ;
-//				temp2 = test[7] ;
-//				
-//				sendbuf[send_cout++] = temp1 ;
-//				sendbuf[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
-//			else if(address == MODBUS_TEST10)
-//			{ 				 
-//				temp1 = test[8] >> 8 ;
-//				temp2 = test[8] ;
-//				
-//				sendbuf[send_cout++] = temp1 ;
-//				sendbuf[send_cout++] = temp2 ;
-//				crc16_byte(temp1);
-//				crc16_byte(temp2);
-//			}
+ 
 /*********************************************************************************/
 /******************* read IN OUT by block start ******************************************/
 			else if(address >= MODBUS_USER_BLOCK_FIRST && address <= MODBUS_USER_BLOCK_LAST)
@@ -2178,1377 +3017,2591 @@ void responseCmd(u8 type, u8* pData)
 				crc16_byte(temp2);
 			} 
 /*******************************after register 100****************************************************/				
-		 
-			
-			else if(address == MODBUS_TEMPERATURE_SENSOR_SELECT)
-			{ 
-				temp1 =0 ;
-				temp2 = temperature_sensor_select  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_TEMPERATURE_DEGREE_C_OR_F)
-			{ 
-				temp1 = 0 ;
-				temp2 = deg_c_or_f  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_INTERNAL_TEMPERATURE_CELSIUS)
-			{  
-				temp1 = internal_temperature_c >> 8 ;
-				temp2 = internal_temperature_c  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_INTERNAL_TEMPERATURE_FAHRENHEIT)
-			{ 
-				temp1 = internal_temperature_f >> 8 ;
-				temp2 = internal_temperature_f  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_EXTERNAL_TEMPERATURE_CELSIUS)
-			{  
-				temp1 = HumSensor.temperature_c >> 8 ;
-				temp2 = HumSensor.temperature_c  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_EXTERNAL_TEMPERATURE_FAHRENHEIT)
-			{ 
-				temp1 = HumSensor.temperature_f >> 8 ;
-				temp2 = HumSensor.temperature_f  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_TEMPERATURE_OFFSET_INTERNAL)
-			{ 
-				temp1 = internal_temperature_offset >> 8 ;
-				temp2 = internal_temperature_offset  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_HUMIDITY)||(address == MODBUS_HUMIDITY_SPARE))
-			{  
-				temp1 = HumSensor.humidity >> 8 ;
-				temp2 = HumSensor.humidity  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_HUMIDITY_FREQUENCY)
-			{  
-				temp1 = HumSensor.frequency >> 8 ;
-				temp2 = HumSensor.frequency  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}	
-				
-			else if(address == MODBUS_HUM_SENSOR_HEATING)
+			else if((address < MODBUS_HUM_END )&&((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485)))
 			{
-				temp1 = 0;
-				temp2 = hum_heat_status;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}	
-				
-			else if(address == MODBUS_CO2_INTERNAL_EXIST)
-			{ 				
-				
-				temp1 = internal_co2_module_type >> 8 ;
-				temp2 = internal_co2_module_type  ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_CO2_INTERNAL)
-			{ 
-				temp1= HIGH_BYTE(int_co2_str.co2_int);
-				temp2= LOW_BYTE(int_co2_str.co2_int);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_CO2_INTERNAL_OFFSET)
-			{ 
-				temp1= HIGH_BYTE(int_co2_str.co2_offset);
-				temp2= LOW_BYTE(int_co2_str.co2_offset);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_CO2_INTERNAL_PREALARM_SETPOINT)
-			{ 
-				temp1= HIGH_BYTE(int_co2_str.pre_alarm_setpoint) ;
-				temp2=LOW_BYTE(int_co2_str.pre_alarm_setpoint);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_CO2_INTERNAL_ALARM_SETPOINT)
-			{ 
-				temp1= HIGH_BYTE(int_co2_str.alarm_setpoint);
-				temp2= LOW_BYTE(int_co2_str.alarm_setpoint);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_CO2_EXTERNAL_START) && ( address < MODBUS_CO2_EXTERANL_END))
-			{ 
-				temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_START].co2_int) ;
-				temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_START].co2_int) ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_CO2_EXTERNAL_OFFSET_START) && (address < MODBUS_CO2_EXTERNAL_OFFSET_END))
-			{ 
-				temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_OFFSET_START].co2_offset);
-				temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_OFFSET_START].co2_offset);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START) && (address < MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_END))
-			{ 
-				temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START].pre_alarm_setpoint) ;
-				temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START].pre_alarm_setpoint);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START) && (i + address < MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_END))
-			{ 
-				temp1= HIGH_BYTE(ext_co2_str[i + address - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START].alarm_setpoint);
-				temp2= LOW_BYTE(ext_co2_str[i + address - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START].alarm_setpoint);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_CO2_SLOPE_DETECT_VALUE)
-			{ 
-				temp1= HIGH_BYTE(co2_slope_detect_value);
-				temp2= LOW_BYTE(co2_slope_detect_value);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_CO2_FILTER)
-			{ 
-				temp1= 0;
-				temp2= int_co2_filter;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PASSWORD_ENABLE)
-			{ 
-				temp1= 0;
-				temp2= use_password;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_USER_PASSWORD0) && (address <= MODBUS_USER_PASSWORD3))
-			{
-				temp1= 0;
-				temp2= user_password[address - MODBUS_USER_PASSWORD0];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-//			else if(i + address == MODBUS_RTC_CENTURY)
-//			{
-//				main_send_byte(0, TRUE);
-//				main_send_byte(Modbus.Time.Clk.century, TRUE);
-//			}
-			else if(address == MODBUS_RTC_YEAR)
-			{
-				temp1= HIGH_BYTE(calendar.w_year);
-				temp2= LOW_BYTE(calendar.w_year);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address== MODBUS_RTC_MONTH)
-			{
-				temp1= 0;
-				temp2= LOW_BYTE(calendar.w_month);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address== MODBUS_RTC_DAY)
-			{
-				temp1= 0;
-				temp2= LOW_BYTE(calendar.w_date);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_RTC_WEEK)
-			{
-				temp1= 0;
-				temp2= LOW_BYTE(calendar.week);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_RTC_HOUR)
-			{
-				temp1= 0;
-				temp2= LOW_BYTE(calendar.hour);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_RTC_MINUTE)
-			{
-				temp1= 0;
-				temp2= LOW_BYTE(calendar.min);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_RTC_SECOND)
-			{
-				temp1= 0;
-				temp2= LOW_BYTE(calendar.sec);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_ALARM_AUTO_MANUAL)
-			{ 
-				temp1= 0 ;
-				temp2= alarm_state;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRE_ALARM_SETTING_ON_TIME)
-			{ 
-				temp1= 0;
-				temp2= pre_alarm_on_time;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRE_ALARM_SETTING_OFF_TIME)
-			{ 
-				temp1= 0;
-				temp2= pre_alarm_off_time;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_ALARM_DELAY_TIME)
-			{ 
-				temp1= 0;
-				temp2= alarm_delay_time;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_AUTO_MANUAL)||(address == MODBUS_OUTPUT_AUTO_MANUAL_SPARE)||(address == MODBUS_INPUT_AUTO_MANUAL_PRE))
-			{ 
-				temp1= 0;
-				temp2= output_auto_manual;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_MANUAL_VALUE_TEM)||(address == MODBUS_OUTPUT_MANUAL_VALUE_TEM_SPARE))
-			{ 
-				temp1= HIGH_BYTE(output_manual_value_temp) ;
-				temp2= LOW_BYTE(output_manual_value_temp);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_MANUAL_VALUE_HUM)||(address == MODBUS_OUTPUT_MANUAL_VALUE_HUM_SPARE))
-			{ 
-				temp1= HIGH_BYTE(output_manual_value_humidity);
-				temp2= LOW_BYTE(output_manual_value_humidity);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_MANUAL_VALUE_CO2)||(address == MODBUS_OUTPUT_MANUAL_VALUE_CO2_SPARE)||(address == MODBUS_INPUTPUT_MANUAL_VALUE_PRE))
-			{ 
-				temp1= HIGH_BYTE(output_manual_value_co2);
-				temp2= LOW_BYTE(output_manual_value_co2);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if((address == MODBUS_OUTPUT_MODE)||(address == MODBUS_OUTPUT_MODE_SPARE)||(address == MODBUS_OUTPUT_MODE_SPARE1)) 
-			{ 
-				temp1= 0 ;
-				temp2= output_mode;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_RANGE_MIN_TEM)||(address == MODBUS_OUTPUT_RANGE_MIN_TEM_SPARE))
-			{ 
-				temp1= HIGH_BYTE(output_range_table[CHANNEL_TEMP].min);
-				temp2= LOW_BYTE(output_range_table[CHANNEL_TEMP].min);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_RANGE_MAX_TEM)||(address == MODBUS_OUTPUT_RANGE_MAX_TEM_SPARE))
-			{ 
-				temp1= HIGH_BYTE(output_range_table[CHANNEL_TEMP].max);
-				temp2= LOW_BYTE(output_range_table[CHANNEL_TEMP].max);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_RANGE_MIN_HUM)||(address == MODBUS_OUTPUT_RANGE_MIN_HUM_SPARE)||(address == MODBUS_OUTPUT_RANGE_MIN_PRESSURE))
-			{ 
-				temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].min);
-				temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].min) ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_RANGE_MAX_HUM)||(address == MODBUS_OUTPUT_RANGE_MAX_HUM_SPARE)||(address == MODBUS_OUTPUT_RANGE_MAX_PRESSURE))
-			{ 
-				temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].max);
-				temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].max);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_RANGE_MIN_CO2)||(address == MODBUS_DEW_PT_MIN)||(address == MODBUS_OUTPUT_RANGE_MIN_CO2_SPARE))
-			{ 
-				temp1= HIGH_BYTE(output_range_table[CHANNEL_CO2].min);
-				temp2= LOW_BYTE(output_range_table[CHANNEL_CO2].min);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address == MODBUS_OUTPUT_RANGE_MAX_CO2)||(address == MODBUS_DEW_PT_MAX)||(address == MODBUS_OUTPUT_RANGE_MAX_CO2_SPARE))
-			{ 
-				temp1= HIGH_BYTE(output_range_table[CHANNEL_CO2].max);
-				temp2= LOW_BYTE(output_range_table[CHANNEL_CO2].max);
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-//			else if(address == MODBUS_MENU_BLOCK_SECONDS)
-//			{
-//				main_send_byte(0, TRUE);
-//				main_send_byte(menu_block_seconds, TRUE);
-//			}
-			else if(address == MODBUS_BACKLIGHT_KEEP_SECONDS)
-			{ 
-				temp1= 0 ;
-				temp2= backlight_keep_seconds ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY)
-			{ 
-				temp1= 0 ;
-				temp2= external_nodes_plug_and_play ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_SCAN_DB_CTR)
-			{ 
-				temp1= 0 ;
-				temp2= db_ctr;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_RESET_SCAN_DB)
-			{ 
-				temp1= 0;
-				temp2= reset_scan_db_flag;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_SCAN_START) && (address < MODBUS_SCAN_END))
-			{
-				uint8 A, B;
-				A = (i + address - MODBUS_SCAN_START) / SCAN_DB_SIZE;
-				B = (i + address - MODBUS_SCAN_START) % SCAN_DB_SIZE;
-				temp1 = 0;
-				switch(B)
-				{
-					case 0:
-						temp2 = scan_db[A].id ;  
-						break;
-					case 1:
-						temp2 = (uint8)(scan_db[A].sn >> 0) ;
-						break;
-					case 2:
-						temp2 = (uint8)(scan_db[A].sn >> 8) ;
-						break;
-					case 3:
-						temp2 = (uint8)(scan_db[A].sn >> 16);
-						break;
-					case 4:
-						temp2 = (uint8)(scan_db[A].sn >> 24);
-						break;
-				} 
-				
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_GET_NODES_PARA_START) && (address < MODBUS_GET_NODES_PARA_END))
-			{ 
-				temp1= 0;
-				temp2= get_para[i + address - MODBUS_GET_NODES_PARA_START] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_SCAN_OCCUPY_START) && (address < MODBUS_SCAN_OCCUPY_END))
-			{ 
-				temp1= 0;
-				temp2= db_occupy[i + address - MODBUS_SCAN_OCCUPY_START] ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_SCAN_ONLINE_START) && (address < MODBUS_SCAN_ONLINE_END))
-			{ 
-				temp1= 0;
-				temp2= db_online[i + address - MODBUS_SCAN_ONLINE_START];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			
-			else if(address == MODBUS_INT_TEMPRATURE_FILTER) 
-			{
-				temp1= 0;
-				temp2= Temperature_Filter;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_EXT_TEMPRATURE_FILTER) 
-			{ 
-				temp1= 0;
-				temp2= HumSensor.T_Filter ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_HUIDITY_FILTER) 
-			{ 
-				temp1= 0;
-				temp2= HumSensor.H_Filter;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-#ifdef PRESSURE_SENSOR
-			else if(address == MODBUS_PRESSURE_SENSOR_MODEL ) // 0=26PCF (0-100PSI),1=26PCG (0-250PSI), 10 = MPXV7002(-8 ~ +8 inWC),11=MPXV7007(-27 ~ +27 inWC)
-			{ 
-				temp1= 0;
-				temp2= Pressure.SNR_Model;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRESSURE_UNIT)
-			{ 
-				temp1= 0;
-				temp2= Pressure.unit;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}	 
-			else if(address == MODBUS_PRESSURE_UNIT_DEFAULT)
-			{ 
-				temp1= 0;
-				temp2= Pressure.default_unit;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-//			else if(address == MODBUS_OUTPUT_RANGE_MIN_PRESSURE)
-//			{
-//				send_byte(Pressure.range_press[0] >> 8, TRUE);
-//				send_byte(Pressure.range_press[0], TRUE);
-//			}
-//			else if(address == MODBUS_OUTPUT_RANGE_MAX_PRESSURE)
-//			{
-//				send_byte(Pressure.range_press[1] >> 8, TRUE);
-//				send_byte(Pressure.range_press[1], TRUE);
-//			}
-			else if(address == MODBUS_PRESSURE_FILTER)
-			{ 
-				temp1= 0;
-				temp2= Pressure.filter;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}	
-			else if(address == MODBUS_PRESSURE_SLOPE)
-			{
-				u16 itemp;
-				itemp =  Pressure.k_line*100; 
-				temp1= itemp >> 8;
-				temp2= itemp;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRESSURE_INTERCEPT)  
-			{
-				u16 itemp;
-				itemp =  Pressure.b_line; 
-				temp1= itemp >> 8;
-				temp2= itemp;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-//			else if(address == MODBUS_INPUT_AUTO_MANUAL_PRE)//0 = AUTO,1 = MANUAL
-//			{
-//				send_byte(0, TRUE);
-//				send_byte(Pressure.auto_manu, TRUE);
-//			}
-//			else if(address == MODBUS_INPUTPUT_MANUAL_VALUE_PRE)
-//			{
-//				send_byte(Pressure.manu_val >> 8, TRUE);
-//				send_byte(Pressure.manu_val, TRUE);
-//			}
-			else if(address == MODBUS_PREESURE_AD) 
-			{ 
-				temp1= Pressure.ad >> 8;
-				temp2= Pressure.ad ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRESSURE_VALUE_ORG)
-			{ 
-				temp1= Pressure.org_val >> 8;
-				temp2= Pressure.org_val;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}	
-			else if(address == MODBUS_PRESSURE_VALUE_ORG_OFFSET)
-			{ 
-				temp1= Pressure.org_val_offset >> 8;
-				temp2= Pressure.org_val_offset;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRESSURE_VALUE_INDEX)
-			{ 
-				temp1= Pressure.index>>8;
-				temp2= Pressure.index;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRESSURE_VALUE_BASE_L)
-			{ 
-				temp1= Pressure.base >> 8;
-				temp2= Pressure.base ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRESSURE_VALUE_BASE_H)
-			{ 
-				temp1= Pressure.base >> 24;
-				temp2= Pressure.base >> 16;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PRESSURE_CAL_POINT)
-			{ 
-				temp1= 0;
-				temp2= Pressure.cal_point;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_PRESSURE_CAL_PR0) && (address <= MODBUS_PRESSURE_CAL_AD9))
-			{
-				u8 temp;
-				temp = address- MODBUS_PRESSURE_CAL_PR0;
-				if(temp%2 == 0)
-				{
-					temp/=2;
-					temp1 = Pressure.cal_pr[temp]>>8 ;
-					temp2 = Pressure.cal_pr[temp] ;
+				 			
+				if(address == MODBUS_HUM_TEMPERATURE_DEGREE_C_OR_F)
+				{ 
+					temp1 = 0 ;
+					temp2 = deg_c_or_f  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
 				}
-				else
-				{
-					temp/=2;
-					temp1 = Pressure.cal_ad[temp]>>8 ;
-					temp2 = Pressure.cal_ad[temp] ;
-				} 
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_TABLE_SEL)
-			{ 
-				temp1= 0;
-				temp2= Pressure.table_sel;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_USER_CAL_POINT)
-			{ 
-				temp1= 0;
-				temp2= Pressure.user_cal_point;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_USER_CAL_PR0) && (address <= MODBUS_USER_CAL_AD9))
-			{
-				u8 temp;
-				temp = address- MODBUS_USER_CAL_PR0;
-				if(temp%2 == 0)
-				{
-					temp/=2;
-					temp1 = Pressure.user_cal_pr[temp]>>8 ;
-					temp2 = Pressure.user_cal_pr[temp] ;
+				 
+				else if(address == MODBUS_HUM_EXTERNAL_TEMPERATURE_CELSIUS)	
+				{  
+					temp1 = HumSensor.temperature_c >> 8 ;
+					temp2 = HumSensor.temperature_c  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
 				}
-				else
-				{
-					temp/=2;
-					temp1 = Pressure.user_cal_ad[temp]>>8 ;
-					temp2 = Pressure.user_cal_ad[temp] ;
-				} 
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_SENSOR_STATUS)
-			{ 		
-				temp1= Pressure.out_rng_flag;     //out range is high byte 
-				temp2= Pressure.sensor_status;    // read sensor status
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_AD_PRE)
-			{  
-				temp1= Pressure.ad >> 8;
-				temp2= Pressure.ad ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			 
-#else
-			else if(address == MODBUS_HUM_VERSION)
-			{ 
-				temp1= 0;
-				temp2= humidity_version;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);				
-			}
-			else if(address == MODBUS_HUM_SN)
-			{ 
-				temp1= HumSensor.sn>>8;
-				temp2= HumSensor.sn;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);				
-			}
-			else if(address == MODBUS_CAL_FAC_PTS)
-			{ 
-				temp1= HumSensor.counter>>8;
-				temp2= HumSensor.counter;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_TABLE_SEL)
-			{
-				temp1= 0;
-				temp2= table_sel;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
- 
-			else if((address >= MODBUS_HUMCOUNT1_H)&&(address<= MODBUS_HUMRH10_H))
-			{
-				uint8 temp,i,j;
-				temp = address - MODBUS_HUMCOUNT1_H;
-				i = temp /2;
-				j = temp %2;
-				if(j==0)
-				{	
-					temp1 = read_eeprom(HUMCOUNT1_H + i*4 + 1);	
-					temp2 = read_eeprom(HUMCOUNT1_H + i*4);     
-					 
+				else if(address == MODBUS_HUM_EXTERNAL_TEMPERATURE_FAHRENHEIT)
+				{ 
+					temp1 = HumSensor.temperature_f >> 8 ;
+					temp2 = HumSensor.temperature_f  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
 				}
-				else
-				{	
-					temp1 = read_eeprom(HUMRH1_H + i*4 + 1);	
-					temp2 = read_eeprom(HUMRH1_H + i*4);     
+				else if((address == MODBUS_HUM_HUMIDITY)||(address == MODBUS_HUM_HUMIDITY1))
+				{  
+					temp1 = HumSensor.humidity >> 8 ;
+					temp2 = HumSensor.humidity  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_FREQUENCY)
+				{  
+					temp1 = HumSensor.frequency >> 8 ;
+					temp2 = HumSensor.frequency  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}	
 					
+				else if(address == MODBUS_HUM_SENSOR_HEATING)
+				{
+					temp1 = 0;
+					temp2 = hum_heat_status;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}	 
+				else if(address == MODBUS_HUM_PASSWORD_ENABLE)
+				{ 
+					temp1= 0;
+					temp2= use_password;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_HUM_USER_PASSWORD0) && (address <= MODBUS_HUM_USER_PASSWORD3))
+				{
+					temp1= 0;
+					temp2= user_password[address - MODBUS_HUM_USER_PASSWORD0];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_LIGHT_FILTER)
+				{
+					temp1= 0;
+					temp2= light.filter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_LIGHT_AD)
+				{
+					temp1= light.ad >> 8;
+					temp2= light.ad;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_LIGHT_VALUE)
+				{
+					temp1= light.val >> 8;
+					temp2= light.val;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_LIGHT_K)
+				{
+					temp1= light.k >> 8;
+					temp2= light.k;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_OUTPUT_AUTO_MANUAL)
+				{ 
+					temp1= 0;
+					temp2= output_auto_manual;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_OUTPUT_MANUAL_VALUE_TEM)
+				{ 
+					temp1= HIGH_BYTE(output_manual_value_temp) ;
+					temp2= LOW_BYTE(output_manual_value_temp);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_OUTPUT_MANUAL_VALUE_HUM)
+				{ 
+					temp1= HIGH_BYTE(output_manual_value_humidity);
+					temp2= LOW_BYTE(output_manual_value_humidity);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_OUTPUT_MODE) 
+				{ 
+					temp1= 0 ;
+					temp2= output_mode;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_OUTPUT_RANGE_MIN_TEM)
+				{
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_TEMP].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_TEMP].min);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_OUTPUT_RANGE_MAX_TEM)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_TEMP].max);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_TEMP].max);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_OUTPUT_RANGE_MIN_HUM)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].min) ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_OUTPUT_RANGE_MAX_HUM)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].max);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].max);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_BACKLIGHT_KEEP_SECONDS)
+				{ 
+					temp1= 0 ;
+					temp2= backlight_keep_seconds ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_EXT_TEMPRATURE_FILTER) 
+				{ 
+					temp1= 0;
+					temp2= HumSensor.T_Filter ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_HUIDITY_FILTER) 
+				{ 
+					temp1= 0;
+					temp2= HumSensor.H_Filter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	 
+				
+				else if(address == MODBUS_HUM_HUMDITY_SN)
+				{ 
+					temp1= HumSensor.sn>>8;
+					temp2= HumSensor.sn;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
+				else if(address == MODBUS_HUM_CAL_FAC_PTS)
+				{ 
+					temp1= HumSensor.counter>>8;
+					temp2= HumSensor.counter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_TABLE_SEL)
+				{
+					temp1= 0;
+					temp2= table_sel;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	 
+				else if((address >= MODBUS_HUM_COUNT1_H)&&(address<= MODBUS_HUM_RH10_H))
+				{
+					uint8 temp,i,j;
+					temp = address - MODBUS_HUM_COUNT1_H;
+					i = temp /2;
+					j = temp %2;
+					if(j==0)
+					{	
+						temp1 = read_eeprom(HUMCOUNT1_H + i*4 + 1);	
+						temp2 = read_eeprom(HUMCOUNT1_H + i*4);     
+						 
+					}
+					else
+					{	
+						temp1 = read_eeprom(HUMRH1_H + i*4 + 1);	
+						temp2 = read_eeprom(HUMRH1_H + i*4);     
+						
+					} 
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_USER_POINTS)
+				{ 
+					temp1= 0;
+					temp2= hum_size_copy ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_HUM_USER_RH1)&&(address<= MODBUS_HUM_USER_FRE10))
+				{
+					uint8 temp,i,j;
+					temp = address - MODBUS_HUM_USER_RH1;
+					i = temp /2;
+					j = temp %2;
+					if(j==1)
+					{	
+						temp1 = read_eeprom(EEP_USER_FRE1 + i*4 + 1) ;	
+						temp2 = read_eeprom(EEP_USER_FRE1 + i*4) ;      
+					}
+					else
+					{	
+						temp1 = read_eeprom(EEP_USER_RH1 + + i*4 + 1);	
+						temp2 = read_eeprom(EEP_USER_RH1 + i*4) ;      
+					} 
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
 				} 
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_USER_POINTS)
-			{ 
-				temp1= 0;
-				temp2= hum_size_copy ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if((address >= MODBUS_USER_RH1)&&(address<= MODBUS_USER_FRE10))
-			{
-				uint8 temp,i,j;
-				temp = address - MODBUS_USER_RH1;
-				i = temp /2;
-				j = temp %2;
-				if(j==1)
-				{	
-					temp1 = read_eeprom(EEP_USER_FRE1 + i*4 + 1) ;	
-					temp2 = read_eeprom(EEP_USER_FRE1 + i*4) ;      
+				else if(address == MODBUS_HUM_DEW_PT)
+				{ 
+					temp1= HumSensor.dew_pt >> 8;
+					temp2= HumSensor.dew_pt;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_DEW_PT_F)
+				{ 
+					temp1= HumSensor.dew_pt_F>>8;
+					temp2= HumSensor.dew_pt_F ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_DIS_INFO)
+				{ 
+					temp1=  0;
+					temp2=  dis_hum_info;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_OUTPUT_SEL)
+				{ 
+					temp1=  0;
+					temp2=  analog_output_sel;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_HUM_PWS)
+				{ 	
+					temp1= HumSensor.Pws>>8 ;
+					temp2= HumSensor.Pws ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_MIX_RATIO)
+				{ 
+					temp1= HumSensor.Mix_Ratio>>8;
+					temp2= HumSensor.Mix_Ratio ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_ENTHALPY)
+				{ 
+					temp1= HumSensor.Enthalpy>>8;
+					temp2= HumSensor.Enthalpy ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				  
+				
+				else if(address == MODBUS_HUM_TEMP_OFFSET)
+				{ 
+					temp1=  HumSensor.offset_t >> 8;
+					temp2=  HumSensor.offset_t;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_HUM_HUMIDITY_OFFSET)
+				{ 
+					temp1= HumSensor.offset_h>>8;
+					temp2= HumSensor.offset_h ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_CAL_DEFAULT_HUM)
+				{ 	
+					temp1= HumSensor.offset_h_default>>8;
+					temp2= HumSensor.offset_h_default;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_HUM_K_LINE)
+				{
+					int16 itemp;
+					itemp = k_line * 1000;   
+					temp1= itemp >> 8;
+					temp2=  itemp;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_B_LINE)
+				{  
+					temp1= (int16)b_line >> 8;
+					temp2=  (int8)b_line;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	 
+				else if(address == MODBUS_HUM_REPLY_DELAY)
+				{ 
+					temp1=  0;
+					temp2=  reply_delay_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_RECEIVE_DELAY)
+				{ 
+					temp1=  0;
+					temp2=  receive_delay_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_UART1_PARITY)
+				{ 
+					temp1=  0;
+					temp2=  uart1_parity;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_AUTO_HEAT_CONTROL)
+				{ 
+					temp1=  0;
+					temp2=  auto_heat_enable;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_ORIGINAL_HUM)
+				{ 
+					temp1=  HumSensor.org_hum>>8;
+					temp2=  HumSensor.org_hum;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_DEW_PT_MIN)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_CO2].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_CO2].min);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//-----------------------------pid1-------------------------//			
+				else if(address == MODBUS_HUM_PID1_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_PID1_SETPOINT)
+				{ 
+					temp1=  PID[0].EEP_SetPoint >>8;
+					temp2=  PID[0].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_PID1_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_PID1_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_PID1_PID)
+				{ 
+					temp1=  PID[0].EEP_Pid>>8;
+					temp2=  PID[0].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_HUM_PID1_PID+1)
+				{ 
+					temp1=  controllers[0].value>>8;
+					temp2=  controllers[0].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_HUM_PID1_PID+2)
+				{ 
+					temp1=  controllers[0].value>>24;
+					temp2=  controllers[0].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+	//-----------------------------pid2-------------------------//			
+				else if(address == MODBUS_HUM_PID2_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_PID2_SETPOINT)
+				{ 
+					temp1=  PID[1].EEP_SetPoint >>8;
+					temp2=  PID[1].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_PID2_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_PID2_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_PID2_PID)
+				{ 
+					temp1=  PID[1].EEP_Pid>>8;
+					temp2=  PID[1].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_PID2_PID+1)
+				{ 
+					temp1=  controllers[1].value>>8;
+					temp2=  controllers[1].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_HUM_PID2_PID+2)
+				{ 
+					temp1=  controllers[1].value>>24;
+					temp2=  controllers[1].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//-----------------------------pid3-------------------------//			
+				else if(address == MODBUS_HUM_PID3_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_PID3_SETPOINT)
+				{ 
+					temp1=  PID[2].EEP_SetPoint >>8;
+					temp2=  PID[2].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_HUM_PID3_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_PID3_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_PID3_PID)
+				{ 
+					temp1=  PID[2].EEP_Pid>>8;
+					temp2=  PID[2].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_HUM_PID3_PID+1)
+				{ 
+					temp1=  controllers[2].value>>8;
+					temp2=  controllers[2].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_HUM_PID3_PID+2)
+				{ 
+					temp1=  controllers[2].value>>24;
+					temp2=  controllers[2].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_HUM_MODE_SELECT)
+				{ 
+					temp1=  0;
+					temp2= mode_select;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//---------------------end pid ------------------------			
+				
+				
+				 
+				else if( address == TSTAT_NAME_ENABLE)  
+				{ 
+					temp1= 0;
+					temp2= 0x56;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}	
+				else if((address >= TSTAT_NAME1) && (address <= TSTAT_NAME10))  
+				{
+					u16 temp = address - TSTAT_NAME1;  
+					temp1= panelname[temp * 2];
+					temp2= panelname[temp * 2 + 1];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
 				}
 				else
-				{	
-					temp1 = read_eeprom(EEP_USER_RH1 + + i*4 + 1);	
-					temp2 = read_eeprom(EEP_USER_RH1 + i*4) ;      
+				{
+					temp1 = 0 ;
+					temp2 = 0;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+			}
+			else if((address < MODBUS_PRESSURE_END)&&((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485)))
+			{
+ 				
+				if(address == MODBUS_PRESSURE_SENSOR_MODEL ) // 0=26PCF (0-100PSI),1=26PCG (0-250PSI), 10 = MPXV7002(-8 ~ +8 inWC),11=MPXV7007(-27 ~ +27 inWC)
+				{ 
+					temp1= 0;
+					temp2= Pressure.SNR_Model;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_UNIT)
+				{ 
+					temp1= 0;
+					temp2= Pressure.unit;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}	 
+				else if(address == MODBUS_PRESSURE_UNIT_DEFAULT)
+				{ 
+					temp1= 0;
+					temp2= Pressure.default_unit;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
 				} 
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_DEW_PT)
-			{ 
-				temp1= HumSensor.dew_pt >> 8;
-				temp2= HumSensor.dew_pt;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
+				else if(address == MODBUS_PRESSURE_FILTER)
+				{ 
+					temp1= 0;
+					temp2= Pressure.filter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}	
+				else if(address == MODBUS_PRESSURE_SLOPE)
+				{
+					u16 itemp;
+					itemp =  Pressure.k_line*100; 
+					temp1= itemp >> 8;
+					temp2= itemp;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_INTERCEPT)  
+				{
+					u16 itemp;
+					itemp =  Pressure.b_line; 
+					temp1= itemp >> 8;
+					temp2= itemp;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_RANGE_MIN_PRESSURE)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].min) ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_RANGE_MAX_PRESSURE)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].max);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].max);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	 			else if(address == MODBUS_INPUT_AUTO_MANUAL_PRE)//0 = AUTO,1 = MANUAL
+	 			{ 
+					temp1= 0;
+					temp2= Pressure.auto_manu;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+	 			}
+	 			else if(address == MODBUS_INPUTPUT_MANUAL_VALUE_PRE)
+	 			{ 
+					temp1= HIGH_BYTE(output_manual_value_co2);
+					temp2= LOW_BYTE(output_manual_value_co2);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+	 			}
+				else if(address == MODBUS_PREESURE_AD) 
+				{ 
+					temp1= Pressure.ad >> 8;
+					temp2= Pressure.ad ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_VALUE_ORG)
+				{ 
+					temp1= Pressure.org_val >> 8;
+					temp2= Pressure.org_val;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}	
+				else if(address == MODBUS_PRESSURE_VALUE_ORG_OFFSET)
+				{ 
+					temp1= Pressure.org_val_offset >> 8;
+					temp2= Pressure.org_val_offset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_VALUE_INDEX)
+				{ 
+					temp1= Pressure.index>>8;
+					temp2= Pressure.index;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_VALUE_BASE_L)
+				{ 
+					temp1= Pressure.base >> 8;
+					temp2= Pressure.base ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_VALUE_BASE_H)
+				{ 
+					temp1= Pressure.base >> 24;
+					temp2= Pressure.base >> 16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_CAL_POINT)
+				{ 
+					temp1= 0;
+					temp2= Pressure.cal_point;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_PRESSURE_CAL_PR0) && (address <= MODBUS_PRESSURE_CAL_AD9))
+				{
+					u8 temp;
+					temp = address- MODBUS_PRESSURE_CAL_PR0;
+					if(temp%2 == 0)
+					{
+						temp/=2;
+						temp1 = Pressure.cal_pr[temp]>>8 ;
+						temp2 = Pressure.cal_pr[temp] ;
+					}
+					else
+					{
+						temp/=2;
+						temp1 = Pressure.cal_ad[temp]>>8 ;
+						temp2 = Pressure.cal_ad[temp] ;
+					} 
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_TABLE_SEL)
+				{ 
+					temp1= 0;
+					temp2= Pressure.table_sel;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PRESSURE_OUTPUT_MODEL)
+				{ 
+					temp1= 0;
+					temp2= output_mode;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PRESSURE_USER_CAL_POINT)
+				{ 
+					temp1= 0;
+					temp2= Pressure.user_cal_point;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_PRESSURE_USER_CAL_PR0) && (address <= MODBUS_PRESSURE_USER_CAL_AD9))
+				{
+					u8 temp;
+					temp = address- MODBUS_PRESSURE_USER_CAL_PR0;
+					if(temp%2 == 0)
+					{
+						temp/=2;
+						temp1 = Pressure.user_cal_pr[temp]>>8 ;
+						temp2 = Pressure.user_cal_pr[temp] ;
+					}
+					else
+					{
+						temp/=2;
+						temp1 = Pressure.user_cal_ad[temp]>>8 ;
+						temp2 = Pressure.user_cal_ad[temp] ;
+					} 
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_SENSOR_STATUS)
+				{ 		
+					temp1= Pressure.out_rng_flag;     //out range is high byte 
+					temp2= Pressure.sensor_status;    // read sensor status
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PREESURE_AD)
+				{  
+					temp1= Pressure.ad >> 8;
+					temp2= Pressure.ad ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+	 
+				else if(address == MODBUS_PRESSURE_REPLY_DELAY)
+				{ 
+					temp1=  0;
+					temp2=  reply_delay_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_RECEIVE_DELAY)
+				{ 
+					temp1=  0;
+					temp2=  receive_delay_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_UART1_PARITY)
+				{ 
+					temp1=  0;
+					temp2=  uart1_parity;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+	//-----------------------------pid1-------------------------//			
+				else if(address == MODBUS_PRESSURE_PID1_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PRESSURE_PID1_SETPOINT)
+				{ 
+					temp1=  PID[0].EEP_SetPoint >>8;
+					temp2=  PID[0].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PRESSURE_PID1_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_PID1_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_PID1_PID)
+				{ 
+					temp1=  PID[0].EEP_Pid>>8;
+					temp2=  PID[0].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_PRESSURE_PID1_PID+1)
+				{ 
+					temp1=  controllers[0].value>>8;
+					temp2=  controllers[0].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PRESSURE_PID1_PID+2)
+				{ 
+					temp1=  controllers[0].value>>24;
+					temp2=  controllers[0].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+	//-----------------------------pid2-------------------------//			
+				else if(address == MODBUS_PRESSURE_PID2_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PRESSURE_PID2_SETPOINT)
+				{ 
+					temp1=  PID[1].EEP_SetPoint >>8;
+					temp2=  PID[1].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PRESSURE_PID2_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_PID2_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_PID2_PID)
+				{ 
+					temp1=  PID[1].EEP_Pid>>8;
+					temp2=  PID[1].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_PID2_PID+1)
+				{ 
+					temp1=  controllers[1].value>>8;
+					temp2=  controllers[1].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PRESSURE_PID2_PID+2)
+				{ 
+					temp1=  controllers[1].value>>24;
+					temp2=  controllers[1].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//-----------------------------pid3-------------------------//			
+				else if(address == MODBUS_PRESSURE_PID3_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PRESSURE_PID3_SETPOINT)
+				{ 
+					temp1=  PID[2].EEP_SetPoint >>8;
+					temp2=  PID[2].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PRESSURE_PID3_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_PID3_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_PID3_PID)
+				{ 
+					temp1=  PID[2].EEP_Pid>>8;
+					temp2=  PID[2].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PRESSURE_PID3_PID+1)
+				{ 
+					temp1=  controllers[2].value>>8;
+					temp2=  controllers[2].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PRESSURE_PID3_PID+2)
+				{ 
+					temp1=  controllers[2].value>>24;
+					temp2=  controllers[2].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PRESSURE_MODE_SELECT)
+				{ 
+					temp1=  0;
+					temp2= mode_select;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_PASSWORD_ENABLE)
+				{ 
+					temp1= 0;
+					temp2= use_password;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_PRESSURE_USER_PASSWORD0) && (address <= MODBUS_PRESSURE_USER_PASSWORD3))
+				{
+					temp1= 0;
+					temp2= user_password[address - MODBUS_PRESSURE_USER_PASSWORD0];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRESSURE_BACKLIGHT_KEEP_SECONDS)
+				{ 
+					temp1= 0 ;
+					temp2= backlight_keep_seconds ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//---------------------end pid ------------------------			
+				else
+				{
+					temp1 = 0 ;
+					temp2 = 0;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+ 				
 			}
-			else if(address == MODBUS_DEW_PT_F)
-			{ 
-				temp1= HumSensor.dew_pt_F>>8;
-				temp2= HumSensor.dew_pt_F ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_DIS_INFO)
-			{ 
-				temp1=  0;
-				temp2=  dis_hum_info;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_OUTPUT_SEL)
-			{ 
-				temp1=  0;
-				temp2=  analog_output_sel;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_PWS)
-			{ 	
-				temp1= HumSensor.Pws>>8 ;
-				temp2= HumSensor.Pws ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_MIX_RATIO)
-			{ 
-				temp1= HumSensor.Mix_Ratio>>8;
-				temp2= HumSensor.Mix_Ratio ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_ENTHALPY)
-			{ 
-				temp1= HumSensor.Enthalpy>>8;
-				temp2= HumSensor.Enthalpy ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			  
 			
-			else if(address == MODBUS_TEMP_OFFSET)
-			{ 
-				temp1=  HumSensor.offset_t >> 8;
-				temp2=  HumSensor.offset_t;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			
-			else if(address == MODBUS_HUM_OFFSET)
-			{ 
-				temp1= HumSensor.offset_h>>8;
-				temp2= HumSensor.offset_h ;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_CAL_DEFAULT_HUM)
-			{ 	
-				temp1= HumSensor.offset_h_default>>8;
-				temp2= HumSensor.offset_h_default;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_K_LINE)
+			else if((address < MODBUS_PM25_END)&&((PRODUCT_ID == STM32_PM25)))
 			{
-				int16 itemp;
-				itemp = k_line * 1000;   
-				temp1= itemp >> 8;
-				temp2=  itemp;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_B_LINE)
+				if(address == MODBUS_PM25_VAL)
+				{ 
+					temp1 =pm25_sensor.pm25 >>8;
+					temp2 = pm25_sensor.pm25;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM10_VAL)
+				{ 
+					temp1 =pm25_sensor.pm10 >> 8 ;
+					temp2 = pm25_sensor.pm10;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_AQI)
+				{ 
+					temp1 = pm25_sensor.AQI >> 8 ;
+					temp2 = pm25_sensor.AQI;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM25_LEVEL)
+				{ 
+					temp1 =0 ;
+					temp2 = pm25_sensor.level;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SENSOR_ID)
+				{ 
+					temp1 =pm25_sensor.id>>8 ;
+					temp2 = pm25_sensor.id;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SENSOR_MODE)
+				{ 
+					temp1 =0 ;
+					temp2 = pm25_sensor.mode;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SENSOR_PERIOD)
+				{ 
+					temp1 =0 ;
+					temp2 = pm25_sensor.period;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SENSOR_STATUS)
+				{ 
+					temp1 =0 ;
+					temp2 = pm25_sensor.status;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_SENSOR_CMD_STATUS)
+				{ 
+					temp1 =0 ;
+					temp2 = pm25_sensor.cmd_status;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_MENU_SET)
+				{ 
+					temp1 =0 ;
+					temp2 = pm25_sensor.menu.menu_set;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SCROLL_SET)
+				{ 
+					temp1 =0 ;
+					temp2 = pm25_sensor.menu.scroll_set;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_MENU_SWITCH_SECONDS)
+				{ 
+					temp1 =0 ;
+					temp2 = pm25_sensor.menu.seconds;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PM25_OFFSET)
+				{ 
+					temp1 = pm25_sensor.pm25_offset >> 8 ;
+					temp2 = pm25_sensor.pm25_offset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PM10_OFFSET)
+				{ 
+					temp1 = pm25_sensor.pm10_offset >> 8 ;
+					temp2 = pm25_sensor.pm10_offset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM25_FILTER)
+				{ 
+					temp1 = 0 ;
+					temp2 = pm25_sensor.PM25_filter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM10_FILTER)
+				{ 
+					temp1 = 0 ;
+					temp2 = pm25_sensor.PM10_filter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM_AUTO_MANUAL)
+				{ 
+					temp1 = 0 ; 
+					temp2 = pm25_sensor.auto_manual;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM25_RANGE_MIN)
+				{
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_TEMP].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_TEMP].min);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM25_RANGE_MAX)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_TEMP].max);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_TEMP].max);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM10_RANGE_MIN)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].min) ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM10_RANGE_MAX)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].max);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].max);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM25_OUTPUT_MODE) 
+				{ 
+					temp1= 0 ;
+					temp2= output_mode;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else
+				{
+					temp1 =0 ;
+					temp2 = 0;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+			}		
+			else //if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 			{  
-				temp1= (int16)b_line >> 8;
-				temp2=  (int8)b_line;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-#endif				
-			else if(address == MODBUS_REPLY_DELAY)
-			{ 
-				temp1=  0;
-				temp2=  reply_delay_time;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_RECEIVE_DELAY)
-			{ 
-				temp1=  0;
-				temp2=  receive_delay_time;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_UART1_PARITY)
-			{ 
-				temp1=  0;
-				temp2=  uart1_parity;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-//-----------------------------pid1-------------------------//			
- 			else if(address == MODBUS_PID1_MODE)
-			{ 
-				temp1=  0;
-				temp2=  controllers[0].action;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			 
-			else if(address == MODBUS_PID1_SETPOINT)
-			{ 
-				temp1=  PID[0].EEP_SetPoint >>8;
-				temp2=  PID[0].EEP_SetPoint;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			 
-			else if(address == MODBUS_PID1_PTERM)
-			{ 
-				temp1=  0;
-				temp2=  controllers[0].proportional;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PID1_ITERM)
-			{ 
-				temp1=  0;
-				temp2=  controllers[0].reset;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PID1_PID)
-			{ 
-				temp1=  PID[0].EEP_Pid>>8;
-				temp2=  PID[0].EEP_Pid;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
+				if(address == MODBUS_TEMPERATURE_SENSOR_SELECT)
+				{ 
+					temp1 =0 ;
+					temp2 = temperature_sensor_select  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_TEMPERATURE_DEGREE_C_OR_F) 
+				{ 
+					temp1 = 0 ;
+					temp2 = deg_c_or_f  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_INTERNAL_TEMPERATURE_CELSIUS)
+				{  
+					temp1 = internal_temperature_c >> 8 ;
+					temp2 = internal_temperature_c  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_INTERNAL_TEMPERATURE_FAHRENHEIT)
+				{ 
+					temp1 = internal_temperature_f >> 8 ;
+					temp2 = internal_temperature_f  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_EXTERNAL_TEMPERATURE_CELSIUS) 	
+				{  
+					temp1 = HumSensor.temperature_c >> 8 ;
+					temp2 = HumSensor.temperature_c  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_EXTERNAL_TEMPERATURE_FAHRENHEIT) 
+				{ 
+					temp1 = HumSensor.temperature_f >> 8 ;
+					temp2 = HumSensor.temperature_f  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_TEMPERATURE_OFFSET_INTERNAL)
+				{ 
+					temp1 = internal_temperature_offset >> 8 ;
+					temp2 = internal_temperature_offset  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUMIDITY)
+				{  
+					temp1 = HumSensor.humidity >> 8 ;
+					temp2 = HumSensor.humidity  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUMIDITY_FREQUENCY)
+				{  
+					temp1 = HumSensor.frequency >> 8 ;
+					temp2 = HumSensor.frequency  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}	
+					
+				else if(address == MODBUS_HUMIDITY_SENSOR_HEATING)
+				{
+					temp1 = 0;
+					temp2 = hum_heat_status;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}	
+					
+				else if(address == MODBUS_CO2_INTERNAL_EXIST)
+				{ 				
+					
+					temp1 = internal_co2_module_type >> 8 ;
+					temp2 = internal_co2_module_type  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_CO2_INTERNAL)
+				{ 
+					temp1= HIGH_BYTE(int_co2_str.co2_int);
+					temp2= LOW_BYTE(int_co2_str.co2_int);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_CO2_INTERNAL_OFFSET)
+				{ 
+					temp1= HIGH_BYTE(int_co2_str.co2_offset);
+					temp2= LOW_BYTE(int_co2_str.co2_offset);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_CO2_INTERNAL_PREALARM_SETPOINT)
+				{ 
+					temp1= HIGH_BYTE(int_co2_str.pre_alarm_setpoint) ;
+					temp2=LOW_BYTE(int_co2_str.pre_alarm_setpoint);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_CO2_INTERNAL_ALARM_SETPOINT)
+				{ 
+					temp1= HIGH_BYTE(int_co2_str.alarm_setpoint);
+					temp2= LOW_BYTE(int_co2_str.alarm_setpoint);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+//				else if((address >= MODBUS_CO2_EXTERNAL_START) && ( address < MODBUS_CO2_EXTERANL_END))
+//				{ 
+//					temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_START].co2_int) ;
+//					temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_START].co2_int) ;
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if((address >= MODBUS_CO2_EXTERNAL_OFFSET_START) && (address < MODBUS_CO2_EXTERNAL_OFFSET_END))
+//				{ 
+//					temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_OFFSET_START].co2_offset);
+//					temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_OFFSET_START].co2_offset);
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if((address >= MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START) && (address < MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_END))
+//				{ 
+//					temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START].pre_alarm_setpoint) ;
+//					temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START].pre_alarm_setpoint);
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if((address >= MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START) && (i + address < MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_END))
+//				{ 
+//					temp1= HIGH_BYTE(ext_co2_str[i + address - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START].alarm_setpoint);
+//					temp2= LOW_BYTE(ext_co2_str[i + address - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START].alarm_setpoint);
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+				else if(address == MODBUS_CO2_SLOPE_DETECT_VALUE)
+				{ 
+					temp1= HIGH_BYTE(co2_slope_detect_value);
+					temp2= LOW_BYTE(co2_slope_detect_value);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_CO2_FILTER)
+				{ 
+					temp1= 0;
+					temp2= int_co2_filter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PASSWORD_ENABLE)
+				{ 
+					temp1= 0;
+					temp2= use_password;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_USER_PASSWORD0) && (address <= MODBUS_USER_PASSWORD3))
+				{
+					temp1= 0;
+					temp2= user_password[address - MODBUS_USER_PASSWORD0];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//			else if(i + address == MODBUS_RTC_CENTURY)
+	//			{
+	//				main_send_byte(0, TRUE);
+	//				main_send_byte(Modbus.Time.Clk.century, TRUE);
+	//			}
+				else if(address == MODBUS_RTC_YEAR)
+				{
+					temp1= HIGH_BYTE(calendar.w_year);
+					temp2= LOW_BYTE(calendar.w_year);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address== MODBUS_RTC_MONTH)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.w_month);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address== MODBUS_RTC_DAY)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.w_date);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RTC_WEEK)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.week);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RTC_HOUR)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.hour);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RTC_MINUTE)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.min);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RTC_SECOND)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.sec);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_ALARM_AUTO_MANUAL)
+				{ 
+					temp1= 0 ;
+					temp2= alarm_state;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRE_ALARM_SETTING_ON_TIME)
+				{ 
+					temp1= 0;
+					temp2= pre_alarm_on_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PRE_ALARM_SETTING_OFF_TIME)
+				{ 
+					temp1= 0;
+					temp2= pre_alarm_off_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_ALARM_DELAY_TIME)
+				{ 
+					temp1= 0;
+					temp2= alarm_delay_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_AUTO_MANUAL)
+				{ 
+					temp1= 0;
+					temp2= output_auto_manual;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_MANUAL_VALUE_TEM)
+				{ 
+					temp1= HIGH_BYTE(output_manual_value_temp) ;
+					temp2= LOW_BYTE(output_manual_value_temp);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_MANUAL_VALUE_HUM)
+				{ 
+					temp1= HIGH_BYTE(output_manual_value_humidity);
+					temp2= LOW_BYTE(output_manual_value_humidity);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_MANUAL_VALUE_CO2)
+				{ 
+					temp1= HIGH_BYTE(output_manual_value_co2);
+					temp2= LOW_BYTE(output_manual_value_co2);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_OUTPUT_MODE) 
+				{ 
+					temp1= 0 ;
+					temp2= output_mode;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_RANGE_MIN_TEM) 
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_TEMP].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_TEMP].min);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_RANGE_MAX_TEM)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_TEMP].max);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_TEMP].max);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_RANGE_MIN_HUM)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].min) ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_RANGE_MAX_HUM)
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_HUM].max);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_HUM].max);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address == MODBUS_OUTPUT_RANGE_MIN_CO2)||(address == MODBUS_DEW_PT_MIN))
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_CO2].min);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_CO2].min);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address == MODBUS_OUTPUT_RANGE_MAX_CO2)||(address == MODBUS_DEW_PT_MAX))
+				{ 
+					temp1= HIGH_BYTE(output_range_table[CHANNEL_CO2].max);
+					temp2= LOW_BYTE(output_range_table[CHANNEL_CO2].max);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//			else if(address == MODBUS_MENU_BLOCK_SECONDS)
+	//			{
+	//				main_send_byte(0, TRUE);
+	//				main_send_byte(menu_block_seconds, TRUE);
+	//			}
+				else if(address == MODBUS_BACKLIGHT_KEEP_SECONDS)
+				{ 
+					temp1= 0 ;
+					temp2= backlight_keep_seconds ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY)
+				{ 
+					temp1= 0 ;
+					temp2= external_nodes_plug_and_play ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SCAN_DB_CTR)
+				{ 
+					temp1= 0 ;
+					temp2= db_ctr;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RESET_SCAN_DB)
+				{ 
+					temp1= 0;
+					temp2= reset_scan_db_flag;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_SCAN_START) && (address < MODBUS_SCAN_END))
+				{
+					uint8 A, B;
+					A = (i + address - MODBUS_SCAN_START) / SCAN_DB_SIZE;
+					B = (i + address - MODBUS_SCAN_START) % SCAN_DB_SIZE;
+					temp1 = 0;
+					switch(B)
+					{
+						case 0:
+							temp2 = scan_db[A].id ;  
+							break;
+						case 1:
+							temp2 = (uint8)(scan_db[A].sn >> 0) ;
+							break;
+						case 2:
+							temp2 = (uint8)(scan_db[A].sn >> 8) ;
+							break;
+						case 3:
+							temp2 = (uint8)(scan_db[A].sn >> 16);
+							break;
+						case 4:
+							temp2 = (uint8)(scan_db[A].sn >> 24);
+							break;
+					} 
+					
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_GET_NODES_PARA_START) && (address < MODBUS_GET_NODES_PARA_END))
+				{ 
+					temp1= 0;
+					temp2= get_para[i + address - MODBUS_GET_NODES_PARA_START] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_SCAN_OCCUPY_START) && (address < MODBUS_SCAN_OCCUPY_END))
+				{ 
+					temp1= 0;
+					temp2= db_occupy[i + address - MODBUS_SCAN_OCCUPY_START] ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_SCAN_ONLINE_START) && (address < MODBUS_SCAN_ONLINE_END))
+				{ 
+					temp1= 0;
+					temp2= db_online[i + address - MODBUS_SCAN_ONLINE_START];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_INT_TEMPRATURE_FILTER) 
+				{
+					temp1= 0;
+					temp2= Temperature_Filter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_EXT_TEMPRATURE_FILTER) 
+				{ 
+					temp1= 0;
+					temp2= HumSensor.T_Filter ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUIDITY_FILTER) 
+				{ 
+					temp1= 0;
+					temp2= HumSensor.H_Filter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if((address == MODBUS_HUM_VERSION)||(address == MODBUS_HUM_VERSION_CP))
+				{ 
+					temp1= 0;
+					temp2= humidity_version;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
+				else if(address == MODBUS_HUM_SN)
+				{ 
+					temp1= HumSensor.sn>>8;
+					temp2= HumSensor.sn;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
+				else if(address == MODBUS_CAL_FAC_PTS)
+				{ 
+					temp1= HumSensor.counter>>8;
+					temp2= HumSensor.counter;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_TABLE_SEL)
+				{
+					temp1= 0;
+					temp2= table_sel;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	 
+				else if((address >= MODBUS_HUMCOUNT1_H)&&(address<= MODBUS_HUMRH10_H))
+				{
+					uint8 temp,i,j;
+					temp = address - MODBUS_HUMCOUNT1_H;
+					i = temp /2;
+					j = temp %2;
+					if(j==0)
+					{	
+						temp1 = read_eeprom(HUMCOUNT1_H + i*4 + 1);	
+						temp2 = read_eeprom(HUMCOUNT1_H + i*4);     
+						 
+					}
+					else
+					{	
+						temp1 = read_eeprom(HUMRH1_H + i*4 + 1);	
+						temp2 = read_eeprom(HUMRH1_H + i*4);     
+						
+					} 
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_USER_POINTS)
+				{ 
+					temp1= 0;
+					temp2= hum_size_copy ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if((address >= MODBUS_USER_RH1)&&(address<= MODBUS_USER_FRE10))
+				{
+					uint8 temp,i,j;
+					temp = address - MODBUS_USER_RH1;
+					i = temp /2;
+					j = temp %2;
+					if(j==1)
+					{	
+						temp1 = read_eeprom(EEP_USER_FRE1 + i*4 + 1) ;	
+						temp2 = read_eeprom(EEP_USER_FRE1 + i*4) ;      
+					}
+					else
+					{	
+						temp1 = read_eeprom(EEP_USER_RH1 + + i*4 + 1);	
+						temp2 = read_eeprom(EEP_USER_RH1 + i*4) ;      
+					} 
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_DEW_PT)
+				{ 
+					temp1= HumSensor.dew_pt >> 8;
+					temp2= HumSensor.dew_pt;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_DEW_PT_F)
+				{ 
+					temp1= HumSensor.dew_pt_F>>8;
+					temp2= HumSensor.dew_pt_F ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_DIS_INFO)
+				{ 
+					temp1=  0;
+					temp2=  dis_hum_info;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_SEL)
+				{ 
+					temp1=  0;
+					temp2=  analog_output_sel;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PWS)
+				{ 	
+					temp1= HumSensor.Pws>>8 ;
+					temp2= HumSensor.Pws ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_MIX_RATIO)
+				{ 
+					temp1= HumSensor.Mix_Ratio>>8;
+					temp2= HumSensor.Mix_Ratio ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_ENTHALPY)
+				{ 
+					temp1= HumSensor.Enthalpy>>8;
+					temp2= HumSensor.Enthalpy ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				  
+				
+				else if(address == MODBUS_TEMP_OFFSET)
+				{ 
+					temp1=  HumSensor.offset_t >> 8;
+					temp2=  HumSensor.offset_t;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_HUM_OFFSET)
+				{ 
+					temp1= HumSensor.offset_h>>8;
+					temp2= HumSensor.offset_h ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_CAL_DEFAULT_HUM)
+				{ 	
+					temp1= HumSensor.offset_h_default>>8;
+					temp2= HumSensor.offset_h_default;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_K_LINE)
+				{
+					int16 itemp;
+					itemp = k_line * 1000;   
+					temp1= itemp >> 8;
+					temp2=  itemp;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_B_LINE)
+				{  
+					temp1= (int16)b_line >> 8;
+					temp2=  (int8)b_line;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 			
+				else if(address == MODBUS_REPLY_DELAY)
+				{ 
+					temp1=  0;
+					temp2=  reply_delay_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RECEIVE_DELAY)
+				{ 
+					temp1=  0;
+					temp2=  receive_delay_time;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_UART1_PARITY)
+				{ 
+					temp1=  0;
+					temp2=  uart1_parity;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_AUTO_HEAT_CONTROL)
+				{ 
+					temp1=  0;
+					temp2=  auto_heat_enable;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_ORIGINAL_HUM)
+				{ 
+					temp1=  HumSensor.org_hum>>8;
+					temp2=  HumSensor.org_hum;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+	//-----------------------------pid1-------------------------//			
+				else if(address == MODBUS_PID1_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PID1_SETPOINT)
+				{ 
+					temp1=  PID[0].EEP_SetPoint >>8;
+					temp2=  PID[0].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PID1_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PID1_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[0].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PID1_PID)
+				{ 
+					temp1=  PID[0].EEP_Pid>>8;
+					temp2=  PID[0].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_PID1_PID+1)
+				{ 
+					temp1=  controllers[0].value>>8;
+					temp2=  controllers[0].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PID1_PID+2)
+				{ 
+					temp1=  controllers[0].value>>24;
+					temp2=  controllers[0].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+	//-----------------------------pid2-------------------------//			
+				else if(address == MODBUS_PID2_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PID2_SETPOINT)
+				{ 
+					temp1=  PID[1].EEP_SetPoint >>8;
+					temp2=  PID[1].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PID2_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PID2_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[1].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PID2_PID)
+				{ 
+					temp1=  PID[1].EEP_Pid>>8;
+					temp2=  PID[1].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PID2_PID+1)
+				{ 
+					temp1=  controllers[1].value>>8;
+					temp2=  controllers[1].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PID2_PID+2)
+				{ 
+					temp1=  controllers[1].value>>24;
+					temp2=  controllers[1].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//-----------------------------pid3-------------------------//			
+				else if(address == MODBUS_PID3_MODE)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].action;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PID3_SETPOINT)
+				{ 
+					temp1=  PID[2].EEP_SetPoint >>8;
+					temp2=  PID[2].EEP_SetPoint;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				 
+				else if(address == MODBUS_PID3_PTERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].proportional;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PID3_ITERM)
+				{ 
+					temp1=  0;
+					temp2=  controllers[2].reset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PID3_PID)
+				{ 
+					temp1=  PID[2].EEP_Pid>>8;
+					temp2=  PID[2].EEP_Pid;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PID3_PID+1)
+				{ 
+					temp1=  controllers[2].value>>8;
+					temp2=  controllers[2].value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_PID3_PID+2)
+				{ 
+					temp1=  controllers[2].value>>24;
+					temp2=  controllers[2].value>>16;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
+				else if(address == MODBUS_MODE_SELECT)
+				{ 
+					temp1=  0;
+					temp2= mode_select;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+	//---------------------end pid ------------------------			
+				
+				
+				else if(address == MODBUS_AD_OUTPUT_FB_CO2)
+				{  
+					temp1= analog_input[CHANNEL_CO2] >> 8;
+					temp2= analog_input[CHANNEL_CO2];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_AD_OUTPUT_FB_TEMP)
+				{  
+					temp1= analog_input[CHANNEL_TEMP]>> 8;
+					temp2= analog_input[CHANNEL_TEMP];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_AD_OUTPUT_FB_HUM)
+				{  
+					temp1= analog_input[CHANNEL_HUM]>> 8;
+					temp2= analog_input[CHANNEL_HUM];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_AD_INTERNAL_TEMP)
+				{  
+					temp1= internal_temp_ad>> 8;
+					temp2= internal_temp_ad;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_OUTPUT_CO2)
+				{  
+					temp1= analog_output[CHANNEL_CO2] >> 8;
+					temp2= analog_output[CHANNEL_CO2];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address ==  MODBUS_HUM_SENSOR_STATE)
+				{  
+					temp1= 0;
+					temp2= display_state;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_TEMP)
+				{  
+					temp1= analog_output[CHANNEL_TEMP] >> 8;
+					temp2= analog_output[CHANNEL_TEMP];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_HUM)
+				{  
+					temp1= analog_output[CHANNEL_HUM] >> 8;
+					temp2= analog_output[CHANNEL_HUM];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_HUM_VOL_OFFSET)
+				{ 	
+					temp1= output_offset[0][CHANNEL_HUM] >> 8;
+					temp2= output_offset[0][CHANNEL_HUM];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_OUTPUT_TEMP_VOL_OFFSET)
+				{ 	
+					temp1= output_offset[0][CHANNEL_TEMP] >> 8;
+					temp2= output_offset[0][CHANNEL_TEMP];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);	
+				}
+				else if(address == MODBUS_OUTPUT_CO2_VOL_OFFSET)
+				{ 	
+					temp1= output_offset[0][CHANNEL_CO2] >> 8;
+					temp2= output_offset[0][CHANNEL_CO2];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_OUTPUT_HUM_CUR_OFFSET)
+				{ 	
+					temp1= output_offset[1][CHANNEL_HUM] >> 8;
+					temp2= output_offset[1][CHANNEL_HUM];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);	
+				}
+				else if(address == MODBUS_OUTPUT_TEMP_CUR_OFFSET)
+				{ 	
+					temp1= output_offset[1][CHANNEL_TEMP] >> 8;
+					temp2= output_offset[1][CHANNEL_TEMP];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);	
+				}
+				else if(address == MODBUS_OUTPUT_CO2_CUR_OFFSET)
+				{ 	
+					temp1= output_offset[1][CHANNEL_CO2] >> 8;
+					temp2= output_offset[1][CHANNEL_CO2];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else
+				{
+					temp1 = 0 ;
+					temp2 =  0; 
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}				
+			}  
 			
-			else if(address == MODBUS_PID1_PID+1)
-			{ 
-				temp1=  controllers[0].value>>8;
-				temp2=  controllers[0].value;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_PID1_PID+2)
-			{ 
-				temp1=  controllers[0].value>>24;
-				temp2=  controllers[0].value>>16;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			
-//-----------------------------pid2-------------------------//			
- 			else if(address == MODBUS_PID2_MODE)
-			{ 
-				temp1=  0;
-				temp2=  controllers[1].action;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			 
-			else if(address == MODBUS_PID2_SETPOINT)
-			{ 
-				temp1=  PID[1].EEP_SetPoint >>8;
-				temp2=  PID[1].EEP_SetPoint;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			 
-			else if(address == MODBUS_PID2_PTERM)
-			{ 
-				temp1=  0;
-				temp2=  controllers[1].proportional;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PID2_ITERM)
-			{ 
-				temp1=  0;
-				temp2=  controllers[1].reset;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PID2_PID)
-			{ 
-				temp1=  PID[1].EEP_Pid>>8;
-				temp2=  PID[1].EEP_Pid;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PID2_PID+1)
-			{ 
-				temp1=  controllers[1].value>>8;
-				temp2=  controllers[1].value;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_PID2_PID+2)
-			{ 
-				temp1=  controllers[1].value>>24;
-				temp2=  controllers[1].value>>16;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-//-----------------------------pid3-------------------------//			
- 			else if(address == MODBUS_PID3_MODE)
-			{ 
-				temp1=  0;
-				temp2=  controllers[2].action;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			 
-			else if(address == MODBUS_PID3_SETPOINT)
-			{ 
-				temp1=  PID[2].EEP_SetPoint >>8;
-				temp2=  PID[2].EEP_SetPoint;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			 
-			else if(address == MODBUS_PID3_PTERM)
-			{ 
-				temp1=  0;
-				temp2=  controllers[2].proportional;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PID3_ITERM)
-			{ 
-				temp1=  0;
-				temp2=  controllers[2].reset;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_PID3_PID)
-			{ 
-				temp1=  PID[2].EEP_Pid>>8;
-				temp2=  PID[2].EEP_Pid;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_PID3_PID+1)
-			{ 
-				temp1=  controllers[2].value>>8;
-				temp2=  controllers[2].value;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_PID3_PID+2)
-			{ 
-				temp1=  controllers[2].value>>24;
-				temp2=  controllers[2].value>>16;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			} 
-			else if(address == MODBUS_MODE_SELECT)
-			{ 
-				temp1=  0;
-				temp2= mode_select;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-//---------------------end pid ------------------------			
-			
-			
-			else if(address == MODBUS_AD_OUTPUT_FB_CO2)
-			{  
-				temp1= analog_input[CHANNEL_CO2] >> 8;
-				temp2= analog_input[CHANNEL_CO2];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_AD_OUTPUT_FB_TEMP)
-			{  
-				temp1= analog_input[CHANNEL_TEMP]>> 8;
-				temp2= analog_input[CHANNEL_TEMP];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_AD_OUTPUT_FB_HUM)
-			{  
-				temp1= analog_input[CHANNEL_HUM]>> 8;
-				temp2= analog_input[CHANNEL_HUM];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_AD_INTERNAL_TEMP)
-			{  
-				temp1= internal_temp_ad>> 8;
-				temp2= internal_temp_ad;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			
-			else if(address == MODBUS_OUTPUT_CO2)
-			{  
-				temp1= analog_output[CHANNEL_CO2] >> 8;
-				temp2= analog_output[CHANNEL_CO2];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address ==  MODBUS_HUM_SENSOR_STATE)
-			{  
-				temp1= 0;
-				temp2= display_state;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_OUTPUT_TEMP)
-			{  
-				temp1= analog_output[CHANNEL_TEMP] >> 8;
-				temp2= analog_output[CHANNEL_TEMP];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_OUTPUT_HUM)
-			{  
-				temp1= analog_output[CHANNEL_HUM] >> 8;
-				temp2= analog_output[CHANNEL_HUM];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_OUTPUT_HUM_VOL_OFFSET)
-			{ 	
-				temp1= output_offset[0][CHANNEL_HUM] >> 8;
-				temp2= output_offset[0][CHANNEL_HUM];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			else if(address == MODBUS_OUTPUT_TEMP_VOL_OFFSET)
-			{ 	
-				temp1= output_offset[0][CHANNEL_TEMP] >> 8;
-				temp2= output_offset[0][CHANNEL_TEMP];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);	
-			}
-			else if(address == MODBUS_OUTPUT_CO2_VOL_OFFSET)
-			{ 	
-				temp1= output_offset[0][CHANNEL_CO2] >> 8;
-				temp2= output_offset[0][CHANNEL_CO2];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-			
-			else if(address == MODBUS_OUTPUT_HUM_CUR_OFFSET)
-			{ 	
-				temp1= output_offset[1][CHANNEL_HUM] >> 8;
-				temp2= output_offset[1][CHANNEL_HUM];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);	
-			}
-			else if(address == MODBUS_OUTPUT_TEMP_CUR_OFFSET)
-			{ 	
-				temp1= output_offset[1][CHANNEL_TEMP] >> 8;
-				temp2= output_offset[1][CHANNEL_TEMP];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);	
-			}
-			else if(address == MODBUS_OUTPUT_CO2_CUR_OFFSET)
-			{ 	
-				temp1= output_offset[1][CHANNEL_CO2] >> 8;
-				temp2= output_offset[1][CHANNEL_CO2];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
-#ifdef HUM_SENSOR
-			else if( address == TSTAT_NAME_ENABLE)  
-			{ 
-				temp1= 0;
-				temp2= 0x56;
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);				
-			}	
-			else if((address >= TSTAT_NAME1) && (address <= TSTAT_NAME10))  
-			{
-				u16 temp = address - TSTAT_NAME1;  
-				temp1= panelname[temp * 2];
-				temp2= panelname[temp * 2 + 1];
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}	
-#endif
-			 
-  
-
-			 
-			 
-/*********************read IN OUT by block endf ***************************************/
-/********************************************************************************/
-			else
-			{
-				temp1 = 0 ;
-				temp2 =  0; 
-				sendbuf[send_cout++] = temp1 ;
-				sendbuf[send_cout++] = temp2 ;
-				crc16_byte(temp1);
-				crc16_byte(temp2);
-			}
 
 		}//end of number
 		temp1 = CRChi ;
@@ -3721,6 +5774,11 @@ u8 checkData(u16 address)
 			if(modbus.SNWriteflag  & 0x04)                 // hardware byte writed
 				return FALSE;
 		}
+		else if (USART_RX_BUF[3] ==  MODBUS_PRODUCT_MODEL)
+		{
+			if(modbus.SNWriteflag  & 0x08)                 // hardware byte writed
+				return FALSE;
+		}
 
 	}
 
@@ -3757,7 +5815,8 @@ u8 checkData(u16 address)
 		responseCmd(0,USART_RX_BUF);
 //		// Store any data being written
 		internalDeal(0, USART_RX_BUF);
-
+		uart.tx_count++;
+		if(uart.tx_count > 99) uart.tx_count = 0;
 	}
 	else
 	{

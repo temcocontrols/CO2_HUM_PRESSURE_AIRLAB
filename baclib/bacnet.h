@@ -329,6 +329,7 @@ extern unsigned char far Temp_Buf[MAX_APDU];
 extern u32 Instance ;
 extern uint8_t panelname[21];
 //void bacnet_inital(void);
+#define DEFAULT_STATION_NUMBER		0x0c
 #endif
 
 

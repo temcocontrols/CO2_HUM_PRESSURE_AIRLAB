@@ -30,20 +30,20 @@ void Co2_Opt_init(void)
 			case 1:
 				if(current_co2_sensor == 0)
 					sprintf((char *)text, "%s%u", item_name[i], int_co2_str.alarm_setpoint);
-				else
-					sprintf((char *)text, "%s%u", item_name[i], ext_co2_str[current_co2_sensor - 1].alarm_setpoint);
+//				else
+//					sprintf((char *)text, "%s%u", item_name[i], ext_co2_str[current_co2_sensor - 1].alarm_setpoint);
 				break;
 			case 2:
 				if(current_co2_sensor == 0)
 					sprintf((char *)text, "%s%u", item_name[i], int_co2_str.pre_alarm_setpoint);
-				else
-					sprintf((char *)text, "%s%u", item_name[i], ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint);
+//				else
+//					sprintf((char *)text, "%s%u", item_name[i], ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint);
 				break;
 			case 3:
 				if(current_co2_sensor == 0)
 					sprintf((char *)text, "%s%u", item_name[i], int_co2_str.co2_int);
-				else
-					sprintf((char *)text, "%s%u", item_name[i], ext_co2_str[current_co2_sensor - 1].co2_int);
+//				else
+//					sprintf((char *)text, "%s%u", item_name[i], ext_co2_str[current_co2_sensor - 1].co2_int);
 				break;
 		}
 
@@ -70,20 +70,20 @@ void Co2_Opt_display(void)
 				case 1:
 					if(current_co2_sensor == 0)
 						sprintf((char *)text, "%s%u", item_name[pre_item_index], int_co2_str.alarm_setpoint);
-					else
-						sprintf((char *)text, "%s%u", item_name[pre_item_index], ext_co2_str[current_co2_sensor - 1].alarm_setpoint);
+//					else
+//						sprintf((char *)text, "%s%u", item_name[pre_item_index], ext_co2_str[current_co2_sensor - 1].alarm_setpoint);
 					break;
 				case 2:
 					if(current_co2_sensor == 0)
 						sprintf((char *)text, "%s%u", item_name[pre_item_index], int_co2_str.pre_alarm_setpoint);
-					else
-						sprintf((char *)text, "%s%u", item_name[pre_item_index], ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint);
+//					else
+//						sprintf((char *)text, "%s%u", item_name[pre_item_index], ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint);
 					break;
 				case 3:
 					if(current_co2_sensor == 0)
 						sprintf((char *)text, "%s%u", item_name[pre_item_index], int_co2_str.co2_int);
-					else
-						sprintf((char *)text, "%s%u", item_name[pre_item_index], ext_co2_str[current_co2_sensor - 1].co2_int);
+//					else
+//						sprintf((char *)text, "%s%u", item_name[pre_item_index], ext_co2_str[current_co2_sensor - 1].co2_int);
 					break;
 			}
 			Lcd_Clear_Row(pre_item_index);
@@ -97,20 +97,20 @@ void Co2_Opt_display(void)
 				case 1:
 					if(current_co2_sensor == 0)
 						sprintf((char *)text, "%s%u", item_name[item_index], int_co2_str.alarm_setpoint);
-					else
-						sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].alarm_setpoint);
+//					else
+//						sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].alarm_setpoint);
 					break;
 				case 2:
 					if(current_co2_sensor == 0)
 						sprintf((char *)text, "%s%u", item_name[item_index], int_co2_str.pre_alarm_setpoint);
-					else
-						sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint);
+//					else
+//						sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint);
 					break;
 				case 3:
 					if(current_co2_sensor == 0)
 						sprintf((char *)text, "%s%u", item_name[item_index], int_co2_str.co2_int);
-					else
-						sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].co2_int);
+//					else
+//						sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].co2_int);
 					break;
 			}
 			Lcd_Clear_Row(item_index);
@@ -122,8 +122,8 @@ void Co2_Opt_display(void)
 		{
 			if(current_co2_sensor == 0)
 				sprintf((char *)text, "%u", int_co2_str.co2_int);
-			else
-				sprintf((char *)text, "%u", ext_co2_str[current_co2_sensor - 1].co2_int);
+//			else
+//				sprintf((char *)text, "%u", ext_co2_str[current_co2_sensor - 1].co2_int);
 
 			Lcd_Show_String(3, 15, DISP_NOR, (uint8 *)int_space);
 			if(item_index == 3) // calibration, update display
@@ -175,20 +175,20 @@ void Co2_Opt_keycope(uint16 key_value)
 					case 1: // Setpoint poor
 						if(current_co2_sensor == 0)
 							sprintf((char *)text, "%s%u", item_name[item_index], int_co2_str.alarm_setpoint);
-						else
-							sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].alarm_setpoint);
+//						else
+//							sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].alarm_setpoint);
 					break;
 					case 2:	// Setpoint fair
 						if(current_co2_sensor == 0)
 							sprintf((char *)text, "%s%u", item_name[item_index], int_co2_str.pre_alarm_setpoint);
-						else
-							sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint);
+//						else
+//							sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint);
 						break;
 					case 3:	// Calibration
 						if(current_co2_sensor == 0)
 							sprintf((char *)text, "%s%u", item_name[item_index], int_co2_str.co2_int);
-						else
-							sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].co2_int);
+//						else
+//							sprintf((char *)text, "%s%u", item_name[item_index], ext_co2_str[current_co2_sensor - 1].co2_int);
 						break;
 				}
 
@@ -203,11 +203,11 @@ void Co2_Opt_keycope(uint16 key_value)
 			switch(item_index)
 			{
 				case 0: // delete id from database
-					if(current_co2_sensor == 0)
-					{
-						remove_id_from_db(current_co2_sensor);
-						update_menu_state(MenuCo2_Conf);
-					}
+//					if(current_co2_sensor == 0)
+//					{
+//						remove_id_from_db(current_co2_sensor);
+//						update_menu_state(MenuCo2_Conf);
+//					}
 					break;
 				case 1:	// setpoint poor
 					if(in_sub_menu == FALSE)
@@ -217,8 +217,8 @@ void Co2_Opt_keycope(uint16 key_value)
 
 						if(current_co2_sensor == 0)
 							set_value = int_co2_str.alarm_setpoint;
-						else
-							set_value = ext_co2_str[current_co2_sensor - 1].alarm_setpoint;
+//						else
+//							set_value = ext_co2_str[current_co2_sensor - 1].alarm_setpoint;
 
 						sprintf((char *)text, "%u", set_value);
 						Lcd_Show_String(item_index, 12, DISP_INV, text);
@@ -234,11 +234,11 @@ void Co2_Opt_keycope(uint16 key_value)
 //							start_data_save_timer();
 //							flash_write_int(FLASH_CO2_INTERNAL_ALARM_SETPOINT, int_co2_str.alarm_setpoint);
 						}
-						else
-						{
-							ext_co2_str[current_co2_sensor - 1].alarm_setpoint = set_value;
-							write_parameters_to_nodes(current_co2_sensor, SLAVE_MODBUS_CO2_ALARM_SETPOINT, set_value);
-						}
+//						else
+//						{
+//							ext_co2_str[current_co2_sensor - 1].alarm_setpoint = set_value;
+//							write_parameters_to_nodes(current_co2_sensor, SLAVE_MODBUS_CO2_ALARM_SETPOINT, set_value);
+//						}
 
 						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
 						Lcd_Clear_Row(item_index);
@@ -254,8 +254,8 @@ void Co2_Opt_keycope(uint16 key_value)
 
 						if(current_co2_sensor == 0)
 							set_value = int_co2_str.pre_alarm_setpoint;
-						else
-							set_value = ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint;
+//						else
+//							set_value = ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint;
 
 						sprintf((char *)text, "%u", set_value);
 						Lcd_Show_String(item_index, 12, DISP_INV, text);
@@ -271,11 +271,11 @@ void Co2_Opt_keycope(uint16 key_value)
 //							start_data_save_timer();
 //							flash_write_int(FLASH_CO2_INTERNAL_PREALARM_SETPOINT, int_co2_str.pre_alarm_setpoint);
 						}
-						else
-						{
-							ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint = set_value;
-							write_parameters_to_nodes(current_co2_sensor, SLAVE_MODBUS_CO2_PRE_ALARM_SETPOINT, set_value);
-						}
+//						else
+//						{
+//							ext_co2_str[current_co2_sensor - 1].pre_alarm_setpoint = set_value;
+//							write_parameters_to_nodes(current_co2_sensor, SLAVE_MODBUS_CO2_PRE_ALARM_SETPOINT, set_value);
+//						}
 
 						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
 						Lcd_Clear_Row(item_index);
@@ -291,8 +291,8 @@ void Co2_Opt_keycope(uint16 key_value)
 
 						if(current_co2_sensor == 0)
 							set_value = int_co2_str.co2_int;
-						else
-							set_value = ext_co2_str[current_co2_sensor - 1].co2_int;
+//						else
+//							set_value = ext_co2_str[current_co2_sensor - 1].co2_int;
 
 						sprintf((char *)text, "%u", set_value);
 						Lcd_Show_String(item_index, 15, DISP_INV, text);
@@ -309,11 +309,11 @@ void Co2_Opt_keycope(uint16 key_value)
 //							start_data_save_timer();
 //							flash_write_int(FLASH_CO2_INTERNAL_OFFSET, (uint16)int_co2_str.co2_offset);
 						}
-						else
-						{
-							ext_co2_str[current_co2_sensor - 1].co2_offset += set_value - ext_co2_str[current_co2_sensor - 1].co2_int;
-							write_parameters_to_nodes(current_co2_sensor, SLAVE_MODBUS_CO2_OFFSET, ext_co2_str[current_co2_sensor - 1].co2_offset);
-						}
+//						else
+//						{
+//							ext_co2_str[current_co2_sensor - 1].co2_offset += set_value - ext_co2_str[current_co2_sensor - 1].co2_int;
+//							write_parameters_to_nodes(current_co2_sensor, SLAVE_MODBUS_CO2_OFFSET, ext_co2_str[current_co2_sensor - 1].co2_offset);
+//						}
 						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
 						Lcd_Clear_Row(item_index);
 						Lcd_Show_String(item_index, 0, DISP_INV, text);

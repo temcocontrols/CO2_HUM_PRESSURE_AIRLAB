@@ -11,69 +11,71 @@ void Idle_init(void)
 {
 	Lcd_Full_Screen(0);
 	exit_request_password();
-#ifdef CO2_SENSOR
-	if(internal_co2_exist == TRUE) // internal sensor exists 
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
 	{
-		warming_state = FALSE;
-		Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)internal_text);
-		if(int_co2_str.warming_time == TRUE)
-		{
-			Lcd_Show_String(0, strlen((char *)internal_text) + 2, DISP_INV, (uint8 *)warming_text);
-			print_big_number(EXCEPTION_PPM, 0);
-			warming_state = TRUE;
-		}
-		else
-			print_big_number(EXCEPTION_PPM, 0);
-
-		Lcd_Show_String(1, 18, DISP_NOR, (uint8 *)ppm_text);
-		print_online_status(TRUE);
-	}
-	else // not internal sensor 
-	{
-		if(db_ctr == 1)	// there is not sensor exists in the system
+		if(internal_co2_exist == TRUE) // internal sensor exists 
 		{
 			warming_state = FALSE;
 			Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)internal_text);
-			co2_int = EXCEPTION_PPM;
-			print_big_number(co2_int, 0);
-			Lcd_Show_String(1, 18, DISP_NOR, (uint8 *)ppm_text);
-			print_online_status(FALSE);
-		}
-		else if(db_ctr >= 2) // there is only one external sensor in the system
-		{
-			warming_state = FALSE;
-			sprintf((char *)text, "%s%u:  ", external_text, (uint16)(scan_db[1].id));
-			Lcd_Show_String(0, 0, DISP_NOR, text); // will be changed in the display routine
-			if(ext_co2_str[0].warming_time == TRUE)
+			if(int_co2_str.warming_time == TRUE)
 			{
-				Lcd_Show_String(0, strlen((char *)text), DISP_INV, (uint8 *)warming_text);
-				ext_co2_str[0].co2_int = EXCEPTION_PPM;
+				Lcd_Show_String(0, strlen((char *)internal_text) + 2, DISP_INV, (uint8 *)warming_text);
+				print_big_number(EXCEPTION_PPM, 0);
 				warming_state = TRUE;
 			}
-			print_big_number(ext_co2_str[0].co2_int, 0);
+			else
+				print_big_number(EXCEPTION_PPM, 0);
+
 			Lcd_Show_String(1, 18, DISP_NOR, (uint8 *)ppm_text);
 			print_online_status(TRUE);
 		}
-	}
-	disp_index = 0;
+		else // not internal sensor 
+		{
+//			if(db_ctr == 1)	// there is not sensor exists in the system
+			{
+				warming_state = FALSE;
+				Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)internal_text);
+				co2_int = EXCEPTION_PPM;
+				print_big_number(co2_int, 0);
+				Lcd_Show_String(1, 18, DISP_NOR, (uint8 *)ppm_text);
+				print_online_status(FALSE);
+			}
+//			else if(db_ctr >= 2) // there is only one external sensor in the system
+//			{
+//				warming_state = FALSE;
+//				sprintf((char *)text, "%s%u:  ", external_text, (uint16)(scan_db[1].id));
+//				Lcd_Show_String(0, 0, DISP_NOR, text); // will be changed in the display routine
+//				if(ext_co2_str[0].warming_time == TRUE)
+//				{
+//					Lcd_Show_String(0, strlen((char *)text), DISP_INV, (uint8 *)warming_text);
+//					ext_co2_str[0].co2_int = EXCEPTION_PPM;
+//					warming_state = TRUE;
+//				}
+//				print_big_number(ext_co2_str[0].co2_int, 0);
+//				Lcd_Show_String(1, 18, DISP_NOR, (uint8 *)ppm_text);
+//				print_online_status(TRUE);
+//			}
+		}
+		disp_index = 0;
 
-	previous_internal_co2_exist = internal_co2_exist;
-	pre_db_ctr = db_ctr;
-	pre_alarm_level = 0xff;
-	print_alarm_status(alarm_state);
-	force_refresh = TRUE;
-#elif defined HUM_SENSOR
-;
-#elif defined PRESSURE_SENSOR
-	Lcd_Show_String(0, 0, DISP_NOR,(uint8 *)"Pressure:");	 
-	strcpy((char *)text, (char *)"Unit:"); 
-	strcat((char *)text,  (char *)Prs_Unit[Pressure.unit]);
-	Lcd_Show_String(4, 11, DISP_NOR, text); 
-	Pressure.val_temp = 0;
-#endif
+		previous_internal_co2_exist = internal_co2_exist;
+		pre_db_ctr = db_ctr;
+		pre_alarm_level = 0xff;
+		print_alarm_status(alarm_state);
+		force_refresh = TRUE;
+	} 
+	else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
+	{
+		Lcd_Show_String(0, 0, DISP_NOR,(uint8 *)"Pressure:");	 
+		strcpy((char *)text, (char *)"Unit:"); 
+		strcat((char *)text,  (char *)Prs_Unit[Pressure.unit]);
+		Lcd_Show_String(4, 11, DISP_NOR, text); 
+		Pressure.val_temp = 0;
+	}
+
 }
 
-#ifdef PRESSURE_SENSOR
+ 
 void get_data_format(u8 loc,float num,char *s)
 {
 	u8 i,s_len,s_start,buf_start;
@@ -112,102 +114,44 @@ void get_data_format(u8 loc,float num,char *s)
 		s[i] = 0x20;
 	} 
 }
-#endif
+ 
 
 void Idle_display(void)
 {
-#ifdef CO2_SENSOR
 	static uint16 previous_co2 = EXCEPTION_PPM;
-	if((previous_internal_co2_exist != internal_co2_exist) || (pre_db_ctr != db_ctr))
-		Idle_init();
-
-	if(db_ctr == 1) // only one device in the scan database
+	u8 temp = 0; 
+	float ftemp;
+	
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
 	{
-		warming_state = FALSE;
+		if((previous_internal_co2_exist != internal_co2_exist) || (pre_db_ctr != db_ctr))
+			Idle_init();
 
-		Lcd_Clear_Row(0);
- 		force_refresh = TRUE;
-		Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)internal_text);
-		if(internal_co2_exist == TRUE)
+//		if(db_ctr == 1) // only one device in the scan database
 		{
-			if(int_co2_str.warming_time == TRUE)
-			{
-				Lcd_Show_String(0, 8, DISP_INV, (uint8 *)warming_text);
-				co2_int = EXCEPTION_PPM;
-				warming_state = TRUE;
-			}
-			else
-				co2_int = int_co2_str.co2_int;
-		}
-		else
-			co2_int = EXCEPTION_PPM;
-	}
-	else if(db_ctr >= 2)
-	{
-		if(internal_co2_exist == TRUE) // internal sensor exists
-		{
-			if(display_around_time_ctr)
-			{
-				display_around_time_ctr--;
-			}
-			else
-			{
-				warming_state = FALSE;
+			warming_state = FALSE;
 
-				display_around_time_ctr = NODES_POLL_PERIOD;
-				disp_index++;
-				disp_index = disp_index % db_ctr;
-
-				if(disp_index == 0)
+			Lcd_Clear_Row(0);
+			force_refresh = TRUE;
+			Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)internal_text);
+			if(internal_co2_exist == TRUE)
+			{
+				if(int_co2_str.warming_time == TRUE)
 				{
-					Lcd_Clear_Row(0);
-					force_refresh = TRUE;
-					Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)internal_text);
-					if(int_co2_str.warming_time == TRUE)
-					{
-						Lcd_Show_String(0, 8, DISP_INV, (uint8 *)warming_text);
-						int_co2_str.co2_int = EXCEPTION_PPM;
-						warming_state = TRUE;
-					}
-				}
-				else
-				{
-					sprintf((char *)text, "%s%u:", external_text, (uint16)scan_db[disp_index].id);
-					Lcd_Clear_Row(0);
-					force_refresh = TRUE;
-					Lcd_Show_String(0, 0, DISP_NOR, text);
-					if(ext_co2_str[disp_index - 1].warming_time == TRUE)
-					{
-						Lcd_Show_String(0, strlen((char *)text) + 2, DISP_INV, (uint8 *)warming_text);
-						warming_state = TRUE;
-					}
-				}
-			}
-
-			if(disp_index == 0)
-				co2_int = int_co2_str.co2_int;
-			else
-				co2_int = ext_co2_str[disp_index - 1].co2_int;
-		}
-		else
-		{
-			if(db_ctr == 2) // has only one external co2 sensor
-			{
-				warming_state = FALSE;
-
-				sprintf((char *)text, "%s%u:", external_text, (uint16)scan_db[1].id);
-				Lcd_Clear_Row(0);
-				force_refresh = TRUE;
-				Lcd_Show_String(0, 0, DISP_NOR, text);
-				if(ext_co2_str[0].warming_time == TRUE)
-				{
-					Lcd_Show_String(0, strlen((char *)text) + 2, DISP_INV, (uint8 *)warming_text);
+					Lcd_Show_String(0, 8, DISP_INV, (uint8 *)warming_text);
+					co2_int = EXCEPTION_PPM;
 					warming_state = TRUE;
 				}
-
-				co2_int = ext_co2_str[0].co2_int;
+				else
+					co2_int = int_co2_str.co2_int;
 			}
-			else // have more than 2 external sensors
+			else
+				co2_int = EXCEPTION_PPM;
+		}
+/*		
+		else if(db_ctr >= 2)
+		{
+			if(internal_co2_exist == TRUE) // internal sensor exists
 			{
 				if(display_around_time_ctr)
 				{
@@ -220,123 +164,219 @@ void Idle_display(void)
 					display_around_time_ctr = NODES_POLL_PERIOD;
 					disp_index++;
 					disp_index = disp_index % db_ctr;
+
 					if(disp_index == 0)
-						disp_index = 1;
-	
-					sprintf((char *)text, "%s%u:", external_text, (uint16)scan_db[disp_index].id);
+					{
+						Lcd_Clear_Row(0);
+						force_refresh = TRUE;
+						Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)internal_text);
+						if(int_co2_str.warming_time == TRUE)
+						{
+							Lcd_Show_String(0, 8, DISP_INV, (uint8 *)warming_text);
+							int_co2_str.co2_int = EXCEPTION_PPM;
+							warming_state = TRUE;
+						}
+					}
+					else
+					{
+						sprintf((char *)text, "%s%u:", external_text, (uint16)scan_db[disp_index].id);
+						Lcd_Clear_Row(0);
+						force_refresh = TRUE;
+						Lcd_Show_String(0, 0, DISP_NOR, text);
+						if(ext_co2_str[disp_index - 1].warming_time == TRUE)
+						{
+							Lcd_Show_String(0, strlen((char *)text) + 2, DISP_INV, (uint8 *)warming_text);
+							warming_state = TRUE;
+						}
+					}
+				}
+
+				if(disp_index == 0)
+					co2_int = int_co2_str.co2_int;
+				else
+					co2_int = ext_co2_str[disp_index - 1].co2_int;
+			}
+			else
+			{
+				if(db_ctr == 2) // has only one external co2 sensor
+				{
+					warming_state = FALSE;
+
+					sprintf((char *)text, "%s%u:", external_text, (uint16)scan_db[1].id);
 					Lcd_Clear_Row(0);
 					force_refresh = TRUE;
 					Lcd_Show_String(0, 0, DISP_NOR, text);
-					if(ext_co2_str[disp_index - 1].warming_time == TRUE)
+					if(ext_co2_str[0].warming_time == TRUE)
 					{
 						Lcd_Show_String(0, strlen((char *)text) + 2, DISP_INV, (uint8 *)warming_text);
 						warming_state = TRUE;
 					}
-				}
 
-				co2_int = ext_co2_str[disp_index - 1].co2_int;
+					co2_int = ext_co2_str[0].co2_int;
+				}
+				else // have more than 2 external sensors
+				{
+					if(display_around_time_ctr)
+					{
+						display_around_time_ctr--;
+					}
+					else
+					{
+						warming_state = FALSE;
+
+						display_around_time_ctr = NODES_POLL_PERIOD;
+						disp_index++;
+						disp_index = disp_index % db_ctr;
+						if(disp_index == 0)
+							disp_index = 1;
+		
+						sprintf((char *)text, "%s%u:", external_text, (uint16)scan_db[disp_index].id);
+						Lcd_Clear_Row(0);
+						force_refresh = TRUE;
+						Lcd_Show_String(0, 0, DISP_NOR, text);
+						if(ext_co2_str[disp_index - 1].warming_time == TRUE)
+						{
+							Lcd_Show_String(0, strlen((char *)text) + 2, DISP_INV, (uint8 *)warming_text);
+							warming_state = TRUE;
+						}
+					}
+
+//					co2_int = ext_co2_str[disp_index - 1].co2_int;
+				}
 			}
 		}
-	}
 
-	if(previous_co2 != co2_int)
-	{
-		co2_refresh_flag = TRUE;
-		previous_co2 = co2_int;
-	}
+*/
 
-	if(co2_refresh_flag == TRUE) // update alarm status when co2 or setpoints changed.
-	{
-		co2_refresh_flag = FALSE; 
-		print_big_number(co2_int, 0);
-	}
-
-	if(warming_state == FALSE)
-	{
-  		
-		if(display_state == PIC_NORMAL)
-		{	
-			update_temperature_display(force_refresh);
-			update_humidity_display(force_refresh);
+		if(previous_co2 != co2_int)
+		{
+			co2_refresh_flag = TRUE;
+			previous_co2 = co2_int;
 		}
-		else if(display_state == PIC_WAIT_OFF_TO_ON)
-		{ 
-			Lcd_Show_String(0, 6, DISP_NOR, (unsigned char *)"  No Hum Sensor");  
+
+		if(co2_refresh_flag == TRUE) // update alarm status when co2 or setpoints changed.
+		{
+			co2_refresh_flag = FALSE; 
+			print_big_number(co2_int, 0);
+		}
+
+		if(warming_state == FALSE)
+		{
+			
+			if(display_state == PIC_NORMAL)
+			{	
+				update_temperature_display(force_refresh);
+				update_humidity_display(force_refresh);
+			}
+			else if(display_state == PIC_WAIT_OFF_TO_ON)
+			{ 
+				Lcd_Show_String(0, 6, DISP_NOR, (unsigned char *)"  No Hum Sensor");  
+			}
+			else
+			{
+				Lcd_Show_String(0, 6, DISP_NOR, (unsigned char *)" Hum Initial..."); 
+			}
+			
+			
+			if(force_refresh == TRUE)
+				force_refresh = FALSE;
+		}
+		print_alarm_status(alarm_state);
+	}
+	else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
+	{
+		Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)"Pressure:"); 
+	//	Lcd_Show_String(4, 0, DISP_INV, "                     ");
+	//	Lcd_Show_String(4, 0, DISP_INV, time);
+	// 	update_temperature_display(force_refresh);
+		
+		if(Pressure.default_unit == inWC)  			//when the default unit is inwc, it has two decimals		 
+		{	
+			temp = decimal_num[0][Pressure.unit];
+			ftemp  = Pressure.val_temp / 100;
+		}
+		else if(Pressure.default_unit == Psi)  		//when the default unit is psi, it has one decimals	 
+		{
+			temp = decimal_num[1][Pressure.unit];
+			ftemp = Pressure.val_temp / 10;
+	//		temp = decimal_num[0][Pressure.unit];
+	//		ftemp  = Pressure.val_temp / 100;
+		}  
+		get_data_format(temp,ftemp,(char *)text); 
+		if(Pressure.out_rng_flag == 1)
+		{
+			Lcd_Show_Pres(2,0,(uint8 *)"OUT RANGE");   
 		}
 		else
+		{ 
+			Lcd_Show_Pres(2,0,text);
+			strcpy((char *)text, "Unit:"); 
+			strcat((char *)text, (char *)Prs_Unit[Pressure.unit]);
+			Lcd_Show_String(4, 11, DISP_NOR, text);
+		}
+	}
+	else if (PRODUCT_ID == STM32_PM25)
+	{
+		 
+		if((pm25_sensor.menu.display&0x01))
 		{
-			Lcd_Show_String(0, 6, DISP_NOR, (unsigned char *)" Hum Initial..."); 
+			Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)"P M 2.5 :            "); 
+			itoa(pm25_sensor.pm25, text, 1);
+			Lcd_Show_Pres(2,6,text);
+			Lcd_Show_String(3, 16, DISP_NOR, (uint8 *)"ug/m3");
 		}
-		
-		
-		if(force_refresh == TRUE)
-			force_refresh = FALSE;
+		else if((pm25_sensor.menu.display>>1)&0x01)
+		{ 
+			Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)"P M 10 :             ");
+			itoa(pm25_sensor.pm10, text, 1);
+			Lcd_Show_Pres(2,6,text);
+			Lcd_Show_String(3, 16, DISP_NOR, (uint8 *)"ug/m3"); 
+		}
+		else if((pm25_sensor.menu.display>>2)&0x01)
+		{
+ 			Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)"AQI:                 ");
+			strcpy((char *)text, (char *)"AQI:  "); 
+			strcat((char *)text, (char *)AQI_LEVEL[pm25_sensor.level]);
+			Lcd_Show_String(0, 0, DISP_NOR, text);
+			itoa(pm25_sensor.AQI, text, 0);
+			Lcd_Show_Pres(2,5,text);
+		}
 	}
-	print_alarm_status(alarm_state);
-#elif defined PRESSURE_SENSOR
-	u8 temp = 0; 
-	float ftemp;
-	
- 	Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)"Pressure:"); 
-//	Lcd_Show_String(4, 0, DISP_INV, "                     ");
-//	Lcd_Show_String(4, 0, DISP_INV, time);
-// 	update_temperature_display(force_refresh);
-	
- 	if(Pressure.default_unit == inWC)  			//when the default unit is inwc, it has two decimals		 
-	{	
-		temp = decimal_num[0][Pressure.unit];
-		ftemp  = Pressure.val_temp / 100;
-	}
-	else if(Pressure.default_unit == Psi)  		//when the default unit is psi, it has one decimals	 
-	{
-		temp = decimal_num[1][Pressure.unit];
-		ftemp = Pressure.val_temp / 10;
-//		temp = decimal_num[0][Pressure.unit];
-//		ftemp  = Pressure.val_temp / 100;
-	}  
-    get_data_format(temp,ftemp,(char *)text); 
-	if(Pressure.out_rng_flag == 1)
-	{
-		Lcd_Show_Pres(2,0,(uint8 *)"OUT RANGE");   
-	}
-	else
+	else //((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 	{ 
-		Lcd_Show_Pres(2,0,text);
-		strcpy((char *)text, "Unit:"); 
-		strcat((char *)text, (char *)Prs_Unit[Pressure.unit]);
-		Lcd_Show_String(4, 11, DISP_NOR, text);
-	}
-	
-#elif defined HUM_SENSOR
-	
-	float ftemp;
-	if((display_state >= PIC_WAITING1)&& (display_state <= PIC_WAITING_END)) 
-	{  
-		Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)"Sensor Initial..."); 
-	} 
-	if(display_state == PIC_WAIT_OFF_TO_ON)
-	{
-		Lcd_Full_Screen(0);
-		Lcd_Show_String(2, 9, DISP_NOR, (uint8 *)"  No  "); 
-		Lcd_Show_String(3, 9, DISP_NOR, (uint8 *)"Sensor"); 
-	}
-	else if(display_state == PIC_NORMAL)
-	{
-//		ftemp = (float)HumSensor.humidity/10; 
-		Lcd_Show_String(0, 13, DISP_NOR,(uint8 *)"T= ");	 
-		update_temperature_display(force_refresh);
-//		get_data_format(1,ftemp ,(char *)text); 
-		itoa(HumSensor.humidity, text, 1);
-		Lcd_Show_Pres(2,6,text);
-		Lcd_Show_String(3, 18, DISP_NOR, (uint8 *)"%"); 
-		
-		if(dis_hum_info == 1)
+		if((display_state >= PIC_WAITING1)&& (display_state <= PIC_WAITING_END)) 
 		{  
-			sprintf((char *)text,"pts:%u sn:%u", HumSensor.counter,HumSensor.sn);
-			Lcd_Show_String(4, 0, DISP_NOR, text);   
+			Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)"Sensor Initial..."); 
+		} 
+		if(display_state == PIC_WAIT_OFF_TO_ON)
+		{
+			Lcd_Full_Screen(0);
+			Lcd_Show_String(2, 9, DISP_NOR, (uint8 *)"  No  "); 
+			Lcd_Show_String(3, 9, DISP_NOR, (uint8 *)"Sensor"); 
 		}
-    }	
-#endif
+		else if(display_state == PIC_NORMAL)
+		{
+	//		ftemp = (float)HumSensor.humidity/10; 
+			Lcd_Show_String(0, 13, DISP_NOR,(uint8 *)"T=     ");	 
+			update_temperature_display(force_refresh);
+	//		get_data_format(1,ftemp ,(char *)text); 
+			itoa(HumSensor.humidity, text, 1);
+			Lcd_Show_Pres(2,6,text);
+			Lcd_Show_String(3, 18, DISP_NOR, (uint8 *)"%"); 
+			/**********show the light value***********/		
+			if(humidity_version == LIGHT_SENSOR)
+			{
+				Lcd_Show_String(0, 0, DISP_NOR,(uint8 *)"L=    "); ;
+				Lcd_Show_Data(0, 5, light.val, 0, ALIGN_RIGHT, DISP_NOR);
+				Lcd_Show_String(0, 6, DISP_NOR, (uint8 *)"Lux");
+			}
+			if(dis_hum_info == 1)
+			{  
+				sprintf((char *)text,"pts:%u sn:%u", HumSensor.counter,HumSensor.sn);
+				Lcd_Show_String(4, 0, DISP_NOR, text);   
+			}
+		}
+	} 
 
 }
 

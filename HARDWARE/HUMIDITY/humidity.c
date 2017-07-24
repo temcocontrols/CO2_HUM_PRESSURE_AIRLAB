@@ -1026,10 +1026,10 @@ bit read_sensor(void)
 		return read_humidity_sensor();
 	else if(humidity_version == 24)
 		return read_humidity_sensor_Rev24(IIC_ADDR, CMD_READ_PARAMS);
-	else if(humidity_version == 25)
+	else //if(humidity_version == 25)
 		return read_sensor_Rev25(IIC_ADDR, CMD_READ_PARAMS);
-	else
-		return 0;
+//	else
+//		return 0;
 }
 
 bit write_sensor_temp(int16 cal_temp)
@@ -1037,60 +1037,60 @@ bit write_sensor_temp(int16 cal_temp)
 	
 	if(humidity_version < 24)
 		return pic_calibrate_temperature(cal_temp);
-	else if(humidity_version <= 25)
+	else //if(humidity_version <= 25)
 		return write_sensor_Rev24(IIC_ADDR, CMD_TEMP_CAL, cal_temp);
-	else
-		return 0;
+//	else
+//		return 0;
 }
 
 bit write_sensor_humtable(uint16 hum, uint16 freq)
 {
 	if(humidity_version < 24)
 		return pic_write_table(hum, freq);
-	else if(humidity_version <= 25)
+	else //if(humidity_version <= 25)
 		return write_humtable_Rev24(IIC_ADDR, CMD_OVERRIDE_CAL, hum, freq);
-	else
-		return 0;
+//	else
+//		return 0;
 }
 
 bit read_sensor_humtab(uint8 pt, uint16 *hum, uint16 *freq)
 {
 	if(humidity_version < 24)
 		return read_calibration_point(pt, hum, freq);
-	else if(humidity_version <= 25)
+	else //if(humidity_version <= 25)
 		return read_humtab_Rev24(IIC_ADDR, CMD_READ_CAL_PT, pt, hum, freq);
-	else
-		return 0;
+//	else
+//		return 0;
 }
 
 bit clear_sensor_humtab(void)
 {
 	if(humidity_version < 24)
 		return clear_hum_table();
-	else if(humidity_version <= 25)
+	else //if(humidity_version <= 25)
 		return write_sensor_Rev24(IIC_ADDR, CMD_CLEAR_TABLE, 1);
-	else
-		return 0;
+//	else
+//		return 0;
 }
 
 bit write_sensor_humidity(uint16 hum)
 {
 	if(humidity_version < 24)
 		return pic_calibrate_humidity(hum);
-	else if(humidity_version <= 25)
+	else //if(humidity_version <= 25)
 		return write_sensor_Rev24(IIC_ADDR, CMD_HUM_CAL, hum);
-	else
-		return 0;
+//	else
+//		return 0;
 }
 
  bit pic_read_sn(uint16 *sn)
  {
  	if(humidity_version < 24)
  		return pic_read_sn18(sn);
- 	else if(humidity_version <= 25)
+ 	else //if(humidity_version <= 25)
  		return read_params_Rev24(IIC_ADDR, CMD_SN_READ, sn);
- 	else
- 		return 0;
+// 	else
+// 		return 0;
  }
 
 // bit pic_write_sn(uint16 sn)
@@ -1109,12 +1109,19 @@ bit pic_heating_control(uint8 cmd)
 	else
 		return 0;
 }
+bit pic_read_light_val(uint16 *val)
+{
+	return read_params_Rev24(IIC_ADDR, CMD_LIGHT_READ, val);
+}
 void external_operation(void)
 {  
+ 
+ 
 	switch(external_operation_flag)
 	{
-		case TEMP_CALIBRATION: 
+		case TEMP_CALIBRATION:  
 				HumSensor.offset_t += external_operation_value - HumSensor.temperature_c ;
+				 
 				external_operation_flag = 0;
 				new_write_eeprom(EEP_TEMP_OFFSET,HumSensor.offset_t); 
 				new_write_eeprom(EEP_TEMP_OFFSET+1,HumSensor.offset_t>>8);  
@@ -1147,5 +1154,53 @@ void external_operation(void)
 	}
  
 }
+
+void auto_heating(void)
+{ 
+	static int8 read_count;
+	if(display_state == PIC_NORMAL)
+	{
+		if(hum_heat_status == 0)
+		{
+			if(HumSensor.humidity > 950) 	//95%
+			{
+				if(read_count < 120)
+					read_count++;  			
+				else  						//every ten minutes
+				{
+					if(pic_heating_control(1)) 
+					{
+						read_count = 0;
+						hum_heat_status = 1;
+					}
+				}
+			}
+			else
+				read_count = 0; 
+		}
+		else
+		{
+			if(read_count < 24) //1 minutes
+				read_count++;
+			else
+			{
+				if(pic_heating_control(0)) 
+				{
+					read_count = 0;
+					hum_heat_status = 0;
+				}
+			} 
+		} 	
+	}
+	else
+	{
+		read_count = 0;
+	} 
+	
+//	test[2] = read_count;
+
+}
+
+
 
 

@@ -1,5 +1,6 @@
 
 #include "config.h" 
+STR_LIGHT_SENSOR light;
 uint16 internal_temp_ad = 0;
  
 
@@ -28,7 +29,7 @@ uint8 deg_c_or_f = 0; // 0 = c, 1 = f
 uint8 pre_deg_c_or_f = 2;// init state
 int16 previous_temperature;
 uint8 analog_output_sel;
-
+uint8 auto_heat_enable;
 //uint8 const code def_tab_pic[15] =
 //{	// 10k termistor GREYSTONE -40 to 120 Deg.C or -40 to 248 Deg.F 
 //	25, 39, 61, 83, 102, 113, 112, 101, 85, 67, 51, 38, 28, 21, 65
@@ -183,17 +184,14 @@ uint16 look_up_table(uint16 count)
 		write_eeprom(EEP_HUMIDITY_FILTER,DEFAULT_FILTER);   
 		write_eeprom(EEP_EXT_TEMPERATURE_FILTER,DEFAULT_FILTER);   
 		write_eeprom(EEP_INT_TEMPERATURE_FILTER,DEFAULT_FILTER);  
-		
-		
-		#ifdef CO2_SENSOR 
+		 
+		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 			sprintf((char *)panelname,"%s", (char *)"CO2_NET");
-		#elif defined PRESSURE_SENSOR	 
+		else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
 			sprintf((char *)panelname,"%s", (char *)"Pressure");
-		#elif defined HUM_SENSOR	 
+		else //((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 			sprintf((char *)panelname,"%s", (char *)"Humdity");
-		#else
-			sprintf((char *)panelname,"%s", (char *)"CO2_NET");
-		#endif 
+					 
 		for(i=0;i<20;i++)			 
 		{
 			write_eeprom((EEP_TSTAT_NAME1 + i),panelname[i]); 
@@ -224,6 +222,15 @@ uint16 look_up_table(uint16 count)
 		write_eeprom(EEP_RECEIVE_DELAY,10);
 		 
 		write_eeprom(EEP_UART1_PARITY,NONE_PARITY);
+		
+		auto_heat_enable = 0; 
+		write_eeprom(EEP_AUTO_HEAT_CONTROL,0);
+		
+		light.filter = DEFAULT_FILTER;
+		write_eeprom(EEP_LIGHT_FILTER,DEFAULT_FILTER);
+		light.k = 100;
+		write_eeprom(EEP_LIGHT_K,	 light.k); 
+		write_eeprom(EEP_LIGHT_K + 1,light.k>>8); 
 	}
 
 	void initial_hum_eep(void)
@@ -249,6 +256,13 @@ uint16 look_up_table(uint16 count)
 		HumSensor.temperature_c = 0;
 		HumSensor.temperature_f = 320;
 		analog_output_sel = new_read_eeprom(EEP_OUTPUT_SEL);
+		
+		auto_heat_enable =  new_read_eeprom(EEP_AUTO_HEAT_CONTROL);
+		if(auto_heat_enable > 1) auto_heat_enable = 0;
+		
+		light.filter = new_read_eeprom(EEP_LIGHT_FILTER);
+		light.k = ((int16)new_read_eeprom(EEP_LIGHT_K + 1) << 8) | new_read_eeprom(EEP_LIGHT_K); 
+		
 	}
 	static void user_sector_initial(void)
 	{
@@ -256,9 +270,7 @@ uint16 look_up_table(uint16 count)
 		if(table_sel != USER) table_sel = FACTORY; 
 		table_sel_enable = 1; 
 		hum_size_copy =  new_read_eeprom(EEP_USER_POINTS);
-		if(hum_size_copy > 10 ) hum_size_copy = 0; 
-		
-		
+		if(hum_size_copy > 10 ) hum_size_copy = 0;  	
 	}
 	bit refresh_sensor(void)
 	{ 
@@ -441,9 +453,13 @@ uint16 look_up_table(uint16 count)
 		m=(float)temp1/temp2;
 		b=ymean-m*xmean;
 		error=(m*TEMPVal+b)/10;
+		
+		if(abs(error) > 200) error = 0;
 		compensatedHUM=  HUMVal+error ;
-		if(compensatedHUM > 1000) compensatedHUM = 1000;
-		else if (compensatedHUM < 0) compensatedHUM = 0;
+		
+		HumSensor.compensation_val = error;
+//		if(compensatedHUM > 1000) compensatedHUM = 1000;
+//		else if (compensatedHUM < 0) compensatedHUM = 0;
 	   
 		return (compensatedHUM);   
 	}
@@ -500,11 +516,11 @@ int16 Get_Average_Humdity(int16 para_h)
 		
  	//	temp = temp + internal_temperature_offset;
  		pre_int_temperature = Sys_Filter(temp, pre_int_temperature, Temperature_Filter);
-		#ifdef CO2_SENSOR
+		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 			internal_temperature_c =   pre_int_temperature  + internal_temperature_offset; 
-		#elif defined HUM_SENSOR
+		else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 			internal_temperature_c = 0;
-		#endif
+		 
 		
 		internal_temperature_f = internal_temperature_c * 9 / 5 + 320;
 		
@@ -515,17 +531,20 @@ int16 Get_Average_Humdity(int16 para_h)
 					table_sel_enable = 0;
 					calibrate_point_read();
 				}  
+				humidity_back = get_humidity(HumSensor.frequency); 
+				if(humidity_back > 2000) humidity_back = 2000; //200.0%
+				else if(humidity_back < -2000) humidity_back = -2000; // -200.0%
 				
+//				test[0] = humidity_back;
+//				test[1] = HumSensor.ad[0];
 				if(table_sel == USER)
-				{ 
-					humidity_back = get_humidity(HumSensor.frequency); 
-					
+				{  
 					if(hum_size_copy <= 1) 
 					{ 	  
 						if((humidity_version >= 24) ||(humidity_version == 19))
 						{
 							if(humidity_version >= 24)					
-								humidity_back = tempCompensation_HUM(HumSensor.temperature_c ,HumSensor.ad[0]);
+								humidity_back = tempCompensation_HUM(HumSensor.temperature_c ,humidity_back);//HumSensor.ad[0]);
 							else
 								humidity_back=HumSensor.ad[0]; 
 						}
@@ -542,13 +561,15 @@ int16 Get_Average_Humdity(int16 para_h)
 					if((humidity_version >= 24) ||(humidity_version == 19))
 					{ 
 						if(humidity_version >= 24)					
-							humidity_back = tempCompensation_HUM(HumSensor.temperature_c ,HumSensor.ad[0]);
+							humidity_back = tempCompensation_HUM(HumSensor.temperature_c ,humidity_back);//HumSensor.ad[0]);
 						else
 							humidity_back=HumSensor.ad[0]; 
 					} 
 					temp=humidity_back+HumSensor.offset_h_default; 
 				} 		
 		} 
+		
+		if(temp < 0) temp =0;
 		
 		if(abs(HumSensor.pre_humidity - temp) > 100)  //10%
 			HumSensor.pre_humidity = Sys_Filter(temp,HumSensor.pre_humidity,HumSensor.H_Filter);
@@ -558,7 +579,7 @@ int16 Get_Average_Humdity(int16 para_h)
 			else if(HumSensor.pre_humidity > temp)
 				HumSensor.pre_humidity--;
 		}	
-		HumSensor.pre_humidity = Get_Average_Humdity(HumSensor.pre_humidity);	
+ 		HumSensor.pre_humidity = Get_Average_Humdity(HumSensor.pre_humidity);	
 		if(Run_Timer < FIRST_TIME)
 			HumSensor.pre_humidity =  temp;
 		HumSensor.humidity = HumSensor.pre_humidity ;
@@ -568,76 +589,81 @@ int16 Get_Average_Humdity(int16 para_h)
 			HumSensor.humidity = output_manual_value_humidity;
 		else
 			output_manual_value_humidity = HumSensor.humidity;
-		
+		HumSensor.org_hum = HumSensor.humidity - HumSensor.compensation_val ;
 		if(HumSensor.humidity > 1000)
 			HumSensor.humidity = 1000; 
 	    
 		
-	#ifdef HUM_SENSOR
-		if((display_state >= PIC_WAITING1)&&(hum_exists))
-			display_state++;
-		if(display_state == PIC_WAITING_END)
-		{ 
-//			Lcd_Show_String(1, 0, DISP_NOR,(unsigned char *)"Done");
-			display_state = PIC_NORMAL;  
- 	 		refresh_sensor();  	
-			Lcd_Full_Screen(0);
+		
+	    if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+		{
+			if((display_state >= PIC_WAITING1)&&(hum_exists))
+				display_state++;
+			if(display_state == PIC_WAITING_END)
+			{ 
+	//			Lcd_Show_String(1, 0, DISP_NOR,(unsigned char *)"Done");
+				display_state = PIC_NORMAL;  
+				refresh_sensor();  	
+				Lcd_Full_Screen(0);
+			}
+	//=================================================================
+			if(display_state == PIC_INITIAL)	
+			{  
+	//			Lcd_Show_String(0, 0, DISP_NOR, (unsigned char *)"Initialization...");
+				display_state = PIC_WAITING1;
+			} 
+	//=================================================================    	
+			if(display_state == PIC_OFF_TO_ON)
+			{  
+				Lcd_Full_Screen(0);
+				Lcd_Show_String(2, 9, DISP_NOR, (unsigned char *)" NEW  "); 
+				Lcd_Show_String(3, 9, DISP_NOR, (unsigned char *)"SENSOR"); 
+				display_state = PIC_WAITING1;
+				SoftReset();
+			} 
+				
+	//======================================================================
+			if(display_state == PIC_ON_TO_OFF)	
+			{   
+	//			Lcd_Full_Screen(0); 
+	//			Lcd_Show_String(2, 9, DISP_NOR, (unsigned char *)"  NO  "); 
+	//			Lcd_Show_String(3, 9, DISP_NOR, (unsigned char *)"SENSOR"); 
+				display_state = PIC_WAIT_OFF_TO_ON;
+			 
+			}
 		}
-//=================================================================
-		if(display_state == PIC_INITIAL)	
-		{  
-//			Lcd_Show_String(0, 0, DISP_NOR, (unsigned char *)"Initialization...");
-			display_state = PIC_WAITING1;
-		} 
-//=================================================================    	
-		if(display_state == PIC_OFF_TO_ON)
-		{  
-			Lcd_Full_Screen(0);
-			Lcd_Show_String(2, 9, DISP_NOR, (unsigned char *)" NEW  "); 
-			Lcd_Show_String(3, 9, DISP_NOR, (unsigned char *)"SENSOR"); 
-			display_state = PIC_WAITING1;
-			SoftReset();
-		} 
-			
-//======================================================================
-		if(display_state == PIC_ON_TO_OFF)	
-		{   
-//			Lcd_Full_Screen(0); 
-//			Lcd_Show_String(2, 9, DISP_NOR, (unsigned char *)"  NO  "); 
-//			Lcd_Show_String(3, 9, DISP_NOR, (unsigned char *)"SENSOR"); 
-			display_state = PIC_WAIT_OFF_TO_ON;
-		 
+	    else if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
+		{
+			if((display_state >= PIC_WAITING1)&&(hum_exists))
+				display_state++;
+			if(display_state == PIC_WAITING_END)
+			{  
+				display_state = PIC_NORMAL;  
+				refresh_sensor();  	 
+			}
+	//=================================================================
+			if(display_state == PIC_INITIAL)	
+			{  
+				display_state = PIC_WAITING1;
+			} 
+	//=================================================================    	
+			if(display_state == PIC_OFF_TO_ON)
+			{  
+				Lcd_Full_Screen(0);
+				Lcd_Show_String(2, 9, DISP_NOR, (unsigned char *)" NEW  "); 
+				Lcd_Show_String(3, 9, DISP_NOR, (unsigned char *)"SENSOR"); 
+				display_state = PIC_WAITING1;
+				SoftReset();
+			} 
+				
+	//======================================================================
+			if(display_state == PIC_ON_TO_OFF)	
+			{    
+				display_state = PIC_WAIT_OFF_TO_ON;
+			 
+			}
 		}
-	#elif defined CO2_SENSOR
-		if((display_state >= PIC_WAITING1)&&(hum_exists))
-			display_state++;
-		if(display_state == PIC_WAITING_END)
-		{  
-			display_state = PIC_NORMAL;  
- 	 		refresh_sensor();  	 
-		}
-//=================================================================
-		if(display_state == PIC_INITIAL)	
-		{  
-			display_state = PIC_WAITING1;
-		} 
-//=================================================================    	
-		if(display_state == PIC_OFF_TO_ON)
-		{  
-			Lcd_Full_Screen(0);
-			Lcd_Show_String(2, 9, DISP_NOR, (unsigned char *)" NEW  "); 
-			Lcd_Show_String(3, 9, DISP_NOR, (unsigned char *)"SENSOR"); 
-			display_state = PIC_WAITING1;
-			SoftReset();
-		} 
-			
-//======================================================================
-		if(display_state == PIC_ON_TO_OFF)	
-		{    
-			display_state = PIC_WAIT_OFF_TO_ON;
-		 
-		}
-	#endif
+	 
 		
 		Get_Hum_Para( HumSensor.temperature_c, HumSensor.humidity,&HumSensor.dew_pt,\
 					&HumSensor.Pws,&HumSensor.Mix_Ratio,&HumSensor.Enthalpy); 
@@ -707,10 +733,11 @@ int16 Get_Average_Humdity(int16 para_h)
  }
  
 
-
+uint16 get_light_value(uint16 ad);
 void vUpdate_Temperature_Task( void *pvParameters )
 { 
 //	 initial_hum();
+	 uint16 itemp;
 	 print("UPDATE TEMPERATURE Task\r\n");
 	 delay_ms(100);
 	
@@ -756,12 +783,20 @@ void vUpdate_Temperature_Task( void *pvParameters )
 				else 
 					ctr = 0;
 			}  
-			 
+			  
+			delay_ms(100);
+			pic_read_light_val(&light.ad); 
+			itemp = get_light_value(light.ad);
+			light.pre_val = Sys_Filter(itemp,light.pre_val,light.filter);
+			light.val = light.pre_val;
+			
 			xQueueGiveMutexRecursive( IicMutex );
 		}
 		
 		external_operation();
 		update_temperature();
+		if(auto_heat_enable)
+			auto_heating();
 //		stack_detect(&test[5]);
 		if(display_state == PIC_NORMAL)
 			vTaskDelay(5000 / portTICK_RATE_MS);
@@ -770,8 +805,24 @@ void vUpdate_Temperature_Task( void *pvParameters )
 	 }
 }	
  
-
  
+uint16_t const lightsensor_table_tps851[27] =	
+{
+	  1,  2,  2,  4,  6,  7,   9, 12, 14, 16,
+	 18, 20, 37, 63, 80, 94, 117,142,154,171,
+	196,313,455,597,711,853, 1024
+//	0x0001, 0x0002, 0x0002, 0x0004, 0x0006, 0x0007, 0x0009, 0x000c, 0x000e, 0x0010,
+//	0x0012,	0x0014,	0x0025,	0x003f,	0x0050,	0x005e,	0x0075,	0x008e, 0x009a, 0x00ab, 
+//	0x00c4, 0x0139, 0x01c7, 0x0255, 0x02c7, 0x0355, 0x0400
+};
+
+uint16 get_light_value(uint16 ad)
+{
+	uint32 temp;
+	temp = ad*10*light.k/1024;	//LUX = 2 * I(uA).//(VCC = 5V,RL = 10K, 10Bits AD)
+	return (uint16)temp;
+}
+
 
 
 

@@ -1,5 +1,5 @@
 #include "config.h"
-  
+unsigned char PRODUCT_ID;  
 static void vFlashTask( void *pvParameters );  
 static void vCOMMTask( void *pvParameters );
 
@@ -10,7 +10,7 @@ static void vNETTask( void *pvParameters );
 
  
  
-static void vMSTP_TASK(void *pvParameters ) ;
+static void vMSTP_TASK(void *pvParameters );
 void uip_polling(void);
 
 static void watchdog_init(void);
@@ -48,6 +48,7 @@ int main(void)
 	
 	xMutex = xQueueCreateMutex();
 	IicMutex = xQueueCreateMutex();
+	qKey = xQueueCreate(5, 2);
 	if(( qSubSerial3 == NULL )||( qSubSerial == NULL )  ||( xMutex == NULL )||( IicMutex == NULL ))    
 	{
 		while(1);
@@ -57,6 +58,7 @@ int main(void)
 	Lcd_Show_String(0, 0, DISP_NOR, (uint8 *)"Initialization...");
 	EEP_Dat_Init();
  	
+	start_back_light(backlight_keep_seconds);
 //	print("EEP Init Done!\r\n");
    	
  	mass_flash_init() ;
@@ -78,51 +80,60 @@ int main(void)
    	
 //	uart3_modbus_init();
 	
-#if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
-	RTC_Init();
-#endif
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+		RTC_Init();
+
 //	print("RTC Init Done!\r\n");
 	Lcd_Show_String(2, 0, DISP_NOR, (uint8 *)"RTC is Done");
 	watchdog(); 
-#ifdef NET_ENABLE	
-	while(tapdev_init())	//初始化ENC28J60错误
-	{								   
-// 		print("ENC28J60 Init Error!\r\n");
-		delay_ms(100);
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PM25))
+	{	
+		while(tapdev_init())	//初始化ENC28J60错误
+		{								   
+	// 		print("ENC28J60 Init Error!\r\n");
+			delay_ms(100);
+		}
 	}
 // 	print("ENC28J60 Init Done!\r\n");
-	watchdog(); 
-#endif	
+//	watchdog();  
 	
 	Lcd_Show_String(3, 0, DISP_NOR, (uint8 *)"Net is Done");
 	print("CO2_NET\n\r");
-	Lcd_Show_String(4, 0, DISP_NOR, (uint8 *)"Done");
+ 	Lcd_Show_String(4, 0, DISP_NOR, (uint8 *)"Done");
+	delay_ms(100);
 	watchdog(); 
-#ifdef NET_ENABLE	  
- 	xTaskCreate( vNETTask, ( signed portCHAR * ) "NET",  configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 1 , NULL );
-#endif 
-  	xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE + 256  , NULL, tskIDLE_PRIORITY + 1, NULL );
+	
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PM25))  
+		xTaskCreate( vNETTask, ( signed portCHAR * ) "NET",  configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 5 , NULL );
+  
+  	xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE + 256  , NULL, tskIDLE_PRIORITY + 5, NULL );
  	xTaskCreate( vCOMMTask, ( signed portCHAR * ) "COMM", configMINIMAL_STACK_SIZE + 128, NULL, tskIDLE_PRIORITY + 2, NULL );
 
-	#ifdef CO2_SENSOR
-	xTaskCreate( Co2_task,       ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3, NULL);
-	xTaskCreate( Alarm_task,   ( signed portCHAR * ) "AlarmTask", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3,  NULL);
-  	vStartScanTask(tskIDLE_PRIORITY + 1);
-	#endif 
-	#ifdef  PRESSURE_SENSOR
-	xTaskCreate(vUpdate_Pressure_Task, (signed portCHAR *)"Update_Pressure_Task", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 5, NULL);
-	#else
- 	xTaskCreate(vUpdate_Temperature_Task, (signed portCHAR *)"Update_Temperature_Task", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 5, NULL);
-	#endif
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
+	{
+		xTaskCreate( Co2_task,       ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3, NULL);
+		xTaskCreate( Alarm_task,   ( signed portCHAR * ) "AlarmTask", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3,  NULL);
+//		vStartScanTask(tskIDLE_PRIORITY + 1);
+	}
+	if(PRODUCT_ID == STM32_PM25)
+	{
+		xTaskCreate( PM25_task,       ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3, NULL);
+	}
+	
+	if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) )
+		xTaskCreate(vUpdate_Pressure_Task, (signed portCHAR *)"Update_Pressure_Task", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 3, NULL);
+	else
+		xTaskCreate(vUpdate_Temperature_Task, (signed portCHAR *)"Update_Temperature_Task", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 3, NULL);
+	 
 	xTaskCreate(vStartPIDTask, (signed portCHAR *)"vStartPIDTask", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 1, NULL);
  
  	xTaskCreate( vFlashTask, ( signed portCHAR * ) "FLASH", configMINIMAL_STACK_SIZE + 1500, NULL, tskIDLE_PRIORITY + 2, NULL );
   
     xTaskCreate( vOutPutTask		,( signed portCHAR * ) "OutPut" 		, configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL );
  
-    xTaskCreate( vKEYTask, ( signed portCHAR * ) "KEY", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, NULL );
+    xTaskCreate( vKEYTask, ( signed portCHAR * ) "KEY", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
    
-    vStartMenuTask(tskIDLE_PRIORITY + 6);
+    vStartMenuTask(tskIDLE_PRIORITY + 1);
   	
   
 	 
@@ -233,21 +244,28 @@ void vFlashTask( void *pvParameters )
 
 void Inital_Bacnet_Server(void)
 {
-  
- Set_Object_Name((char *)panelname);
+ uint32 ltemp; 
+	Set_Object_Name((char *)panelname); 
+	Device_Init();
+	
+	ltemp = 0;
+	ltemp |= AT24CXX_ReadOneByte(EEP_INSTANCE_LOWORD);
+	ltemp |= (uint32)AT24CXX_ReadOneByte(EEP_INSTANCE_LOWORD+1)<<8;
+	ltemp |= (uint32)AT24CXX_ReadOneByte(EEP_INSTANCE_LOWORD+2)<<16;
+	ltemp |= (uint32)AT24CXX_ReadOneByte(EEP_INSTANCE_LOWORD+3)<<24;
+	if(ltemp == 0xffffffff)
+		Instance = ((uint16)modbus.serial_Num[1]<<8)|modbus.serial_Num[0];
+	else
+		Instance = ltemp;
+	Station_NUM = AT24CXX_ReadOneByte(EEP_STATION_NUMBER);
+	Device_Set_Object_Instance_Number(Instance);  
+	address_init();
+	bip_set_broadcast_addr(0xffffffff); 
  
-
- Device_Init();
- Instance = ((uint16)modbus.serial_Num[1]<<8)|modbus.serial_Num[0];
- Device_Set_Object_Instance_Number(Instance);  
- address_init();
- bip_set_broadcast_addr(0xffffffff);
- 
- 
-  AIS = 0;
-  AOS = 0;
-  BOS = 0;
-  AVS = MAX_AVS;
+	AIS = MAX_INS + 1;
+	AOS = MAX_AOS + 1;
+	BOS = 0;
+	AVS = MAX_AVS + 1;
   
 }
 //#define SWITCH_TIMER	 600
@@ -355,7 +373,7 @@ void vNETTask( void *pvParameters )
 //	uip_listen(HTONS(1200));			//监听1200端口,用于TCP Server
 //	uip_listen(HTONS(80));				//监听80端口,用于Web Server
 //	tcp_client_reconnect();	   		    //尝试连接到TCP Server端,用于TCP Client
-	print("Net Task\r\n");
+	print("N e t Task\r\n");
 	delay_ms(100);
 	
     for( ;; )
@@ -506,7 +524,7 @@ void uip_polling(void)
 		//轮流处理每个TCP连接, UIP_CONNS缺省是40个  
 		for(i = 0; i < UIP_CONNS; i++)
 		{
-			//uip_periodic(i);							//处理TCP通信事件
+			 uip_periodic(i);							//处理TCP通信事件
 			
 	 		//当上面的函数执行后，如果需要发送数据，则全局变量uip_len>0
 			//需要发送的数据在uip_buf, 长度是uip_len (这是2个全局变量)
@@ -591,11 +609,12 @@ void EEP_Dat_Init(void)
 					AT24CXX_WriteOneByte(EEP_ADDRESS, modbus.address);
 		}
 		modbus.product = AT24CXX_ReadOneByte(EEP_PRODUCT_MODEL);
-		if(modbus.product != PRODUCT_ID)//((modbus.product == 255)||(modbus.product == 0))
-		{
-			modbus.product = PRODUCT_ID ;
-			AT24CXX_WriteOneByte(EEP_PRODUCT_MODEL, modbus.product);
-		}
+		PRODUCT_ID = modbus.product;
+//		if(modbus.product != PRODUCT_ID)//((modbus.product == 255)||(modbus.product == 0))
+//		{
+//			modbus.product = PRODUCT_ID ;
+//			AT24CXX_WriteOneByte(EEP_PRODUCT_MODEL, modbus.product);
+//		}
 		modbus.hardware_Rev = AT24CXX_ReadOneByte(EEP_HARDWARE_REV);
 		if((modbus.hardware_Rev == 255)||(modbus.hardware_Rev == 0))
 		{
@@ -605,13 +624,12 @@ void EEP_Dat_Init(void)
 		modbus.update = AT24CXX_ReadOneByte(EEP_UPDATE_STATUS);
 		modbus.SNWriteflag = AT24CXX_ReadOneByte(EEP_SERIALNUMBER_WRITE_FLAG);
 		
- 		#if ((PRODUCT_ID == STM32_HUM_RS485) ||(PRODUCT_ID == STM32_HUM_NET))
+ 		if ((PRODUCT_ID == STM32_HUM_RS485) ||(PRODUCT_ID == STM32_HUM_NET))
 			uart1_parity =  AT24CXX_ReadOneByte(EEP_UART1_PARITY);
 			if(( uart1_parity!= NONE_PARITY)&&( uart1_parity!= ODD_PARITY)&&( uart1_parity!= EVEN_PARITY))
 				uart1_parity = NONE_PARITY;	
-		#else
-			uart1_parity = NONE_PARITY;	
-		#endif
+		else
+			uart1_parity = NONE_PARITY;	 
 		modbus.baud = AT24CXX_ReadOneByte(EEP_BAUDRATE);
 		if(modbus.baud > 4) 
 		{	
@@ -903,8 +921,8 @@ void EEP_Dat_Init(void)
 //	refresh_menu_block_timer();
 
 	backlight_keep_seconds = read_eeprom(EEP_BACKLIGHT_KEEP_SECONDS);
-	if(backlight_keep_seconds == 0xff)
-		backlight_keep_seconds = BACKLIGHT_KEEP_SECONDS_DEFAULT;
+//	if(backlight_keep_seconds == 0xff)
+//		backlight_keep_seconds = BACKLIGHT_KEEP_SECONDS_DEFAULT;
 	
 	
 	HumSensor.H_Filter = read_eeprom(EEP_HUMIDITY_FILTER);
@@ -968,15 +986,19 @@ void watchdog_init(void)
 {
 		/* Enable write access to IWDG_PR and IWDG_RLR registers */ 
 		IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-		/* IWDG counter clock: 40KHz(LSI) / 32 = 1.25 KHz */ 
-		IWDG_SetPrescaler(IWDG_Prescaler_32); 
-		/* Set counter reload value to 4000 = 3200ms */ 
+		/* IWDG counter clock: 40KHz(LSI) / 128 = 0.3125 KHz */ 
+		IWDG_SetPrescaler(IWDG_Prescaler_128); 
+		/* Set counter reload value to 4000 = 12.8s */ 
 		IWDG_SetReload(4000); 
 		IWDG_Enable();  			//enable the watchdog
 		IWDG_ReloadCounter(); // reload the value
 }
+
+ 
+ 
 void watchdog(void)
 {
-	IWDG_ReloadCounter(); // reload the value
+	IWDG_ReloadCounter(); // reload the value     
 }
+
 
