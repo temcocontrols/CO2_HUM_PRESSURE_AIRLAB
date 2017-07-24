@@ -2,9 +2,6 @@
 unsigned char PRODUCT_ID;  
 static void vFlashTask( void *pvParameters );  
 static void vCOMMTask( void *pvParameters );
-
-//static void vUSBTask( void *pvParameters );
-
 static void vNETTask( void *pvParameters );
  
 
