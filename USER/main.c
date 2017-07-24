@@ -3,11 +3,8 @@ unsigned char PRODUCT_ID;
 static void vFlashTask( void *pvParameters );  
 static void vCOMMTask( void *pvParameters );
 static void vNETTask( void *pvParameters );
- 
-
- 
- 
 static void vMSTP_TASK(void *pvParameters );
+
 void uip_polling(void);
 
 static void watchdog_init(void);
@@ -20,8 +17,6 @@ u8 read_cal = 0 ;
 u32 Instance = 0x0c;
 uint8_t  PDUBuffer[MAX_APDU];
 
-//u8 global_key = KEY_NON;
-
 static void debug_config(void)
 {
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOA, ENABLE);
@@ -30,22 +25,17 @@ static void debug_config(void)
 
 int main(void)
 {
-  	
-// 	int8 i; 
-//   	NVIC_SetVectorTable(NVIC_VectTab_FLASH, 0x8000);
-// 	debug_config(); 
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
-//	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD , ENABLE);
  	delay_init(72);	
   
 	watchdog_init();
-	qSubSerial3 = xQueueCreate(UART3_MAX_BUF, 1);
-	
+	qSubSerial3 = xQueueCreate(UART3_MAX_BUF, 1);	
 	qSubSerial = xQueueCreate(SUB_BUF_LEN, 1);
 	
 	xMutex = xQueueCreateMutex();
 	IicMutex = xQueueCreateMutex();
 	qKey = xQueueCreate(5, 2);
+	
 	if(( qSubSerial3 == NULL )||( qSubSerial == NULL )  ||( xMutex == NULL )||( IicMutex == NULL ))    
 	{
 		while(1);
@@ -56,43 +46,25 @@ int main(void)
 	EEP_Dat_Init();
  	
 	start_back_light(backlight_keep_seconds);
-//	print("EEP Init Done!\r\n");
    	
  	mass_flash_init() ;
 	
-	
-//	print("FLASH Init Done!\r\n");
-//	beeper_gpio_init();
-//	beeper_on();
-//	delay_ms(1000);
-//	beeper_off();
-	//Lcd_Initial();
 	SPI1_Init();
-//	print("SPI1 Init Done!\r\n");
+
 	Lcd_Show_String(1, 0, DISP_NOR, (uint8 *)"EEP is Done");
-//	SPI2_Init();
-//	mem_init(SRAMIN);
-//	TIM3_Int_Init(5000, 7199);
-//	TIM6_Int_Init(100, 7199);
-   	
-//	uart3_modbus_init();
 	
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 		RTC_Init();
-
-//	print("RTC Init Done!\r\n");
-	Lcd_Show_String(2, 0, DISP_NOR, (uint8 *)"RTC is Done");
-	watchdog(); 
+  	Lcd_Show_String(2, 0, DISP_NOR, (uint8 *)"RTC is Done");
+  	watchdog(); 
+	
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PM25))
 	{	
 		while(tapdev_init())	//≥ı ºªØENC28J60¥ÌŒÛ
 		{								   
-	// 		print("ENC28J60 Init Error!\r\n");
 			delay_ms(100);
 		}
 	}
-// 	print("ENC28J60 Init Done!\r\n");
-//	watchdog();  
 	
 	Lcd_Show_String(3, 0, DISP_NOR, (uint8 *)"Net is Done");
 	print("CO2_NET\n\r");
@@ -101,17 +73,19 @@ int main(void)
 	watchdog(); 
 	
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PM25))  
-		xTaskCreate( vNETTask, ( signed portCHAR * ) "NET",  configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 5 , NULL );
-  
-  	xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE + 256  , NULL, tskIDLE_PRIORITY + 5, NULL );
- 	xTaskCreate( vCOMMTask, ( signed portCHAR * ) "COMM", configMINIMAL_STACK_SIZE + 128, NULL, tskIDLE_PRIORITY + 2, NULL );
+		xTaskCreate( vNETTask, ( signed portCHAR * ) "NET",  configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 5 , NULL ); 
+  	
+	  xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE + 256  , NULL, tskIDLE_PRIORITY + 5, NULL );
+ 	 
+  	xTaskCreate( vCOMMTask, ( signed portCHAR * ) "COMM", configMINIMAL_STACK_SIZE + 128, NULL, tskIDLE_PRIORITY + 2, NULL );
 
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
 	{
 		xTaskCreate( Co2_task,       ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3, NULL);
+	
 		xTaskCreate( Alarm_task,   ( signed portCHAR * ) "AlarmTask", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3,  NULL);
-//		vStartScanTask(tskIDLE_PRIORITY + 1);
 	}
+
 	if(PRODUCT_ID == STM32_PM25)
 	{
 		xTaskCreate( PM25_task,       ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3, NULL);
@@ -122,9 +96,9 @@ int main(void)
 	else
 		xTaskCreate(vUpdate_Temperature_Task, (signed portCHAR *)"Update_Temperature_Task", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 3, NULL);
 	 
-	xTaskCreate(vStartPIDTask, (signed portCHAR *)"vStartPIDTask", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 1, NULL);
+	  xTaskCreate(vStartPIDTask, (signed portCHAR *)"vStartPIDTask", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 1, NULL);
  
- 	xTaskCreate( vFlashTask, ( signed portCHAR * ) "FLASH", configMINIMAL_STACK_SIZE + 1500, NULL, tskIDLE_PRIORITY + 2, NULL );
+   	xTaskCreate( vFlashTask, ( signed portCHAR * ) "FLASH", configMINIMAL_STACK_SIZE + 1500, NULL, tskIDLE_PRIORITY + 2, NULL );
   
     xTaskCreate( vOutPutTask		,( signed portCHAR * ) "OutPut" 		, configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL );
  
@@ -132,24 +106,16 @@ int main(void)
    
     vStartMenuTask(tskIDLE_PRIORITY + 1);
   	
-  
-	 
+  	vTaskStartScheduler();
 	 
 //	xTaskCreate( vFlashTask, ( signed portCHAR * ) "INPUTS", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3, NULL );
-
 //	xTaskCreate( vCOMMTask, ( signed portCHAR * ) "COMM", configMINIMAL_STACK_SIZE + 512, NULL, tskIDLE_PRIORITY + 2, NULL );
 //	xTaskCreate( vNETTask, ( signed portCHAR * ) "NET",  configMINIMAL_STACK_SIZE + 512, NULL, tskIDLE_PRIORITY + 1 , NULL );
 // 	xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE  + 512   , NULL, tskIDLE_PRIORITY + 1, NULL );
-
-
 //	xTaskCreate( vOutPutTask		,( signed portCHAR * ) "OutPut" 		, configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL );
-
 //	xTaskCreate( Co2_task,       ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL);
 //	xTaskCreate( Alarm_task,   ( signed portCHAR * ) "AlarmTask", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4,  NULL);
-
 //	xTaskCreate(vUpdate_Temperature_Task, (signed portCHAR *)"Update_Temperature_Task", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 5, NULL);
- 	  
-	vTaskStartScheduler();
 }
 
  
