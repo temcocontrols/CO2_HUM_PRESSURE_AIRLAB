@@ -19,7 +19,7 @@ extern xQueueHandle qSubSerial;
 //extern U8_T subnet_idle;
 
  
-void set_sub_serial_baudrate(U16_T BR);
+void set_sub_serial_baudrate(U32_T BR);
 U8_T wait_subnet_response(U8_T nDoubleTick);
 void sub_send_string(U8_T *p, U8_T length);
 void set_subnet_parameters(U8_T io, U8_T length);

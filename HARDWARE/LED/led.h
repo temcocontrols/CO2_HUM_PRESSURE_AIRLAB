@@ -28,8 +28,8 @@
  
 extern u8	tx_count  ;
 extern u8   rx_count  ; 
-extern u8  net_rx_count  ;
-extern u8  net_tx_count  ;		 				    
+//extern u8  net_rx_count  ;
+//extern u8  net_tx_count  ;		 				    
 #endif
 
 

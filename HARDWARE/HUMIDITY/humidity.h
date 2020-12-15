@@ -23,6 +23,8 @@
 #define	CMD_TEMP_CAL				0xe5 //
 #define	CMD_HUM_CAL					0xe6 //
 
+#define LIGHT_SENSOR_ADDR_W		0x52
+#define LIGHT_SENSOR_ADDR_R		0x53
 
 #define TEMP_CALIBRATION	0x01
 #define HUM_CALIBRATION		0x02
@@ -103,8 +105,16 @@ extern uint8 external_operation_flag;
 	void humidity_check_online(void);
 
 	bit read_humidity_sensor_version(void);
+	bit read_light_sensor_version(void);
+	void start_light_sensor_mearsure(void);
+	uint8 read_light_sensors_time(void);
+	uint8 read_light_sensors_gain(void);
+	uint16 read_light_sensors_data0(void);
+	uint16 read_light_sensors_data1(void);
+	
 	
 	void auto_heating(void);
 	bit pic_read_light_val(uint16 *val);
+	extern uint8 point_num; 
 #endif
 

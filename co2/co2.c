@@ -1,6 +1,13 @@
 #include "config.h"
-
+void co2_init(void);
+void co2_reset(void);
+uint8 old_sensor_check = 0;
+uint8 co2_autocal_disable;
+extern uint8 update_flag;
+extern uint8 mhz19_cal_h;
+extern uint8 mhz19_cal_l;
 uint16 test[20];
+uint16 co2_asc;
 //#define Co2STACK_SIZE	portMINIMAL_STACK_SIZE//1024
 //#define	AlarmSTACK_SIZE	portMINIMAL_STACK_SIZE//512 
 
@@ -35,16 +42,34 @@ bit co2_refresh_flag = TRUE;
 U8_T slave_id;
 U8_T poll_index = 0;
 
-U8_T internal_co2_module_type = MAYBE_OGM200;
+U8_T internal_co2_module_type = 1;//MAYBE_OGM200;
 
-U8_T const code get_co2_command_OGM200[4] = {0x02, 0xff, 0x41, 0x03};
-U8_T const code get_co2_command_TEMCO[4] = {0x02, 0x00, 0xb2, 0x0d}; 
+U8_T scd30_co2_cmd_status = SCD30_CMD_CONTINUE_MEASUREMENT;
 
+U8_T const  get_co2_command_OGM200[4] = {0x02, 0xff, 0x41, 0x03};
+U8_T const  get_co2_command_TEMCO[4] = {0x02, 0x00, 0xb2, 0x0d}; 
+U8_T const  get_co2_command_MHZ19B[9] = {0xFF, 0x01, 0x86, 0x00,0x00,0x00,0x00,0x00,0X79};
+U8_T const  disable_co2_autocal_MHZ19B[9] = {0xff,0x01,0x79,0x00,0x00,0x00,0x00,0x00,0x86};
+U8_T const  enable_co2_autocal_MHZ19B[9] =  {0xff,0x01,0x79,0xa0,0x00,0x00,0x00,0x00,0xe6};
+U8_T const cal_co2_MHZ19B_zero[9] = {0xff,0x01,0x87,0x00,0x00,0x00,0x00,0x00,0x78};
+
+uint8 const sensirion_co2_cmd_ReadMeasurement[8] = {0x61,0x03,0x00,0x28,0x00,0x06,0x4c,0x60};
+uint8 const sensirion_co2_cmd_StartContinueM[8]  = {0x61,0x06,0x00,0x36,0x00,0x00,0x60,0x64};
+uint8 const sensirion_co2_cmd_GetDataReady[8]    = {0x61,0x03,0x00,0x27,0x00,0x01,0x3d,0xa1};
+uint8 const sensirion_co2_cmd_AutoSelfCalibration_Enable[8] = {0x61,0x06,0x00,0x3A,0x00,0x01,0x61,0xa7};   //Tx:61 06 00 3A 00 01 61 A7
+uint8 const sensirion_co2_cmd_AutoSelfCalibration_Disable[8] = {0x61,0x06,0x00,0x3A,0x00,0x00,0xa0,0x67};  //Tx:61 06 00 3A 00 00 A0 67
+uint8 const sensirion_co2_cmd_GetASC[8] = {0x61,0x03,0x00,0x39,0x00,0x01,0x5d,0xa7};
+uint8 const sensirion_co2_cmd_Reset[8] = {0x61, 0x06, 0x00, 0x34, 0x00, 0x01, 0x00, 0x64};
+uint8 sensirion_co2_cmd_ForcedCalibration[8] = {0x61,0x06,0x00,0x39,0x00,0x00,0x00,0x00};
+
+//U8_T cal_co2_MHZ19B_span[9];
 uint8 internal_co2_bad_comms = 0;
 
  uint16 co2_data_temp;
 u8 read_co2_ctr = 0;
 static u8 co2_sensor_status = 0;
+
+extern float Datasum(uint8 FloatByte1, uint8 FloatByte2, uint8 FloatByte3, uint8 FloatByte4);
 
 int Uart2_putc(int ch )
 { 
@@ -55,12 +80,17 @@ int Uart2_putc(int ch )
      
     return ch;
 }
+
+extern void watchdog(void);
+extern uint8 co2_check_status;
 static void request_internal_co2(void)
 {
+	uint8 i = 0,j;
 	U8_T length = 0;
+	uint16 co2_temp = 0;
 
- 	if(internal_co2_exist == FALSE)
- 		return;
+ 	//if(internal_co2_exist == FALSE)
+ 	//	return;
 
 //	if(cSemaphoreTake(sem_subnet_tx, 5) == pdFALSE)
 //		return;
@@ -73,26 +103,122 @@ static void request_internal_co2(void)
 //		internal_co2_module_type = MAYBE_OGM200;
 	 
 	if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200))
-	{
+	{ctest[10]++;
 //		set_sub_serial_baudrate(9600);
- 		sub_send_string((U8_T *)get_co2_command_OGM200, 4); 
-		set_subnet_parameters(SEND, 12);
+		for(i=0;i<5;i++)
+		{
+			set_subnet_parameters(SEND, 12);
+			sub_send_string((U8_T *)get_co2_command_OGM200, 4); 
+			
+			
+			if((length = wait_subnet_response(10)) != 0)
+			{
+				U8_T i;
+				
+				for(i = 0; i < length; i++)
+				{
+					xQueueReceive(qSubSerial, subnet_response_buf+i, 0);
+				 
+				} 
+				receive_internal_co2_ppm(subnet_response_buf); 
+				break;
+			}
+			watchdog();
+			delay_ms(100);
+		}
+		 
+	}
+	
+	else if(internal_co2_module_type == MH_Z19B)
+	{ctest[11]++;
+		set_sub_serial_baudrate(9600);
+		if(update_flag == 3)//disable auto co2 calibration
+		{
+			//update_flag = 0;
+			sub_send_string((U8_T *)disable_co2_autocal_MHZ19B, 9); 
+		}
+		else if(update_flag == 4)//enable auto co2 calibration
+		{
+			//update_flag = 0;
+			sub_send_string((U8_T *)enable_co2_autocal_MHZ19B, 9); 
+		}
+    else if(update_flag == 5)//calibrate co2 sensor to 400 ppm
+		{
+			update_flag = 0;
+			sub_send_string((U8_T *)cal_co2_MHZ19B_zero, 9);
+			int_co2_str.co2_offset = 0;	
+      write_eeprom(EEP_INT_CO2_OFFSET, (uint8)(int_co2_str.co2_offset));
+			write_eeprom(EEP_INT_CO2_OFFSET + 1, (uint8)(int_co2_str.co2_offset >> 8));			
+		}
+				
+		else
+			sub_send_string((U8_T *)get_co2_command_MHZ19B, 9); 
 		
-		if((length = wait_subnet_response(10)) != 0)
+		set_subnet_parameters(SEND, 9);
+		if((length = wait_subnet_response(20)) != 0)
 		{
 			U8_T i;
-			
+
 			for(i = 0; i < length; i++)
-			{
+			{ 
 				xQueueReceive(qSubSerial, subnet_response_buf+i, 0);
-			 
+
 			} 
 			receive_internal_co2_ppm(subnet_response_buf); 
 		}
 		 
 	}
-	else if((internal_co2_module_type == MAYBE_TEMCO_CO2) || (internal_co2_module_type == TEMCO_CO2))
-	{  
+	else if( internal_co2_module_type == SCD30)
+	{ctest[12]++;
+		set_sub_serial_baudrate(19200);
+		
+		if(scd30_co2_cmd_status == SCD30_CMD_CONTINUE_MEASUREMENT)
+		{
+			sub_send_string((U8_T *)sensirion_co2_cmd_StartContinueM, 8);
+			set_subnet_parameters(SEND, 8);
+		}
+		if(scd30_co2_cmd_status == SCD30_CMD_GET_DATA_READY)
+		{
+			sub_send_string((U8_T *)sensirion_co2_cmd_GetDataReady, 8);
+			set_subnet_parameters(SEND, 7);
+		}
+		if(scd30_co2_cmd_status == SCD30_CMD_READ_ASC)
+		{
+			sub_send_string((U8_T *)sensirion_co2_cmd_GetASC, 8);
+			set_subnet_parameters(SEND, 7);
+		}
+		if(scd30_co2_cmd_status == SCD30_CMD_READ_MEASUREMENT)
+		{
+			sub_send_string((U8_T *)sensirion_co2_cmd_ReadMeasurement, 8);
+			set_subnet_parameters(SEND, 17);
+		}
+		if(scd30_co2_cmd_status == SCD30_SET_FRC)
+		{
+			init_crc16();
+			for(j=0;j<6;j++)
+			{
+				crc16_byte(sensirion_co2_cmd_ForcedCalibration[j]);
+				sensirion_co2_cmd_ForcedCalibration[6]= CRChi;
+				sensirion_co2_cmd_ForcedCalibration[7]= CRClo;
+			}
+			sub_send_string((U8_T *)sensirion_co2_cmd_ForcedCalibration, 8);
+			set_subnet_parameters(SEND, 8);
+		}
+		if((length = wait_subnet_response(20)) != 0)
+		{
+			U8_T i;
+
+			for(i = 0; i < length; i++)
+			{ 
+				xQueueReceive(qSubSerial, subnet_response_buf+i, 0);
+
+			} 
+			receive_internal_co2_ppm(subnet_response_buf); 
+		}
+	}
+	
+//	else if((internal_co2_module_type == MAYBE_TEMCO_CO2) || (internal_co2_module_type == TEMCO_CO2))
+//	{  
 //		set_sub_serial_baudrate(19200);
 // 		delay_ms(100);
 //      sub_send_string((U8_T *)get_co2_command_TEMCO, 4);
@@ -108,11 +234,11 @@ static void request_internal_co2(void)
 //		Uart2_putc(0X01);
 //		Uart2_putc(0X00);
 //		Uart2_putc(0X09);
-		
-   		read_from_slave(REG_CO2_VALUE);
-  		length = DEAL_TEMCO_SENSOR();
-		set_subnet_parameters(SEND, 0);
-	}
+//		
+//   		read_from_slave(REG_CO2_VALUE);
+//  		length = DEAL_TEMCO_SENSOR();
+//		set_subnet_parameters(SEND, 0);
+//	}
 
 //	if(length = wait_subnet_response(10))
 //	{
@@ -123,8 +249,39 @@ static void request_internal_co2(void)
 //		receive_internal_co2_ppm(subnet_response_buf);
 //	}
 //	else
-	if(length == 0)
+#if 1
+	if((length == 0)||(old_sensor_check == 0))
 	{
+		if(co2_check_status < SENSOR_TYPE_ALL)
+		{
+			co2_check_status++;
+		}
+		if(co2_check_status == SENSOR_TYPE_ALL)
+		{
+			co2_check_status = NONE;
+			if(internal_co2_module_type == MH_Z19B)
+			{	
+				internal_co2_module_type = SCD30;
+				AT24CXX_WriteOneByte(EEP_CO2_MODULE_TYPE, internal_co2_module_type);
+			
+			}
+			else
+			{
+				internal_co2_module_type = MH_Z19B;//5;
+				AT24CXX_WriteOneByte(EEP_CO2_MODULE_TYPE, internal_co2_module_type);
+				
+			}
+			//internal_co2_module_type = 1;
+			co2_reset();
+			if(internal_co2_module_type == 1)
+			{
+				for(i=0;i<10;i++)
+				{
+					watchdog();
+					delay_ms(1000);
+				}
+			}
+		}			
 		if(int_co2_str.fail_counter < INTERNAL_CO2_EXIST_CTR)
 			int_co2_str.fail_counter++;
 		else
@@ -139,6 +296,7 @@ static void request_internal_co2(void)
 	}
 	else
 	{
+		co2_check_status = 7;
  		int_co2_str.warming_time = FALSE;
 		int_co2_str.fail_counter = 0;
 		if((current_online[scan_db[0].id / 8] & (1 << (scan_db[0].id % 8))) == 0x00)
@@ -146,25 +304,61 @@ static void request_internal_co2(void)
 			current_online[scan_db[0].id / 8] |= (1 << (scan_db[0].id % 8));
 			current_online_ctr++;
 		} 
-		if(Run_Timer > FIRST_TIME)
-			int_co2_str.pre_co2_int = Sys_Filter(co2_data_temp,int_co2_str.pre_co2_int,int_co2_filter);
+		if((co2_data_temp >0) && (co2_data_temp < 10000))
+		{
+			if(Run_Timer > FIRST_TIME)
+			{
+				if(co2_data_temp > int_co2_str.pre_co2_int)
+				{
+					if(co2_data_temp - int_co2_str.pre_co2_int > 1000)
+						int_co2_str.pre_co2_int += 10;
+          else
+						int_co2_str.pre_co2_int = Sys_Filter(co2_data_temp,int_co2_str.pre_co2_int,int_co2_filter);
+				}
+				else	
+					int_co2_str.pre_co2_int = Sys_Filter(co2_data_temp,int_co2_str.pre_co2_int,int_co2_filter);
+			}
+			else
+			{
+					int_co2_str.pre_co2_int = co2_data_temp;
+			}
+		}
+		if((int_co2_str.pre_co2_int > 10000) || (int_co2_str.pre_co2_int < 0))
+		{
+			ctest[1] = co2_data_temp;
+		}
+		if((int_co2_str.pre_co2_int + int_co2_str.co2_offset > 10000) || (int_co2_str.pre_co2_int + int_co2_str.co2_offset < 0))
+		{  // if co2 value is wrong, reboot co2 moudle
+			
+			co2_reset();
+		}
 		else
-			int_co2_str.pre_co2_int = co2_data_temp;
-		int_co2_str.co2_int = int_co2_str.pre_co2_int + int_co2_str.co2_offset;
+			int_co2_str.co2_int = int_co2_str.pre_co2_int + int_co2_str.co2_offset;
+		if((int_co2_str.co2_int > 10000) || (int_co2_str.co2_int < 0))
+		{
+			ctest[2] = int_co2_str.pre_co2_int;
+			ctest[3] = int_co2_str.co2_offset;
+		}		
 	}
 // automatic read the co2 sensor	
 	if(length == 0)
-	{ 
-		if(read_co2_ctr < 20) read_co2_ctr++;
+	{
+		if(read_co2_ctr < 20)
+			read_co2_ctr++;
 		else
 		{
-			internal_co2_module_type++;
-			if(internal_co2_module_type >= SENSOR_TYPE_ALL)  internal_co2_module_type = 1; 
-			if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200))
+			if((internal_co2_module_type == 1) || (internal_co2_module_type = 0))
+				internal_co2_module_type = MH_Z19B;
+			else if(internal_co2_module_type == MH_Z19B)
+				internal_co2_module_type = SCD30;
+//			if(internal_co2_module_type >= SENSOR_TYPE_ALL)  
+//				internal_co2_module_type = MH_Z19B; 
+			if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200) || (internal_co2_module_type == MH_Z19B))
 			{
 				set_sub_serial_baudrate(9600); 
 			}
-			else if((internal_co2_module_type == MAYBE_TEMCO_CO2) || (internal_co2_module_type == TEMCO_CO2))
+			else if((internal_co2_module_type == MAYBE_TEMCO_CO2) || (internal_co2_module_type == TEMCO_CO2)
+				||(internal_co2_module_type == SCD30))
 			{  
 				set_sub_serial_baudrate(19200);
 			}
@@ -176,14 +370,16 @@ static void request_internal_co2(void)
 	{
 		if(co2_sensor_status)
 		{
+			
 			co2_sensor_status = 0;
-			AT24CXX_WriteOneByte(EEP_CO2_MODULE_TYPE,internal_co2_module_type); 
+			//AT24CXX_WriteOneByte(EEP_CO2_MODULE_TYPE,internal_co2_module_type); 
 		}
 		read_co2_ctr = 0;
 	}
+#endif
 //	test[19] = read_co2_ctr;
 //	set_sub_serial_baudrate(19200);
-	set_subnet_parameters(SEND, 0);
+	set_subnet_parameters(SEND, 0);   // 2019.12.19 added sensirion scd30, disable this to test
 	
 //	cSemaphoreGive(sem_subnet_tx); 
 }
@@ -215,14 +411,14 @@ void co2_request(void)
 
 void receive_internal_co2_ppm(U8_T *p)
 {
-//	uint16 int_co2_temp;
+	unsigned char i, checksum;
 
 	if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200))
 	{
 #ifdef ECC_ENABLE
 		U8_T ecc_check;
 #endif
-	
+	  old_sensor_check = 0;
 		if(p[0] != 0x02) // STX
 			return;
 	
@@ -240,9 +436,96 @@ void receive_internal_co2_ppm(U8_T *p)
 		if(ecc_check != p[10])
 			return;
 #endif
-	
+	  old_sensor_check = 1;
 		co2_data_temp = 1000*(p[4] - '0') + (U16_T)100*(p[5] - '0') + 10*(p[6] - '0') + (p[7] - '0');// ignore the p[8]&p[9]
 //		internal_co2_module_type = OGM200;
+	}
+	else if(internal_co2_module_type == MH_Z19B)
+	{
+    old_sensor_check = 1;
+		if(p[0] != 0xff)
+			return;
+		if((p[1] == 0x86) || (p[1] == 0x79))
+		{
+			checksum = 0;
+		  if(p[1] == 0x86)
+			{
+				for(i=1;i<8;i++)
+				{
+
+					checksum += p[i];
+				}
+				checksum = 0xff - checksum;
+				checksum += 1;
+				if(checksum == p[8])
+				{
+					co2_data_temp = p[2] * 256 + p[3];
+					ctest[5] = co2_data_temp;
+				}
+				//old_sensor_check = 1;
+			}
+			if(p[1] == 0x79) 
+			{
+				if(update_flag == 4)//auto cal enable
+				{					
+					co2_autocal_disable = 0;
+					update_flag = 0;
+				}
+				if(update_flag == 3)//auto cal disable
+				{					
+					co2_autocal_disable = 1;
+					update_flag = 0;
+				}
+				write_eeprom(EEP_CO2_AUTOCAL_SW , co2_autocal_disable);
+			}
+	  }
+		else
+			return;
+	}
+	else if(internal_co2_module_type == SCD30)
+	{
+		if(p[0] != 0x61)
+			return;
+		if(SCD30_CMD_CONTINUE_MEASUREMENT == scd30_co2_cmd_status)
+		{
+			if((p[0] == 0x61) && (p[1] == 0x06) && (p[6] == 0x60) && (p[7] == 0x64))
+			{
+				old_sensor_check = 1;
+				scd30_co2_cmd_status = SCD30_CMD_GET_DATA_READY;	
+			}
+		}
+		else if(SCD30_CMD_GET_DATA_READY == scd30_co2_cmd_status)
+		{
+			if((p[0] == 0x61) && (p[1] == 0x03) && (p[2] == 0x02) )
+			{
+				scd30_co2_cmd_status = SCD30_CMD_READ_ASC;//SCD30_CMD_READ_MEASUREMENT;	
+			}
+		}
+		else if(SCD30_CMD_READ_ASC == scd30_co2_cmd_status)
+		{
+			if((p[0] == 0x61) && (p[1] == 0x03) && (p[2] == 0x02) )
+			{
+				co2_asc = (uint16)(p[3]<<8)|p[4];
+				scd30_co2_cmd_status = SCD30_CMD_READ_MEASUREMENT;
+			}
+		}
+		else if(SCD30_CMD_READ_MEASUREMENT == scd30_co2_cmd_status)
+		{
+			float temp_f;
+			if((p[0] == 0x61) && (p[1] == 0x03) && (p[2] == 0x0c) )
+			{
+				temp_f = Datasum(p[3],p[4],p[5],p[6]);
+				co2_data_temp = (uint16_t)temp_f;
+				scd30_co2_cmd_status = SCD30_CMD_GET_DATA_READY;
+			}
+		}
+		else if(scd30_co2_cmd_status == SCD30_SET_FRC)
+		{
+			if((p[0] == 0x61) && (p[1] == 0x06) && (p[3] == 0x39) )
+			{
+				scd30_co2_cmd_status = SCD30_CMD_GET_DATA_READY;
+			}
+		}
 	}
 //	else if((internal_co2_module_type == MAYBE_TEMCO_CO2) || (internal_co2_module_type == TEMCO_CO2))
 //	{
@@ -296,9 +579,18 @@ void receive_internal_co2_ppm(U8_T *p)
 
 void co2_reset(void)
 {
-	CO2_RESET_PIN = 1;
-	delay_ms(100);
-	CO2_RESET_PIN = 0;
+	if((internal_co2_module_type == MH_Z19B)||(SCD30 == internal_co2_module_type))
+	{
+		CO2_RESET_PIN = 0;
+		delay_ms(100);
+		CO2_RESET_PIN = 1;
+	}
+	else
+	{
+		CO2_RESET_PIN = 1;
+		delay_ms(100);
+		CO2_RESET_PIN = 0;
+	}
 }
 static void IO_Init(void)
 {
@@ -317,14 +609,14 @@ void co2_init(void)
 	IO_Init();
 	alarm_delay_time = AT24CXX_ReadOneByte(EEP_ALARM_DELAY_TIME);
 	if(alarm_delay_time == 0xff) alarm_delay_time = 5;
-	internal_co2_module_type =AT24CXX_ReadOneByte(EEP_CO2_MODULE_TYPE); 
+	internal_co2_module_type = AT24CXX_ReadOneByte(EEP_CO2_MODULE_TYPE); 
 	if(internal_co2_module_type >= SENSOR_TYPE_ALL)
-		internal_co2_module_type = OGM200;
-	if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200))
+		internal_co2_module_type = MH_Z19B;
+	if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200) || (internal_co2_module_type == MH_Z19B))
 	{
 		set_sub_serial_baudrate(9600); 
 	}
-	else if((internal_co2_module_type == MAYBE_TEMCO_CO2) || (internal_co2_module_type == TEMCO_CO2))
+	else if((internal_co2_module_type == MAYBE_TEMCO_CO2) || (internal_co2_module_type == TEMCO_CO2)||(internal_co2_module_type == SCD30))
 	{  
 		set_sub_serial_baudrate(19200);
 	}
@@ -342,7 +634,7 @@ void co2_init(void)
 //	int_co2_str.pre_alarm_setpoint = DEFAULT_PRE_ALARM_SP;
 	int_co2_str.fail_counter = 0;
 
-//	for(i = 0; i < MAX_EXT_CO2; i++)
+//	for(i = 0; i < MAX_EXT_CO2; i++)ds
 //	{
 //		ext_co2_str[i].co2_int = EXCEPTION_PPM;
 //		ext_co2_str[i].co2_offset = 0;
@@ -366,10 +658,19 @@ void co2_init(void)
 
 	
 	co2_reset();
+	if(internal_co2_module_type == 1)
+		{
+			for(i=0;i<10;i++)
+			{
+				watchdog();
+				delay_ms(1000);
+			}
+		}
 }
 
 static void alarm_on(void)
 {
+	if(alarmEnable)
   	ALARM_ON();
 	alarm_status = 1;
 }
@@ -543,6 +844,7 @@ void co2_alarm(void)
 
 void Co2_task(void *pvParameters )
 {  
+	static uint16 cnt;
 	portTickType xDelayPeriod = (portTickType)2000 / portTICK_RATE_MS;
 	sub_net_init();
 	
@@ -551,10 +853,22 @@ void Co2_task(void *pvParameters )
 	print("CO2 Task\r\n");
 	delay_ms(100);
 	
-	while(1)
+	while(1) 
 	{
-		vTaskDelay(xDelayPeriod);
+		//vTaskDelay(xDelayPeriod);
 		co2_request();
+		if(cnt<900)
+			cnt++;
+		if(cnt>=900)
+		{
+			if(isColorScreen == false)
+				Lcd_Initial();
+//			else
+//				LCDtest();
+			update_flag = 7;
+			cnt = 0;
+		}
+		delay_ms(2000);
 //		stack_detect(&test[3]);
 		
 //		if(db_ctr < 3)

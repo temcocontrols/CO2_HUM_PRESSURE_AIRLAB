@@ -48,8 +48,9 @@ void pid_controller( S16_T p_number )   // 10s
 	temp_input_value = swap_double(con->input_value);
 	temp_setpoint_value = swap_double(con->setpoint_value); 
 
-	err = temp_input_value - temp_setpoint_value;  /* absolute error */
-		
+	//err = temp_input_value - temp_setpoint_value;  /* absolute error */
+	err = temp_setpoint_value - temp_input_value;  /* absolute error */	
+	
 	erp = 0L;
 
 //	con->reset = 20;
@@ -212,6 +213,7 @@ void vStartPIDTask(void *pvParameters)
 	
 	while(1)
 	{
+	
 		if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) ) 
 			PID[0].EEP_Input_Value = (int32)Pressure.org_val;	
 		else

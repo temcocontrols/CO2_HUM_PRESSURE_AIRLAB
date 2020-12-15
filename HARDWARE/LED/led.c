@@ -2,13 +2,13 @@
 #include "modbus.h"
 #include "controls.h" 
 
-u16 led_bank1 = 0 ;
-u16 led_bank2 = 0 ;
-u8  heart_beat_led =  0; 
+//u16 led_bank1 = 0 ;
+//u16 led_bank2 = 0 ;
+//u8  heart_beat_led =  0; 
 u8	tx_count = 0 ;
 u8  rx_count = 0 ;
-u8  net_rx_count = 0 ;
-u8  net_tx_count = 0 ;
+//u8  net_rx_count = 0 ;
+//u8  net_tx_count = 0 ;
 //u8 dim_timer_setting[28];
 //void LED_Init(void)
 //{

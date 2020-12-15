@@ -11,14 +11,14 @@ xTaskHandle Handle_Menu, Handle_Scrolling, Handle_Cursor;
 uint8 text[50]; 
 uint8 int_text[21];
 //uint16 set_value;
-uint8 const   internal_text[] = "Zone0:";
+uint8 const   internal_text[] = "  Zone0:";
 uint8 const   external_text[] = "Zone";
 uint8 const   ppm_text[] = "ppm";
 //uint8 const code co2_text[] = "CO2:";
 uint8 const   int_space[] = "     ";
 //uint8 const code online_text[] = " ONLINE";
 //uint8 const code offline_text[] = " OFFLINE";
-uint8 const   warming_text[] = "Warming...";
+//uint8 warming_text[13] = "Read CO2     ";
 
 bit menu_system_start = FALSE;
 bit in_sub_menu = FALSE;
@@ -220,7 +220,7 @@ void ScrollingTask(void *pvParameters)
 	
 	while(1)
 	{
-		vTaskDelay(xDelayPeriod);
+
 		if(dis_hum_info == 1)
 		{  
 			sprintf((char *)text,"pts:%u sn:%u", HumSensor.counter,HumSensor.sn);
@@ -232,7 +232,9 @@ void ScrollingTask(void *pvParameters)
 			xQueueGiveMutexRecursive( xMutex );
 		}
 // 		stack_detect(&test[11]);
-//		taskYIELD();		
+//		taskYIELD();
+
+    vTaskDelay(xDelayPeriod);		
 	}	
 }
 
@@ -257,18 +259,18 @@ void CursorTask(void *pvParameters)
 
 void vStartMenuTask(unsigned char uxPriority)
 { 
-	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE , NULL, uxPriority, NULL);
+	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE+256 , NULL, uxPriority, NULL);
 		
-  	xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE, NULL, uxPriority, NULL);
+  xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE, NULL, uxPriority, NULL);
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_PM25) )
-		xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE , NULL, uxPriority, NULL);
+		xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE+128 , NULL, uxPriority, NULL);
 	 
 }
 
-void vStartScrollingTask(unsigned char uxPriority)
-{ 
-	 xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE , NULL, uxPriority, NULL);
-}
+//void vStartScrollingTask(unsigned char uxPriority)
+//{ 
+//	 xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE , NULL, uxPriority, NULL);
+//}
 
 void print(char *p)
 {

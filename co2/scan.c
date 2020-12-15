@@ -480,7 +480,10 @@ U8_T check_master_id_in_database(U8_T set_id, U8_T increase)
 void modify_master_id_in_database(U8_T old_id, U8_T set_id)
 {
 	modbus.address = set_id;
+	Station_NUM = modbus.address;
 	scan_db[0].id = set_id;
+//	Inital_Bacnet_Server();
+	dlmstp_init(NULL);
 	AT24CXX_WriteOneByte(EEP_ADDRESS, modbus.address);
 
 	// modify scan datebase

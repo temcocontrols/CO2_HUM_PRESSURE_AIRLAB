@@ -257,7 +257,7 @@ void send_test(void)
 //		for(i = 0; i < rece_size; i++)
 //		{
 //			send_byte(data_buffer[i], FALSE);//FALSE: do not need crc
-//			watchdog();
+
 //		}
 //	}
 //	else if(data_buffer[1] == MULTIPLE_WRITE_VARIABLES)
@@ -267,7 +267,7 @@ void send_test(void)
 //		for (i = 0; i < 6; i++)
 //		{
 //			send_byte(mul_buffer[i], TRUE);//TRUE: need crc
-//			watchdog();
+
 //		}	
 //		// send the two last CRC bits
 //		send_byte(CRChi, FALSE);

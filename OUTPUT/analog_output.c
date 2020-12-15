@@ -3,6 +3,7 @@
 #define OutputSTACK_SIZE	portMINIMAL_STACK_SIZE//512
 xTaskHandle Handle_Output;
 
+extern void watchdog(void);
 U16_T internal_temperature_ad_value = 0;
 U8_T output_mode = OUT_FAULT;
 U16_T theory_ad;
@@ -300,7 +301,10 @@ void refresh_output(void)
 		Set_analog_output(output_mode, CHANNEL_HUM, 	 Pressure.org_val);	
 	else if(PRODUCT_ID == STM32_PM25) 
 	{
-		Set_analog_output(output_mode, CHANNEL_HUM,	pm25_sensor.pm25);
+		if(pm25_sensor.pm25_range == PM25_0_100)
+			Set_analog_output(output_mode, CHANNEL_HUM,	pm25_sensor.pm25);
+		else if(pm25_sensor.pm25_range == PM25_0_1000)
+			Set_analog_output(output_mode, CHANNEL_HUM,	pm25_sensor.pm25/10);
 		Set_analog_output(output_mode, CHANNEL_TEMP,pm25_sensor.pm10);
 		return;
 	}
@@ -330,10 +334,13 @@ void vOutPutTask(void *pvParameters)
 	
 	for( ;; )
 	{    
+
+	
 		output_mode = get_output_mode();
 		refresh_output(); 
-		vTaskDelay(200 / portTICK_RATE_MS);
-//		watchdog();
+
+		vTaskDelay(500 / portTICK_RATE_MS);
+		
 //		 stack_detect(&test[7]);
 	}
 }

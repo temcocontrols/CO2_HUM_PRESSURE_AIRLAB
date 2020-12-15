@@ -1,4 +1,9 @@
 #include "config.h"
+
+
+bool isColorScreen;
+
+#if 1//defined (DOT_MATRIX_SCREEN)
 uint8 main_net_status_ctr = 10;
  
 
@@ -43,14 +48,22 @@ uint8 const code Dot6_16[96][2][6] =
 		{0x10,0x0E,0x00,0x00,0x00,0x00},
 		{0x00,0x00,0x00,0x00,0x00,0x00},/*"'",7*/
 	},
+	
+
 	{
-		{0x00,0x00,0x00,0xF0,0x0C,0x02},
-		{0x00,0x00,0x00,0x0F,0x30,0x40},/*"(",8*/
+
+{0x00,0xFE,0x00,0x00,0x00,0x00},
+{0x00,0x3F,0x0C,0x02,0x00,0x00},/*"?????",0*/
 	},
-	{
-		{0x00,0x06,0x18,0xE0,0x00,0x00},
-		{0x00,0x60,0x18,0x07,0x00,0x00},/*")",9*/
+	{	
+{0x00,0x00,0x20,0x18,0xFE,0x00},
+{0x00,0x00,0x00,0x00,0x3F,0x00},/*"?????",0*/
+		
 	},
+	
+
+	
+	
 	{
 		{0x40,0x80,0xF0,0x80,0x40,0x00},
 		{0x02,0x01,0x0F,0x01,0x02,0x00},/*"*",10*/
@@ -795,93 +808,119 @@ U32_T   bl_timer_start, bl_timer_end;
 void Lcd_Write_Byte(u8 num)	// from high to low
 {
 	u8 i;
-	LCD_CS = 0;//Lcd_Set(CS_LOW);
-//	delay_us(5);
-	LCD_AO = 1;//Lcd_Set(A0_HIGH);
-//	delay_us(5);	
-	for(i = 0; i < 8; i++)
+	if(isColorScreen == false)
 	{
-		if(num & 0x80)
-			LCD_DATA_W = 1;	// Lcd_Set(DATA_HIGH);
-     	else
-			LCD_DATA_W = 0;	// Lcd_Set(DATA_LOW);
-		
-//		delay_us(5);
-     	LCD_CLK = 0;	// Lcd_Set(CLK_LOW);
-//		delay_us(5);
-		LCD_CLK = 1;	// Lcd_Set(CLK_HIGH);
-//		delay_us(5);
+		LCD_CS = 0;//Lcd_Set(CS_LOW);
+	//	delay_us(5);
+		LCD_AO = 1;//Lcd_Set(A0_HIGH);
+	//	delay_us(5);	
+		for(i = 0; i < 8; i++)
+		{
+			if(num & 0x80)
+				LCD_DATA_W = 1;	// Lcd_Set(DATA_HIGH);
+				else
+				LCD_DATA_W = 0;	// Lcd_Set(DATA_LOW);
+			
+	//		delay_us(5);
+				LCD_CLK = 0;	// Lcd_Set(CLK_LOW);
+	//		delay_us(5);
+			LCD_CLK = 1;	// Lcd_Set(CLK_HIGH);
+	//		delay_us(5);
 
-     	num <<= 1;	
+				num <<= 1;	
+		}
+		LCD_CS = 1;		// Lcd_Set(CS_HIGH);
+	//	delay_us(5);
 	}
-	LCD_CS = 1;		// Lcd_Set(CS_HIGH);
-//	delay_us(5);
 }
 
 void Lcd_Write_Command(u8 command) // from high to low
 {
 	u8 i;
-	LCD_CS = 0;		// Lcd_Set(CS_LOW);//
-//	delay_us(5);
-	LCD_AO = 0;		// Lcd_Set(A0_LOW);//
-//	delay_us(5);
-	for(i = 0;i < 8;i++)
+	if(isColorScreen == false)
 	{
-		if(command & 0x80)
-			LCD_DATA_W = 1;	// Lcd_Set(DATA_HIGH);
-     	else
-			LCD_DATA_W = 0;	// Lcd_Set(DATA_LOW);//
-			
-//		delay_us(5);
-     	LCD_CLK = 0;	// Lcd_Set(CLK_LOW);//
-//		delay_us(5);
-		LCD_CLK = 1;	// Lcd_Set(CLK_HIGH);//
-//		delay_us(5);
+		LCD_CS = 0;		// Lcd_Set(CS_LOW);//
+	//	delay_us(5);
+		LCD_AO = 0;		// Lcd_Set(A0_LOW);//
+	//	delay_us(5);
+		for(i = 0;i < 8;i++)
+		{
+			if(command & 0x80)
+				LCD_DATA_W = 1;	// Lcd_Set(DATA_HIGH);
+				else
+				LCD_DATA_W = 0;	// Lcd_Set(DATA_LOW);//
+				
+	//		delay_us(5);
+				LCD_CLK = 0;	// Lcd_Set(CLK_LOW);//
+	//		delay_us(5);
+			LCD_CLK = 1;	// Lcd_Set(CLK_HIGH);//
+	//		delay_us(5);
 
-     	command <<= 1;
+				command <<= 1;
+		}
+		LCD_CS = 1;		// Lcd_Set(CS_HIGH);//
 	}
-	LCD_CS = 1;		// Lcd_Set(CS_HIGH);//
 //	delay_us(5);
 }
 void Lcd_Write_Char(uint8 row, uint8 line, uint8 num, uint8 disp_nor_or_inv) // row: 0 - 4 , line: 0 - 21
 {
 	uint8 loop; 
 	uint8 index = num - ' ';
-		
-	Lcd_Set_X_Addr(line * 6 + 3);
-	Lcd_Set_Y_Addr(row * 2);
-	for(loop = 0; loop < 6; loop++)
-	{ 
-		if(disp_nor_or_inv == DISP_NOR)
-			Lcd_Write_Byte(Dot6_16[index][0][loop]);
-		else
-			Lcd_Write_Byte(~Dot6_16[index][0][loop]);
-	}
+	uint16_t x,y,color;
+	if(isColorScreen== false)
+	{
+		Lcd_Set_X_Addr(line * 6 + 3);
+		Lcd_Set_Y_Addr(row * 2);
+		for(loop = 0; loop < 6; loop++)
+		{ 
+			if(disp_nor_or_inv == DISP_NOR)
+				Lcd_Write_Byte(Dot6_16[index][0][loop]);
+			else
+				Lcd_Write_Byte(~Dot6_16[index][0][loop]);
+		}
 
-	Lcd_Set_X_Addr(line * 6 + 3);
-	Lcd_Set_Y_Addr(row * 2 + 1);
-	for(loop = 0; loop < 6; loop++)
-	{ 
+		Lcd_Set_X_Addr(line * 6 + 3);
+		Lcd_Set_Y_Addr(row * 2 + 1);
+		for(loop = 0; loop < 6; loop++)
+		{ 
+			if(disp_nor_or_inv == DISP_NOR)
+				Lcd_Write_Byte(Dot6_16[index][1][loop]);
+			else
+				Lcd_Write_Byte(~Dot6_16[index][1][loop]);
+		}
+	}
+	else
+	{
+	
+		x = row*30+MENU_FIRST_XPOS;
+		y = THIRD_CH_POS+CO2_POSY_OFFSET*8+40-15*line;
 		if(disp_nor_or_inv == DISP_NOR)
-			Lcd_Write_Byte(Dot6_16[index][1][loop]);
+			color = TSTAT8_BACK_COLOR;
 		else
-			Lcd_Write_Byte(~Dot6_16[index][1][loop]);
+			color = TSTAT8_MENU_COLOR2;
+		disp_ch(2,x,y,num,SCH_COLOR,color);
 	}
 }
 
 void Lcd_Set_Fuction(uint8 mode)
 {
 	uint8 fuction;
-	fuction = 0x38 + mode;	// 0x20 + mode;
-	Lcd_Write_Command(fuction);
+	if(isColorScreen == false)
+	{
+		fuction = 0x38 + mode;	// 0x20 + mode;
+		Lcd_Write_Command(fuction);
+	}
 }
 
 void Lcd_Set_Y_Addr(uint8 page)// 0 1 0 0        page 0 - 9
 {
 	uint8 addr;
-	Lcd_Set_Fuction(0);
-	addr = 0x40 + page;
-	Lcd_Write_Command(addr);
+	if(isColorScreen == false)
+	{
+		Lcd_Set_Fuction(0);
+		addr = 0x40 + page;
+		Lcd_Write_Command(addr);
+	}
 }
 
 void Lcd_Set_X_Addr(uint8 line)// 1 1 1 0/1        page 0 - 129
@@ -889,44 +928,90 @@ void Lcd_Set_X_Addr(uint8 line)// 1 1 1 0/1        page 0 - 129
 	uint8 addr;
 	uint8 line_low;
 	uint8 line_high;
-	Lcd_Set_Fuction(0);
-	line_low = line & 0x0f;
-	line = line >> 4;
-	line_high = line; 
-	addr = 0xe0 + line_low; //low
-	Lcd_Write_Command(addr);
-	addr = 0xf0 + line_high; //high
-	Lcd_Write_Command(addr);
+	if(isColorScreen == false)
+	{
+		Lcd_Set_Fuction(0);
+		line_low = line & 0x0f;
+		line = line >> 4;
+		line_high = line; 
+		addr = 0xe0 + line_low; //low
+		Lcd_Write_Command(addr);
+		addr = 0xf0 + line_high; //high
+		Lcd_Write_Command(addr);
+	}
 }
 
 void Lcd_Full_Screen(uint8 full)
 {
+	//#if defined (DOT_MATRIX_SCREEN)
 	uint16 i;
 //	Lcd_Write_Command(0x06);
-	for(i = 0; i < 130 * 80; i++)	
+	if(isColorScreen == false)
 	{
-		Lcd_Write_Byte(full);
+		for(i = 0; i < 130 * 80; i++)	
+		{
+			Lcd_Write_Byte(full);
+		}
 	}
 //	Lcd_Write_Command(0x07);
+	//#if defined (COLOR_SCREEN)
+	else
+		ClearScreen(TSTAT8_BACK_COLOR);
+	//#endif
 }
 
 
 
 void Lcd_Show_String(uint8 pos_row, uint8 pos_line, uint8 disp_mode, uint8 *str)
 {
+	//#if defined (DOT_MATRIX_SCREEN)
+	
 	uint8 loop = 0;
 	uint8 length = strlen((char *)str);
+	//uint8 length = strlen((char *)str);
+	uint16_t x,y,color;
 
 //	if((pos_row > MAX_ROW) || (pos_line > MAX_LINE))
 //		return;
+	if(isColorScreen == false)
+	{
+		if(length > (MAX_LINE - pos_line))
+			length = MAX_LINE - pos_line;
 
-	if(length > (MAX_LINE - pos_line))
+	//	Lcd_Write_Command(0x06);
+		for(loop = 0; loop < length; loop++)
+			Lcd_Write_Char(pos_row, pos_line + loop, str[loop], disp_mode);
+	//	Lcd_Write_Command(0x07);
+	}
+	
+	//#if defined (COLOR_SCREEN)
+	else
+	{
+//		if(length > (MAX_LINE - pos_line))
+//			length = MAX_LINE - pos_line;
+
+//		x = pos_row*30+MENU_FIRST_XPOS;
+//		y = THIRD_CH_POS+CO2_POSY_OFFSET*8-24*pos_line;
+//		if(disp_mode == DISP_NOR)
+//			color = TSTAT8_BACK_COLOR;
+//		else
+//			color = TSTAT8_MENU_COLOR2;
+
+//		disp_str(2, x, THIRD_CH_POS+CO2_POSY_OFFSET*8+40, str,SCH_COLOR,color);
+		if(length > (MAX_LINE - pos_line))
 		length = MAX_LINE - pos_line;
 
-//	Lcd_Write_Command(0x06);
-	for(loop = 0; loop < length; loop++)
-		Lcd_Write_Char(pos_row, pos_line + loop, str[loop], disp_mode);
-//	Lcd_Write_Command(0x07);
+		x = pos_row*30+MENU_FIRST_XPOS;
+		//y = THIRD_CH_POS+CO2_POSY_OFFSET*8-24*pos_line;
+		y = THIRD_CH_POS+CO2_POSY_OFFSET*8+40-15*pos_line;
+		if(disp_mode == DISP_NOR)
+			color = TSTAT8_BACK_COLOR;
+		else
+			color = TSTAT8_MENU_COLOR2;
+		
+		disp_str(2, x, y, str,SCH_COLOR,color);
+	}
+	//#endif
 }
 
 //const uint8 blank[] = "                     ";
@@ -942,71 +1027,56 @@ uint8 Lcd_Show_Data(uint8 pos_row, uint8 pos_line, uint16 number, uint8 dot, uin
 	int16 number_temp ;
 	number_temp = number;
 	 
-	if(dot > 5)
-		return 0;
-			
-	if((pos_row > MAX_ROW) || (pos_line > MAX_LINE))
-		return 0;
-	sign = 0;
-	
-	if(number_temp < 0)
+	if(isColorScreen == false)
 	{
-		sign = 1;
-		number = abs(number_temp);
-	}
-	itoa(number, str, dot);
-//	sprintf(num, "%u", number);
-	length = strlen((char *)str);
-
-//	if(dot) // float
-//	{
-//		if(dot >= length)
-//		{
-//			for(i = 0; i < length; i++)
-//				str[length - i] = str[length - i - 1];
-//
-//			str[0] = '0';
-//			length++;
-//		}
-//
-//		for(i = 0; i < dot; i++)
-//			str[length - i] = str[length - i - 1];
-//
-//		str[length - dot] = '.';
-//		length++;
-//	}
-
-	if(align == ALIGN_LEFT)
-	{
-		if(sign == 0)
-		{
-			for(i = 0; i < length; i++)
-				Lcd_Write_Char(pos_row, pos_line + i, str[i], mode);
-		}
-		else
-		{
-			Lcd_Write_Char(pos_row, pos_line,'-', mode);
-			for(i = 1; i < length; i++)
-				Lcd_Write_Char(pos_row, pos_line + i, str[i], mode);
-		}
-	}
-	else if(align == ALIGN_RIGHT)
-	{
-		if(sign == 0)
-		{
-			for(i = 0; i < length; i++)
-				Lcd_Write_Char(pos_row, pos_line - i, str[length - 1 - i], mode);
-		}
-		else
-		{
-			for(i = 0; i < length; i++)
-				Lcd_Write_Char(pos_row, pos_line - i, str[length - 1 - i], mode);
-			Lcd_Write_Char(pos_row, pos_line - i, '-', mode);
-		}
+		if(dot > 5)
+			return 0;
+				
+		if((pos_row > MAX_ROW) || (pos_line > MAX_LINE))
+			return 0;
+		sign = 0;
 		
-	}
+		if(number_temp < 0)
+		{
+			sign = 1;
+			number = abs(number_temp);
+		}
+		itoa(number, str, dot);
+	//	sprintf(num, "%u", number);
+		length = strlen((char *)str);
 
-	return length;
+		if(align == ALIGN_LEFT)
+		{
+			if(sign == 0)
+			{
+				for(i = 0; i < length; i++)
+					Lcd_Write_Char(pos_row, pos_line + i, str[i], mode);
+			}
+			else
+			{
+				Lcd_Write_Char(pos_row, pos_line,'-', mode);
+				for(i = 1; i < length; i++)
+					Lcd_Write_Char(pos_row, pos_line + i, str[i], mode);
+			}
+		}
+		else if(align == ALIGN_RIGHT)
+		{
+			if(sign == 0)
+			{
+				for(i = 0; i < length; i++)
+					Lcd_Write_Char(pos_row, pos_line - i, str[length - 1 - i], mode);
+			}
+			else
+			{
+				for(i = 0; i < length; i++)
+					Lcd_Write_Char(pos_row, pos_line - i, str[length - 1 - i], mode);
+				Lcd_Write_Char(pos_row, pos_line - i, '-', mode);
+			}
+			
+		}
+
+		return length;
+	}
 }
 
 //void Lcd_Show_two_digitals(uint8 pos_row, uint8 pos_line, uint8 dat)
@@ -1021,33 +1091,40 @@ uint8 Lcd_Show_Data(uint8 pos_row, uint8 pos_line, uint16 number, uint8 dot, uin
 void update_cursor(void)
 {
 	static bit flag = FALSE;
-	if(cursor.status == CURSOR_ON)
+	if(isColorScreen == false)
 	{
-		if(flag == FALSE)
+		if(cursor.status == CURSOR_ON)
 		{
-			Lcd_Write_Char(cursor.row, cursor.line, cursor.on_byte, DISP_INV); 
-			flag = TRUE;
-		}
-		else
-		{
-			Lcd_Write_Char(cursor.row, cursor.line, cursor.off_byte, DISP_INV);
-			flag = FALSE;
+			if(flag == FALSE)
+			{
+				Lcd_Write_Char(cursor.row, cursor.line, cursor.on_byte, DISP_INV); 
+				flag = TRUE;
+			}
+			else
+			{
+				Lcd_Write_Char(cursor.row, cursor.line, cursor.off_byte, DISP_INV);
+				flag = FALSE;
+			}
 		}
 	}
 }
 
 void cursor_on(uint8 row, uint8 line, uint8 onByte, uint8 offByte)
 {
-	cursor.row = row;
-	cursor.line = line;
-	cursor.on_byte = onByte;
-	cursor.off_byte = offByte;
-	cursor.status = CURSOR_ON;
+	if(isColorScreen == false)
+	{
+		cursor.row = row;
+		cursor.line = line;
+		cursor.on_byte = onByte;
+		cursor.off_byte = offByte;
+		cursor.status = CURSOR_ON;
+	}
 }
 
 void cursor_off(void)
 {
-	cursor.status = CURSOR_OFF;
+	if(isColorScreen == false)
+		cursor.status = CURSOR_OFF;
 }
 
 
@@ -1072,16 +1149,17 @@ U8_T time[] = "2013-09-19 17:16";
 U8_T const   network_status_text[] = "  NETWORK:";
 U8_T const   main_net_status_text[] = " Main-net:";
 U8_T const   sub_net_status_text[] = " Subnet:";
-U8_T const   net_status_ok_text[] = "OK";
-U8_T const   net_status_dead_text[] = "Dead";
+U8_T const   net_status_ok_text[] = "OK     ";
+U8_T const   net_status_dead_text[] = "Dead   ";
 U8_T const   net_offline_text[] = "Offline";
 
 U8_T const   alarm_text[] = "  ALARM:";
+U8_T const	aqi_text[] = "    AQI:";
 U8_T const   alarm_status_text[4][9] = 
 {
-	"Good",
-	"Fair",
-	"Pool",
+	"Good   ",
+	"Fair   ",
+	"Pool   ",
 	"Offline"
 };
 
@@ -1092,206 +1170,233 @@ U8_T XDATA message[200];
 
 void start_scrolling(void)
 {
-	scrolling_flag = TRUE;
+	if(isColorScreen == false)
+		scrolling_flag = TRUE;
 }
 
 void stop_scrolling(void)
 {
-	scrolling_flag = FALSE;
+	if(isColorScreen == false)
+		scrolling_flag = FALSE;
 }
 
  
 void get_time_text(void)
 {
-	sprintf((char *)time, "%04d-%02d-%02d %02d:%02d", (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date, (uint16)calendar.hour, (uint16)calendar.min);
+	if(isColorScreen== false)
+		sprintf((char *)time, "%04d-%02d-%02d %02d:%02d", (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date, (uint16)calendar.hour, (uint16)calendar.min);
+	else
+	{
+		sprintf((char *)color_time, "Time %02d:%02d", (uint16)calendar.hour, (uint16)calendar.min);
+		sprintf((char *)date, "%04d-%02d-%02d", (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
+	}
 }
-extern uint8 const code baudrate_text[5][7];
+extern uint8 const code baudrate_text[6][7];
 uint8 const   AQI_LEVEL[6][15] = 
 {
-	"Good",					//AQI:   0 ~ 50
-	"Moderate",				//AQI:  50 ~ 99
-	"Poor For Some",		//AQI:  99 ~ 149	
-	"Poor",					//AQI: 149 ~ 200
+	"Good          ",					//AQI:   0 ~ 50
+	"Moderate      ",				//AQI:  50 ~ 99
+	"Poor For Some ",		//AQI:  99 ~ 149	
+	"Poor          ",					//AQI: 149 ~ 200
 	"Very Unhealthy",		//AQI: 200 ~ 300
-	"Hazardous"				//AQI: 300 ~ 500
+	"Hazardous     "				//AQI: 300 ~ 500
 };
 void update_message_context(void)
 {
 	U8_T length;
 
-	scroll_message_length = 0;
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ) 
-	{	
-	// Date & Time
-		length = strlen((char *)time);
-		memcpy((U8_T *)message + scroll_message_length, time, length);
-		scroll_message_length += length;
+	if(isColorScreen == false)
+	{
+		scroll_message_length = 0;
+		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ) 
+		{	
+		// Date & Time
+			length = strlen((char *)time);
+			memcpy((U8_T *)message + scroll_message_length, time, length);
+			scroll_message_length += length;
 
-	// Network
-		length = strlen((char *)network_status_text);
-		memcpy(message + scroll_message_length, network_status_text, length);
-		scroll_message_length += length;
-		// main net status
-		length = strlen((char *)main_net_status_text);
-		memcpy(message + scroll_message_length, main_net_status_text, length);
-		scroll_message_length += length;
-		if(main_net_status_ctr)
-		{
-			length = strlen((char *)net_status_ok_text);
-			memcpy(message + scroll_message_length, net_status_ok_text, length);
+		// Network
+			length = strlen((char *)network_status_text);
+			memcpy(message + scroll_message_length, network_status_text, length);
 			scroll_message_length += length;
-		}
-		else
-		{
-			length = strlen((char *)net_status_dead_text);
-			memcpy(message + scroll_message_length, net_status_dead_text, length);
+			// main net status
+			length = strlen((char *)main_net_status_text);
+			memcpy(message + scroll_message_length, main_net_status_text, length);
 			scroll_message_length += length;
-		}
-		// sub net status
-		length = strlen((char *)sub_net_status_text);
-		memcpy(message + scroll_message_length, sub_net_status_text, length);
-		scroll_message_length += length;
-		if(db_ctr == current_online_ctr)
-		{
-			length = strlen((char *)net_status_ok_text);
-			memcpy(message + scroll_message_length, net_status_ok_text, length);
-			scroll_message_length += length;
-		}
-		else
-		{
-			U8_T i, id_temp;
-			for(i = 0; i < db_ctr; i++)
+			if(main_net_status_ctr)
 			{
-				id_temp = scan_db[i].id;
-				if((current_online[id_temp / 8] & (1 << (id_temp % 8))) == 0x00)
-				{
-					if(i == 0) // internal co2 sensor
-						sprintf((char *)text, "%s,", internal_text);
-					else
-						sprintf((char *)text, "%s%u,", external_text, (U16_T)id_temp);
-
-					length = strlen((char *)text);
-					memcpy(message + scroll_message_length, text, length);
-					scroll_message_length += length;
-				}
+				length = strlen((char *)net_status_ok_text);
+				memcpy(message + scroll_message_length, net_status_ok_text, length);
+				scroll_message_length += length;
 			}
-			// clear the last ','
-			scroll_message_length--;
-
-			sprintf((char *)text, "%s", net_offline_text);
-			length = strlen((char *)text);
-			memcpy(message + scroll_message_length, text, length);
-			scroll_message_length += length;
-		}
-
-	// Alarm
-		length = sizeof(alarm_text) - 1;
-		memcpy(message + scroll_message_length, alarm_text, length);
-		scroll_message_length += length;
-
-		if((alarm_state & (~ALARM_MANUAL)) == STOP_ALARM)
-		{
-			length = strlen((char *)alarm_status_text[STOP_ALARM]);
-			memcpy(message + scroll_message_length, alarm_status_text[STOP_ALARM], length);
-			scroll_message_length += length;
-		}
-		else
-		{
-			U8_T i, id_temp;
-	//		for(i = 0; i < db_ctr; i++)
+			else
 			{
-	//			id_temp = scan_db[i].id;
-	//			if(i == 0)
+				length = strlen((char *)net_status_dead_text);
+				memcpy(message + scroll_message_length, net_status_dead_text, length);
+				scroll_message_length += length;
+			}
+			// sub net status
+			length = strlen((char *)sub_net_status_text);
+			memcpy(message + scroll_message_length, sub_net_status_text, length);
+			scroll_message_length += length;
+			if(db_ctr == current_online_ctr)
+			{
+				length = strlen((char *)net_status_ok_text);
+				memcpy(message + scroll_message_length, net_status_ok_text, length);
+				scroll_message_length += length;
+			}
+			else
+			{
+				U8_T i, id_temp;
+				for(i = 0; i < db_ctr; i++)
 				{
-					if(internal_co2_exist == TRUE)
-					{ 
-						sprintf((char *)text, "%s:%s,", internal_text, alarm_status_text[int_co2_str.alarm_state]);
+					id_temp = scan_db[i].id;
+					if((current_online[id_temp / 8] & (1 << (id_temp % 8))) == 0x00)
+					{
+						if(i == 0) // internal co2 sensor
+							sprintf((char *)text, "%s,", internal_text);
+						else
+							sprintf((char *)text, "%s%u,", external_text, (U16_T)id_temp);
+
 						length = strlen((char *)text);
 						memcpy(message + scroll_message_length, text, length);
 						scroll_message_length += length;
 					}
 				}
-	//			else if(ext_co2_str[i - 1].alarm_state != STOP_ALARM)
-	//			{
-	//				sprintf((char *)text, "%s%u:%s,", external_text, (U16_T)id_temp, alarm_status_text[ext_co2_str[i - 1].alarm_state]);
-	//				length = strlen((char *)text);
-	//				memcpy(message + scroll_message_length, text, length);
-	//				scroll_message_length += length;
-	//			}
+				// clear the last ','
+				scroll_message_length--;
+
+				sprintf((char *)text, "%s", net_offline_text);
+				length = strlen((char *)text);
+				memcpy(message + scroll_message_length, text, length);
+				scroll_message_length += length;
 			}
 
-			memcpy(message + scroll_message_length - 1, " ", 1);
-		}
-
-	// SPACE
-		length = 3;
-		memcpy(message + scroll_message_length, "   ", length);
-		scroll_message_length += length;
-	}
-	else if(PRODUCT_ID == STM32_PM25)
-	{
- 		if(pm25_sensor.menu.scroll_set&0x01)
-		{
-			//sensor status
-			strcpy((char *)text, (char *)"SensorStatus:"); 
-			if(pm25_sensor.status) strcat((char *)text, (char *)"OK");
-			else 
-				strcat((char *)text, (char *)"Offline");
-			
-			strcat((char *)text, (char *)" ");
-			
-			length = strlen((char *)text);
-			memcpy((U8_T *)message + scroll_message_length, text, length);
-			scroll_message_length += length;
-		}
- 		if((pm25_sensor.menu.scroll_set>>1)&0x01)
-		{
-			//RX TX
-			strcpy((char *)text, (char *)"RX:"); 
-			itoa(uart.rx_count, int_text, 0);
-			strcat((char *)text, (char *)int_text); 
-			
-			strcat((char *)text, (char *)" TX:"); 
-			itoa(uart.tx_count, int_text, 0);
-			strcat((char *)text, (char *)int_text); 
-			strcat((char *)text, (char *)" ");
-			length = strlen((char *)text);
-			memcpy((U8_T *)message + scroll_message_length, text, length);
-			scroll_message_length += length;
-		}
- 		if((pm25_sensor.menu.scroll_set>>2)&0x01)
-		{
-			//Baudrate
-			strcpy((char *)text, (char *)"Baudrate:"); 
-			strcat((char *)text, (char *)baudrate_text[modbus.baud]);
-			
-			strcat((char *)text, (char *)" ");
-			
-			length = strlen((char *)text);
-			memcpy((U8_T *)message + scroll_message_length, text, length);
-			scroll_message_length += length;
-		}
- 		if((pm25_sensor.menu.scroll_set>>3)&0x01)
-		{
-			//AQI LEVEL
-			strcpy((char *)text, (char *)" AQI LEVEL:"); 
-			strcat((char *)text, (char *)AQI_LEVEL[pm25_sensor.level]);
-			
-			strcat((char *)text, (char *)" ");
-			
-			length = strlen((char *)text);
-			memcpy((U8_T *)message + scroll_message_length, text, length);
-			scroll_message_length += length;
-		}
-		if(pm25_sensor.menu.scroll_set == 0)
-		{
-			//null
-			strcpy((char *)text, (char *)"       ");  
-			length = strlen((char *)text);
-			memcpy((U8_T *)message + scroll_message_length, text, length);
-			scroll_message_length += length;
-		}
 		
+
+			if(PRODUCT_ID == STM32_PM25)
+			{
+				length = sizeof(aqi_text) - 1;
+				memcpy(message + scroll_message_length, aqi_text, length);
+				scroll_message_length += length;
+				length = strlen((char *)AQI_LEVEL[pm25_sensor.AQI]);
+				memcpy(message + scroll_message_length, AQI_LEVEL[pm25_sensor.AQI], length);
+				//sprintf((char *)text, "%s:%s,", internal_text, alarm_status_text[int_co2_str.alarm_state]);
+			}
+			else
+			{
+				// Alarm
+				length = sizeof(alarm_text) - 1;
+				memcpy(message + scroll_message_length, alarm_text, length);
+				scroll_message_length += length;
+				if((alarm_state & (~ALARM_MANUAL)) == STOP_ALARM)
+				{
+					length = strlen((char *)alarm_status_text[STOP_ALARM]);
+					memcpy(message + scroll_message_length, alarm_status_text[STOP_ALARM], length);
+					scroll_message_length += length;
+				}
+				else
+				{
+					U8_T i, id_temp;
+			//		for(i = 0; i < db_ctr; i++)
+					{
+			//			id_temp = scan_db[i].id;
+			//			if(i == 0)
+						{
+							
+							{
+								if(internal_co2_exist == TRUE)
+								{ 
+									sprintf((char *)text, "%s:%s,", internal_text, alarm_status_text[int_co2_str.alarm_state]);
+									length = strlen((char *)text);
+									memcpy(message + scroll_message_length, text, length);
+									scroll_message_length += length;
+								}
+							}
+						}
+			//			else if(ext_co2_str[i - 1].alarm_state != STOP_ALARM)
+			//			{
+			//				sprintf((char *)text, "%s%u:%s,", external_text, (U16_T)id_temp, alarm_status_text[ext_co2_str[i - 1].alarm_state]);
+			//				length = strlen((char *)text);
+			//				memcpy(message + scroll_message_length, text, length);
+			//				scroll_message_length += length;
+			//			}
+					}
+
+					memcpy(message + scroll_message_length - 1, " ", 1);
+				}
+			}
+
+		// SPACE
+			length = 3;
+			memcpy(message + scroll_message_length, "   ", length);
+			scroll_message_length += length;
+		}
+		else if(PRODUCT_ID == STM32_PM25)
+		{
+			if(pm25_sensor.menu.scroll_set&0x01)
+			{
+				//sensor status
+				strcpy((char *)text, (char *)"SensorStatus:"); 
+				if(pm25_sensor.status) strcat((char *)text, (char *)"OK");
+				else 
+					strcat((char *)text, (char *)"Offline");
+				
+				strcat((char *)text, (char *)" ");
+				
+				length = strlen((char *)text);
+				memcpy((U8_T *)message + scroll_message_length, text, length);
+				scroll_message_length += length;
+			}
+			if((pm25_sensor.menu.scroll_set>>1)&0x01)
+			{
+				//RX TX
+				strcpy((char *)text, (char *)"RX:"); 
+				itoa(uart.rx_count, int_text, 0);
+				strcat((char *)text, (char *)int_text); 
+				
+				strcat((char *)text, (char *)" TX:"); 
+				itoa(uart.tx_count, int_text, 0);
+				strcat((char *)text, (char *)int_text); 
+				strcat((char *)text, (char *)" ");
+				length = strlen((char *)text);
+				memcpy((U8_T *)message + scroll_message_length, text, length);
+				scroll_message_length += length;
+			}
+			if((pm25_sensor.menu.scroll_set>>2)&0x01)
+			{
+				//Baudrate
+				strcpy((char *)text, (char *)"Baudrate:"); 
+				strcat((char *)text, (char *)baudrate_text[modbus.baud]);
+				
+				strcat((char *)text, (char *)" ");
+				
+				length = strlen((char *)text);
+				memcpy((U8_T *)message + scroll_message_length, text, length);
+				scroll_message_length += length;
+			}
+			if((pm25_sensor.menu.scroll_set>>3)&0x01)
+			{
+				//AQI LEVEL
+				strcpy((char *)text, (char *)" AQI LEVEL:"); 
+				strcat((char *)text, (char *)AQI_LEVEL[pm25_sensor.level]);
+				
+				strcat((char *)text, (char *)" ");
+				
+				length = strlen((char *)text);
+				memcpy((U8_T *)message + scroll_message_length, text, length);
+				scroll_message_length += length;
+			}
+			if(pm25_sensor.menu.scroll_set == 0)
+			{
+				//null
+				strcpy((char *)text, (char *)"       ");  
+				length = strlen((char *)text);
+				memcpy((U8_T *)message + scroll_message_length, text, length);
+				scroll_message_length += length;
+			}
+			
+		}
 	}
 }
 
@@ -1300,27 +1405,30 @@ void display_character_with_start_bit(U8_T row, U8_T start_line, U8_T start_bit,
 	U8_T i;
 	U8_T index = c - ' ';
 
-	if(start_line >= 130)
-		return;
-	
-	Lcd_Set_X_Addr(start_line);
-	Lcd_Set_Y_Addr(row * 2);
-	for(i = start_bit; i < end_bit; i++)
-	{ 
-		if(disp_mode == DISP_NOR)
-			Lcd_Write_Byte(Dot8_16[index][0][i]);
-		else
-			Lcd_Write_Byte(~Dot8_16[index][0][i]);
-	}
+	if(isColorScreen == false)
+	{
+		if(start_line >= 130)
+			return;
+		
+		Lcd_Set_X_Addr(start_line);
+		Lcd_Set_Y_Addr(row * 2);
+		for(i = start_bit; i < end_bit; i++)
+		{ 
+			if(disp_mode == DISP_NOR)
+				Lcd_Write_Byte(Dot8_16[index][0][i]);
+			else
+				Lcd_Write_Byte(~Dot8_16[index][0][i]);
+		}
 
-	Lcd_Set_X_Addr(start_line);
-	Lcd_Set_Y_Addr(row * 2 + 1);
-	for(i = start_bit; i < end_bit; i++)
-	{ 
-		if(disp_mode == DISP_NOR)
-			Lcd_Write_Byte(Dot8_16[index][1][i]);
-		else
-			Lcd_Write_Byte(~Dot8_16[index][1][i]);
+		Lcd_Set_X_Addr(start_line);
+		Lcd_Set_Y_Addr(row * 2 + 1);
+		for(i = start_bit; i < end_bit; i++)
+		{ 
+			if(disp_mode == DISP_NOR)
+				Lcd_Write_Byte(Dot8_16[index][1][i]);
+			else
+				Lcd_Write_Byte(~Dot8_16[index][1][i]);
+		}
 	}
 }
 
@@ -1330,74 +1438,85 @@ void scrolling_message(void)
 	static U8_T start_bit = 0;
 	static U8_T start_byte = 0;
 
-	if(scrolling_flag == FALSE)
-		return;
-
-	byte_index = start_byte;
-
-//	Lcd_Write_Command(0x06);
-
-	disp_value = message[byte_index++];
-	byte_index %= scroll_message_length;
-	display_character_with_start_bit(4, 0, start_bit, 8, disp_value, DISP_NOR);
-
-	if(start_bit < 7)
+	if(isColorScreen == false)
 	{
-		for(i = 1; i < 16; i++)
-		{
-			disp_value = message[byte_index++];
-			byte_index %= scroll_message_length;
-			display_character_with_start_bit(4, 8 * i - start_bit, 0, 8, disp_value, DISP_NOR);
-		}
-	
+		if(scrolling_flag == FALSE)
+			return;
+
+		byte_index = start_byte;
+
+	//	Lcd_Write_Command(0x06);
+
 		disp_value = message[byte_index++];
 		byte_index %= scroll_message_length;
-		display_character_with_start_bit(4, 8 * i - start_bit, 0, 4 + start_bit, disp_value, DISP_NOR);
-	}
-	else // if(start_bit == 7)
-	{
-		for(i = 1; i < 17; i++)
+		display_character_with_start_bit(4, 0, start_bit, 8, disp_value, DISP_NOR);
+
+		if(start_bit < 7)
 		{
+			for(i = 1; i < 16; i++)
+			{
+				disp_value = message[byte_index++];
+				byte_index %= scroll_message_length;
+				display_character_with_start_bit(4, 8 * i - start_bit, 0, 8, disp_value, DISP_NOR);
+			}
+		
 			disp_value = message[byte_index++];
 			byte_index %= scroll_message_length;
-			display_character_with_start_bit(4, 8 * i - start_bit, 0, 8, disp_value, DISP_NOR);
+			display_character_with_start_bit(4, 8 * i - start_bit, 0, 4 + start_bit, disp_value, DISP_NOR);
 		}
-	
-		disp_value = message[byte_index++];
-		byte_index %= scroll_message_length;
-		display_character_with_start_bit(4, 8 * i - start_bit, 0, start_bit - 2, disp_value, DISP_NOR);
-	}
+		else // if(start_bit == 7)
+		{
+			for(i = 1; i < 17; i++)
+			{
+				disp_value = message[byte_index++];
+				byte_index %= scroll_message_length;
+				display_character_with_start_bit(4, 8 * i - start_bit, 0, 8, disp_value, DISP_NOR);
+			}
+		
+			disp_value = message[byte_index++];
+			byte_index %= scroll_message_length;
+			display_character_with_start_bit(4, 8 * i - start_bit, 0, start_bit - 2, disp_value, DISP_NOR);
+		}
 
-//	Lcd_Write_Command(0x07);
+	//	Lcd_Write_Command(0x07);
 
-	start_bit++;
-	if(start_bit >= 8)
-	{
-		start_bit = 0;
-		start_byte++;
-		start_byte %= scroll_message_length;
+		start_bit++;
+		if(start_bit >= 8)
+		{
+			start_bit = 0;
+			start_byte++;
+			start_byte %= scroll_message_length;
+		}
 	}
 }
 
 U8_T bl_timer = 0;
 void start_back_light(U8_T timer)
 {
-	if(timer == 0) BL_OFF();
-	else BL_ON();
-	bl_timer = timer;
-	bl_timer_start = xTaskGetTickCount();
+	if(isColorScreen == false)
+	{
+		if(timer == 0) BL_OFF();
+		else BL_ON();
+		bl_timer = timer;
+		bl_timer_start = xTaskGetTickCount();
+	}
+	else
+		BL_OFF();
 }
 
 
 void poll_back_light(void)
 {
-	if((bl_timer!=0)&&(bl_timer!=0xff))
+	if(isColorScreen == false)
 	{
-		bl_timer_end = xTaskGetTickCount();
-		if((bl_timer_end - bl_timer_start) >= (bl_timer * SWTIMER_COUNT_SECOND))
+		if((bl_timer!=0)&&(bl_timer!=0xff))
 		{
- 			BL_OFF();
-			bl_timer = 0;
+			bl_timer_end = xTaskGetTickCount();
+			if((bl_timer_end - bl_timer_start) >= (bl_timer * SWTIMER_COUNT_SECOND))
+			{
+				BL_OFF();
+				bl_timer = 0;
+			}
 		}
 	}
 }
@@ -1526,3 +1645,5 @@ void poll_main_net_status(void)
 	if(main_net_status_ctr)
 		main_net_status_ctr--;
 }
+
+#endif   //(DOT_MATRIX_SCREEN)

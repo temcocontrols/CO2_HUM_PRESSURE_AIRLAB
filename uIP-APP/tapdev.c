@@ -81,8 +81,22 @@ u8 tapdev_init(void)
 		uip_setdraddr(ipaddr);						 
 		uip_ipaddr(ipaddr, modbus.mask_addr[0], modbus.mask_addr[1], modbus.mask_addr[2], modbus.mask_addr[3]);	//ÉèÖÃÍøÂçÑÚÂë
 		uip_setnetmask(ipaddr);
-		
-		uip_ipaddr(uip_hostaddr_submask, modbus.ip_addr[0], modbus.ip_addr[1], modbus.ip_addr[2],255);
+
+	{	u8 temp[4];
+	// fix submask by chelsea
+	temp[0] = modbus.ip_addr[0];
+	temp[1] = modbus.ip_addr[1];
+	temp[2] = modbus.ip_addr[2];
+	temp[3] = modbus.ip_addr[3];
+	
+	temp[0] |= (255 - modbus.mask_addr[0]);
+	temp[1] |= (255 - modbus.mask_addr[1]);
+	temp[2] |= (255 - modbus.mask_addr[2]);
+	temp[3] |= (255 - modbus.mask_addr[3]);
+	
+	uip_ipaddr(uip_hostaddr_submask,temp[0], temp[1],temp[2] ,temp[3]);
+	}
+	//	uip_ipaddr(uip_hostaddr_submask, modbus.ip_addr[0], modbus.ip_addr[1], modbus.ip_addr[2],255);
 
 	delay_ms(1) ;
 	uip_listen(HTONS(modbus.listen_port));       // 10000, modbustcp

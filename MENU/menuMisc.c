@@ -7,10 +7,13 @@ static uint16 set_value;
 
 static uint8 sub_menu_index = 0;
 
+bool alarmEnable = false;
+
 #define IP_NO_CHANGE	0
 #define IP_CHANGED		1
 #define IP_ENABLE		2
 #define IP_DISABLE		3
+extern uint8 update_flag;
 uint8 ipconfig_in_menu = IP_NO_CHANGE;
 uint8 ip_changed_in_menu = 0;
 uint8 subnet_changed_in_menu = 0;
@@ -25,15 +28,17 @@ static uint8 const code item_name[MAX_MISC_ITEMS][19] =
 	"4.Gat:",
 	"5.Port:",
 	"6.New ip: ",
-	"7.Modbus ID: ",
+	"7.Device ID: ",
 	"8.Baudrate: ",
-	"9.Date: ",
-	"10.Time: ",
-	"11.Alarm on sec: ",
-	"12.Alarm off sec: ",
-	"13.Use password: ",
-	"14.Password: ",
-    "15.Protocol: ",
+  "9.Protocol:  ",
+	"10.Date:",
+	"11.Time: ",
+//	"11.Alarm on sec: ",
+//	"12.Alarm off sec: ",
+	"12.Use password: ",
+	"13.Password: ",
+	"14.Enable Alarm: ",
+	"15.Status Line:  "
 };
 static uint8 const code protocol_text[2][7] = 
 {
@@ -50,17 +55,19 @@ static uint8 const code new_ip_status_text[4][10] =
 {
 	"No-change",
 	"Y/N",
-	"Yes",
+	"Confirm",
 	"Cannel",
 };
 
-  uint8 const code baudrate_text[5][7] = 
+  uint8 const code baudrate_text[6][7] = 
 {
 	"9600",
 	"19200",
 	"38400",
 	"57600",
-	"115200"
+	"115200",
+	"76800"
+	
 };
 
 static uint8 const code YesOrNo[2][4] = 
@@ -173,7 +180,13 @@ void Misc_init(void)
 				strcat((char *)text, (char *)baudrate_text[modbus.baud]);
 				strcat((char *)text, (char *)PARITY_TEXT[uart1_parity]);
 				break;
-			case 8: // Date
+			case 8:
+				if(modbus.protocal == MODBUS) 
+					strcat((char *)text, (char *)protocol_text[1]);
+				else
+					strcat((char *)text, (char *)protocol_text[0]);
+				break; 
+			case 9: // Date
 //				sprintf((char *)text, "%s%04d-%02d-%02d", item_name[i + item_index / 5 * 5], (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
 //				itoa(calendar.w_year, int_text, 0);
 //				strcat((char *)text, (char *)int_text);
@@ -185,7 +198,7 @@ void Misc_init(void)
 				sprintf((char *)int_text, "%04d-%02d-%02d",(uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
 				strcat((char *)text, (char *)int_text);
 				break;
-			case 9: // Time
+			case 10: // Time
 //				sprintf((char *)text, "%s%02d:%02d", item_name[i + item_index / 5 * 5], (uint16)calendar.hour, (uint16)calendar.min);
 				 
 //				itoa(calendar.hour, int_text, 0);
@@ -195,31 +208,32 @@ void Misc_init(void)
 				sprintf((char *)int_text, "%02d:%02d",(uint16)calendar.hour, (uint16)calendar.min); 
 				strcat((char *)text, (char *)int_text);
 				break;
-			case 10:	// Ring on time
-//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_on_time);
-				itoa(pre_alarm_on_time, int_text, 0);
-				strcat((char *)text, (char *)int_text);
-				break;
-			case 11: // Ring off time
-//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_off_time);
-				itoa(pre_alarm_off_time, int_text, 0);
-				strcat((char *)text, (char *)int_text);
-				break;
-			case 12:
+//			case 10:	// Ring on time
+////				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_on_time);
+//				itoa(pre_alarm_on_time, int_text, 0);
+//				strcat((char *)text, (char *)int_text);
+//				break;
+//			case 11: // Ring off time
+////				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_off_time);
+//				itoa(pre_alarm_off_time, int_text, 0);
+//				strcat((char *)text, (char *)int_text);
+//				break;
+			case 11:
 //				sprintf((char *)text, "%s%s", item_name[i + item_index / 5 * 5], YesOrNo[use_password]);
 				strcat((char *)text, (char *)YesOrNo[use_password]);
 				break;
-			case 13:
+			case 12:
 //				sprintf((char *)text, "%s%c%c%c%c", item_name[i + item_index / 5 * 5], user_password[0], user_password[1], user_password[2], user_password[3]);
 //				strcpy((char *)text, (char *)item_name[i + item_index / 5 * 5]);
 				strncat((char *)text, (char *)user_password, 4);
 				break;
+			
+			case 13:
+				strcat((char *)text, (char *)YesOrNo[alarmEnable]);
+				break;
 			case 14:
-				if(modbus.protocal == MODBUS) 
-					strcat((char *)text, (char *)protocol_text[1]);
-				else
-					strcat((char *)text, (char *)protocol_text[0]);
-				break; 
+				strcat((char *)text, (char *)YesOrNo[enableScroll]);
+				break;
 		}
 		
 		if(i == (item_index % MAX_ROW))
@@ -306,7 +320,14 @@ void Misc_display(void)
 					strcat((char *)text, (char *)baudrate_text[modbus.baud]);
 				    strcat((char *)text, (char *)PARITY_TEXT[uart1_parity]);
 					break;
-				case 8: // Date
+				
+				case 8:
+					if(modbus.protocal == MODBUS) 
+						strcat((char *)text, (char *)protocol_text[1]);
+					else
+						strcat((char *)text, (char *)protocol_text[0]);
+					break; 
+				case 9: // Date
 	//				sprintf((char *)text, "%s%04d-%02d-%02d", item_name[i + item_index / 5 * 5], (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
 //					itoa(calendar.w_year, int_text, 0);
 //					strcat((char *)text, (char *)int_text);
@@ -318,7 +339,7 @@ void Misc_display(void)
 					sprintf((char *)int_text, "%04d-%02d-%02d",(uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
 					strcat((char *)text, (char *)int_text);
 					break;
-				case 9: // Time
+				case 10: // Time
 	//				sprintf((char *)text, "%s%02d:%02d", item_name[i + item_index / 5 * 5], (uint16)calendar.hour, (uint16)calendar.min);
 					 
 //					itoa(calendar.hour, int_text, 0);
@@ -328,31 +349,31 @@ void Misc_display(void)
 					sprintf((char *)int_text, "%02d:%02d",(uint16)calendar.hour, (uint16)calendar.min);
 					strcat((char *)text, (char *)int_text);
 					break;
-				case 10:	// Ring on time
-	//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_on_time);
-					itoa(pre_alarm_on_time, int_text, 0);
-					strcat((char *)text, (char *)int_text);
-					break;
-				case 11: // Ring off time
-	//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_off_time);
-					itoa(pre_alarm_off_time, int_text, 0);
-					strcat((char *)text, (char *)int_text);
-					break;
-				case 12:
+//				case 10:	// Ring on time
+//	//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_on_time);
+//					itoa(pre_alarm_on_time, int_text, 0);
+//					strcat((char *)text, (char *)int_text);
+//					break;
+//				case 11: // Ring off time
+//	//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_off_time);
+//					itoa(pre_alarm_off_time, int_text, 0);
+//					strcat((char *)text, (char *)int_text);
+//					break;
+				case 11:
 	//				sprintf((char *)text, "%s%s", item_name[i + item_index / 5 * 5], YesOrNo[use_password]);
 					strcat((char *)text, (char *)YesOrNo[use_password]);
 					break;
-				case 13:
+				case 12:
 	//				sprintf((char *)text, "%s%c%c%c%c", item_name[i + item_index / 5 * 5], user_password[0], user_password[1], user_password[2], user_password[3]);
 			 
 					strncat((char *)text, (char *)user_password, 4);
 					break;
+				case 13:
+					strcat((char *)text, (char *)YesOrNo[alarmEnable]);
+					break;
 				case 14:
-					if(modbus.protocal == MODBUS) 
-						strcat((char *)text, (char *)protocol_text[1]);
-					else
-						strcat((char *)text, (char *)protocol_text[0]);
-					break; 
+					strcat((char *)text, (char *)YesOrNo[enableScroll]);
+					break;
 			}
 			Lcd_Clear_Row(pre_item_index % MAX_ROW);
 			Lcd_Show_String(pre_item_index % MAX_ROW, 0, DISP_NOR, text);
@@ -424,7 +445,13 @@ void Misc_display(void)
 					strcat((char *)text, (char *)baudrate_text[modbus.baud]);
 				    strcat((char *)text, (char *)PARITY_TEXT[uart1_parity]);
 					break;
-				case 8: // Date
+				case 8:
+					if(modbus.protocal == MODBUS) 
+						strcat((char *)text, (char *)protocol_text[1]);
+					else
+						strcat((char *)text, (char *)protocol_text[0]);
+					break;
+				case 9: // Date
 	//				sprintf((char *)text, "%s%04d-%02d-%02d", item_name[i + item_index / 5 * 5], (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
 //					itoa(calendar.w_year, int_text, 0);
 //					strcat((char *)text, (char *)int_text);
@@ -436,7 +463,7 @@ void Misc_display(void)
 					sprintf((char *)int_text, "%04d-%02d-%02d",(uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
 					strcat((char *)text, (char *)int_text);
 					break;
-				case 9: // Time
+				case 10: // Time
 	//				sprintf((char *)text, "%s%02d:%02d", item_name[i + item_index / 5 * 5], (uint16)calendar.hour, (uint16)calendar.min);
 					 
 //					itoa(calendar.hour, int_text, 0);
@@ -446,30 +473,31 @@ void Misc_display(void)
 					sprintf((char *)int_text, "%02d:%02d",(uint16)calendar.hour, (uint16)calendar.min);
 					strcat((char *)text, (char *)int_text);
 					break;
-				case 10:	// Ring on time
-	//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_on_time);
-					itoa(pre_alarm_on_time, int_text, 0);
-					strcat((char *)text, (char *)int_text);
-					break;
-				case 11: // Ring off time
-	//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_off_time);
-					itoa(pre_alarm_off_time, int_text, 0);
-					strcat((char *)text, (char *)int_text);
-					break;
-				case 12:
+//				case 10:	// Ring on time
+//	//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_on_time);
+//					itoa(pre_alarm_on_time, int_text, 0);
+//					strcat((char *)text, (char *)int_text);
+//					break;
+//				case 11: // Ring off time
+//	//				sprintf((char *)text, "%s%u", item_name[i + item_index / 5 * 5], (uint16)pre_alarm_off_time);
+//					itoa(pre_alarm_off_time, int_text, 0);
+//					strcat((char *)text, (char *)int_text);
+//					break;
+				case 11:
 	//				sprintf((char *)text, "%s%s", item_name[i + item_index / 5 * 5], YesOrNo[use_password]);
 					strcat((char *)text, (char *)YesOrNo[use_password]);
 					break;
-				case 13:
+				case 12:
 	//				sprintf((char *)text, "%s%c%c%c%c", item_name[i + item_index / 5 * 5], user_password[0], user_password[1], user_password[2], user_password[3]);
 				 
 					strncat((char *)text, (char *)user_password, 4);
 					break;
+				
+				case 13:
+					strcat((char *)text, (char *)YesOrNo[alarmEnable]);
+					break;
 				case 14:
-					if(modbus.protocal == MODBUS) 
-						strcat((char *)text, (char *)protocol_text[1]);
-					else
-						strcat((char *)text, (char *)protocol_text[0]);
+					strcat((char *)text, (char *)YesOrNo[enableScroll]);
 					break;
 			}
 			Lcd_Clear_Row(item_index % MAX_ROW);
@@ -555,7 +583,11 @@ void Misc_display(void)
 					Lcd_Show_String(item_index % MAX_ROW, 12, DISP_NOR, (uint8 *)"        ");
 					Lcd_Show_String(item_index % MAX_ROW, 12, DISP_INV, (uint8 *)baudrate_text[set_value]);
 					break;
-				case 8:	// DATE
+				case 8:
+					Lcd_Show_String(item_index % MAX_ROW, 13, DISP_NOR, (uint8 *)"      ");
+					Lcd_Show_String(item_index % MAX_ROW, 13, DISP_INV, (uint8 *)protocol_text[set_value]); 
+					break;
+				case 9:	// DATE
 					
 					if(sub_menu_index == 0)
 					{
@@ -573,33 +605,36 @@ void Misc_display(void)
 						Lcd_Show_String(item_index % MAX_ROW, 16, DISP_INV, text);
 					}
 					break;
-				case 9:	// TIME
+				case 10:	// TIME
 					sprintf((char *)text, "%02d", set_value);
 					if(sub_menu_index == 0)
 						Lcd_Show_String(item_index % MAX_ROW, 9, DISP_INV, text);
 					else if(sub_menu_index == 1)
 						Lcd_Show_String(item_index % MAX_ROW, 12, DISP_INV, text);
 					break;
-				case 10:	// RING ON TIME
-					sprintf((char *)text, "%u", set_value);
-					Lcd_Show_String(item_index % MAX_ROW, 17, DISP_NOR, (uint8 *)"   ");
-					Lcd_Show_String(item_index % MAX_ROW, 17, DISP_INV, text);
-					break;
-				case 11:	// RING OFF TIME
-					sprintf((char *)text, "%u", set_value);
-					Lcd_Show_String(item_index % MAX_ROW, 18, DISP_NOR, (uint8 *)"   ");
-					Lcd_Show_String(item_index % MAX_ROW, 18, DISP_INV, text);
-					break;
-				case 12: // PASSWORD ENABLE
+//				case 10:	// RING ON TIME
+//					sprintf((char *)text, "%u", set_value);
+//					Lcd_Show_String(item_index % MAX_ROW, 17, DISP_NOR, (uint8 *)"   ");
+//					Lcd_Show_String(item_index % MAX_ROW, 17, DISP_INV, text);
+//					break;
+//				case 11:	// RING OFF TIME
+//					sprintf((char *)text, "%u", set_value);
+//					Lcd_Show_String(item_index % MAX_ROW, 18, DISP_NOR, (uint8 *)"   ");
+//					Lcd_Show_String(item_index % MAX_ROW, 18, DISP_INV, text);
+//					break;
+				case 11: // PASSWORD ENABLE
 					Lcd_Show_String(item_index % MAX_ROW, 17, DISP_NOR, (uint8 *)"   ");
 					Lcd_Show_String(item_index % MAX_ROW, 17, DISP_INV, (uint8 *)YesOrNo[set_value]);
 					break;
-				case 13: // PASSWORD TEXT
+				case 12: // PASSWORD TEXT
 					cursor.on_byte = (uint8)set_value;
 					break;
+				
+				case 13:
 				case 14:
-					Lcd_Show_String(item_index % MAX_ROW, 13, DISP_NOR, (uint8 *)"      ");
-					Lcd_Show_String(item_index % MAX_ROW, 13, DISP_INV, (uint8 *)protocol_text[set_value]); 
+					//strcat((char *)text, (char *)YesOrNo[alarmEnable]);
+					Lcd_Show_String(item_index % MAX_ROW, 17, DISP_NOR, (uint8 *)"   ");
+					Lcd_Show_String(item_index % MAX_ROW, 17, DISP_INV, (uint8 *)YesOrNo[set_value]);
 					break;
 			}
 
@@ -624,7 +659,7 @@ void Misc_keycope(uint16 key_value)
 			}
 			else
 			{
-				if(((item_index < 1) || (item_index >= 4)) && (item_index != 13))
+				if(((item_index < 1) || (item_index >= 4)))// && (item_index != 13))
 				{
 					switch(item_index)
 					{
@@ -655,26 +690,33 @@ void Misc_keycope(uint16 key_value)
 							sprintf((char *)text, "%s%s", item_name[item_index], baudrate_text[modbus.baud]);
 							break;
 						case 8:
-							sprintf((char *)text, "%s%04d-%02d-%02d", item_name[item_index], (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
-							break;
-						case 9:
-							sprintf((char *)text, "%s%02d:%02d", item_name[item_index], (uint16)calendar.hour, (uint16)calendar.min);
-							break;
-						case 10:
-							sprintf((char *)text, "%s%u", item_name[item_index], (uint16)pre_alarm_on_time);
-							break;
-						case 11:
-							sprintf((char *)text, "%s%u", item_name[item_index], (uint16)pre_alarm_off_time);
-							break;
-						case 12:
-							sprintf((char *)text, "%s%s", item_name[item_index], YesOrNo[use_password]);
-							break;
-						case 14:
 							//sprintf((char *)text, "%s", item_name[item_index]);
 							if(modbus.protocal == MODBUS) 
 								sprintf((char *)text, "%s%s", item_name[item_index], protocol_text[1]);
 							else 
 								sprintf((char *)text, "%s%s", item_name[item_index], protocol_text[0]);
+							break;
+						case 9:
+							sprintf((char *)text, "%s%04d-%02d-%02d", item_name[item_index], (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
+							break;
+						case 10:
+							sprintf((char *)text, "%s%02d:%02d", item_name[item_index], (uint16)calendar.hour, (uint16)calendar.min);
+							break;
+//						case 10:
+//							sprintf((char *)text, "%s%u", item_name[item_index], (uint16)pre_alarm_on_time);
+//							break;
+//						case 11:
+//							sprintf((char *)text, "%s%u", item_name[item_index], (uint16)pre_alarm_off_time);
+//							break;
+						case 11:
+							sprintf((char *)text, "%s%s", item_name[item_index], YesOrNo[use_password]);
+							break;
+						
+						case 13:
+							sprintf((char *)text, "%s%s", item_name[item_index], YesOrNo[alarmEnable]);
+							break;
+						case 14:
+							sprintf((char *)text, "%s%s", item_name[item_index], YesOrNo[enableScroll]);
 							break;
 					}
 					Lcd_Clear_Row(item_index % MAX_ROW);
@@ -832,7 +874,7 @@ void Misc_keycope(uint16 key_value)
 									break;
 							}
 							break;
-						case 13:
+						case 12:
 							if(password_index == 0)
 							{
 								cursor_off();
@@ -1206,6 +1248,13 @@ void Misc_keycope(uint16 key_value)
 								uart1_init(BAUDRATE_57600);	
 								SERIAL_RECEIVE_TIMEOUT = 1;
 							break;
+							
+							case 5:
+								modbus.baudrate = BAUDRATE_76800 ;
+								uart1_init(BAUDRATE_76800);	
+								SERIAL_RECEIVE_TIMEOUT = 1;
+							break;
+							
 							case 4:
 								modbus.baudrate = BAUDRATE_115200 ;
 								uart1_init(BAUDRATE_115200);	
@@ -1218,7 +1267,40 @@ void Misc_keycope(uint16 key_value)
 						modbus_init();
 					}
 					break;
-				case 8: // date
+				case 8:
+					if(in_sub_menu == FALSE)
+					{
+						sprintf((char *)text, "%s", item_name[item_index]);
+						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_NOR, text);
+						if(modbus.protocal == BAC_MSTP)
+							set_value = 0;
+						else
+							set_value = 1;
+						sprintf((char *)text, "%s", protocol_text[set_value]);
+						Lcd_Show_String(item_index % MAX_ROW, 13, DISP_INV, text);
+						in_sub_menu = TRUE;
+					}
+					else
+					{
+						if(set_value)
+						{							
+							modbus.protocal = MODBUS;
+							update_flag = 1;
+						}
+						else
+						{
+							modbus.protocal = BAC_MSTP;
+							update_flag = 2;
+						}
+//						start_data_save_timer();
+//						flash_write_int(FLASH_USE_PASSWORD, use_password);
+						AT24CXX_WriteOneByte(EEP_MODBUS_COM_CONFIG, modbus.protocal);
+						sprintf((char *)text, "%s%s", item_name[item_index], protocol_text[set_value]);
+						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
+						in_sub_menu = FALSE;
+					}
+					break; 
+				case 9: // date
 					if(in_sub_menu == FALSE)
 					{
 						sprintf((char *)text, "%s%04d-%02d-%02d", item_name[item_index], (uint16)calendar.w_year, (uint16)calendar.w_month, (uint16)calendar.w_date);
@@ -1274,7 +1356,7 @@ void Misc_keycope(uint16 key_value)
 						}
 					}
 					break;
-				case 9: // time
+				case 10: // time
 					if(in_sub_menu == FALSE)
 					{
 						sprintf((char *)text, "%s%02d:%02d", item_name[item_index], (uint16)calendar.hour, (uint16)calendar.min);
@@ -1316,51 +1398,51 @@ void Misc_keycope(uint16 key_value)
 						}
 					}
 					break;
-				case 10: // ring on time
-					if(in_sub_menu == FALSE)
-					{
-						sprintf((char *)text, "%s", item_name[item_index]);
-						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_NOR, text);
+//				case 10: // ring on time
+//					if(in_sub_menu == FALSE)
+//					{
+//						sprintf((char *)text, "%s", item_name[item_index]);
+//						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_NOR, text);
 
-						set_value = pre_alarm_on_time;
-						sprintf((char *)text, "%u", set_value);
-						Lcd_Show_String(item_index % MAX_ROW, 17, DISP_INV, text);
-						in_sub_menu = TRUE;
-					}
-					else
-					{
-						pre_alarm_on_time = set_value;	
-//						start_data_save_timer();
-//						flash_write_int(FLASH_PRE_ALARM_SETTING_ON_TIME, pre_alarm_on_time);
-						write_eeprom(EEP_PRE_ALARM_SETTING_ON_TIME,pre_alarm_on_time);  
-						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
-						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
-						in_sub_menu = FALSE;
-					}
-					break;
-				case 11: // ring off time
-					if(in_sub_menu == FALSE)
-					{
-						sprintf((char *)text, "%s", item_name[item_index]);
-						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_NOR, text);
+//						set_value = pre_alarm_on_time;
+//						sprintf((char *)text, "%u", set_value);
+//						Lcd_Show_String(item_index % MAX_ROW, 17, DISP_INV, text);
+//						in_sub_menu = TRUE;
+//					}
+//					else
+//					{
+//						pre_alarm_on_time = set_value;	
+////						start_data_save_timer();
+////						flash_write_int(FLASH_PRE_ALARM_SETTING_ON_TIME, pre_alarm_on_time);
+//						write_eeprom(EEP_PRE_ALARM_SETTING_ON_TIME,pre_alarm_on_time);  
+//						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
+//						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
+//						in_sub_menu = FALSE;
+//					}
+//					break;
+//				case 11: // ring off time
+//					if(in_sub_menu == FALSE)
+//					{
+//						sprintf((char *)text, "%s", item_name[item_index]);
+//						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_NOR, text);
 
-						set_value = pre_alarm_off_time;
-						sprintf((char *)text, "%u", set_value);
-						Lcd_Show_String(item_index % MAX_ROW, 18, DISP_INV, text);
-						in_sub_menu = TRUE;
-					}
-					else
-					{
-						pre_alarm_off_time = set_value;	
-//						start_data_save_timer();
-//						flash_write_int(FLASH_PRE_ALARM_SETTING_OFF_TIME, pre_alarm_off_time);
-						write_eeprom(EEP_PRE_ALARM_SETTING_OFF_TIME,pre_alarm_off_time);  
-						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
-						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
-						in_sub_menu = FALSE;
-					}
-					break;
-				case 12:
+//						set_value = pre_alarm_off_time;
+//						sprintf((char *)text, "%u", set_value);
+//						Lcd_Show_String(item_index % MAX_ROW, 18, DISP_INV, text);
+//						in_sub_menu = TRUE;
+//					}
+//					else
+//					{
+//						pre_alarm_off_time = set_value;	
+////						start_data_save_timer();
+////						flash_write_int(FLASH_PRE_ALARM_SETTING_OFF_TIME, pre_alarm_off_time);
+//						write_eeprom(EEP_PRE_ALARM_SETTING_OFF_TIME,pre_alarm_off_time);  
+//						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
+//						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
+//						in_sub_menu = FALSE;
+//					}
+//					break;
+				case 11:
 					if(in_sub_menu == FALSE)
 					{
 						sprintf((char *)text, "%s", item_name[item_index]);
@@ -1382,7 +1464,7 @@ void Misc_keycope(uint16 key_value)
 						in_sub_menu = FALSE;
 					}
 					break;
-				case 13:
+				case 12:
 					if(in_sub_menu == FALSE)
 					{
  						sprintf((char *)text, "%s", item_name[item_index]);
@@ -1443,32 +1525,51 @@ void Misc_keycope(uint16 key_value)
 						}
 					}
 					break;
+				
+				case 13:
+					if(in_sub_menu == FALSE)
+					{
+						sprintf((char *)text, "%s", item_name[item_index]);
+						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_NOR, text);
+
+						set_value = alarmEnable;
+						sprintf((char *)text, "%s", YesOrNo[set_value]);
+						Lcd_Show_String(item_index % MAX_ROW, 17, DISP_INV, text);
+						in_sub_menu = TRUE;
+					}
+					else
+					{
+						alarmEnable = set_value;	
+//						start_data_save_timer();
+//						flash_write_int(FLASH_USE_PASSWORD, use_password);
+						write_eeprom(EEP_ENABLE_ALARM, alarmEnable);
+						sprintf((char *)text, "%s%s", item_name[item_index], YesOrNo[alarmEnable]);
+						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
+						in_sub_menu = FALSE;
+					}
+					break;
 				case 14:
 					if(in_sub_menu == FALSE)
 					{
 						sprintf((char *)text, "%s", item_name[item_index]);
 						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_NOR, text);
-						if(modbus.protocal == BAC_MSTP)
-							set_value = 0;
-						else
-							set_value = 1;
-						sprintf((char *)text, "%s", protocol_text[set_value]);
-						Lcd_Show_String(item_index % MAX_ROW, 13, DISP_INV, text);
+
+						set_value = enableScroll;
+						sprintf((char *)text, "%s", YesOrNo[set_value]);
+						Lcd_Show_String(item_index % MAX_ROW, 17, DISP_INV, text);
 						in_sub_menu = TRUE;
 					}
 					else
 					{
-						if(set_value) modbus.protocal = MODBUS;
-						else
-							modbus.protocal = BAC_MSTP;
+						enableScroll = set_value;	
 //						start_data_save_timer();
 //						flash_write_int(FLASH_USE_PASSWORD, use_password);
-						AT24CXX_WriteOneByte(EEP_MODBUS_COM_CONFIG, modbus.protocal);
-						sprintf((char *)text, "%s%s", item_name[item_index], protocol_text[set_value]);
+						write_eeprom(EEP_ENABLE_SCROLL,enableScroll);
+						sprintf((char *)text, "%s%s", item_name[item_index], YesOrNo[enableScroll]);
 						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
 						in_sub_menu = FALSE;
 					}
-					break; 
+					break;
 			}
 			break;
 		case KEY_UP_MASK:
@@ -1557,12 +1658,19 @@ void Misc_keycope(uint16 key_value)
 						set_value = check_master_id_in_database(set_value, 1);
 						break;
 					case 7:	// bardrate
-						if(set_value >= 4)
+						if(set_value >= 5)
 							set_value = 0;
 						else
 							set_value++;
 						break;
+						
 					case 8:
+						if(set_value == 1)
+							set_value = 0;
+						else
+							set_value = 1;
+						break;
+					case 9:
 						set_value++;
 						if(sub_menu_index == 0)
 						{
@@ -1610,42 +1718,43 @@ void Misc_keycope(uint16 key_value)
 							}
 						}
 						break;
-					case 9:
+					case 10:
 						set_value++;
 						if(sub_menu_index == 0)
 							set_value %= 24;
 						else if(sub_menu_index == 1)
 							set_value %= 60;
 						break;
-					case 10:
-					case 11:
-						if((key_value & KEY_FUNCTION_MASK) == KEY_SPEED_1)
-							set_value += SPEED_1;
-						else
-							set_value = (((set_value + SPEED_10) < 255) ? (set_value + SPEED_10) : 0);
-						set_value %= 256;
-						
-						if(set_value == 0)
-							set_value = 1;
+//					case 10:
+//					case 11:
+//						if((key_value & KEY_FUNCTION_MASK) == KEY_SPEED_1)
+//							set_value += SPEED_1;
+//						else
+//							set_value = (((set_value + SPEED_10) < 255) ? (set_value + SPEED_10) : 0);
+//						set_value %= 256;
+//						
+//						if(set_value == 0)
+//							set_value = 1;
 
-						break;
-					case 12:
+//						break;
+					case 11:
 						if(set_value == 1)
 							set_value = 0;
 						else
 							set_value = 1;
 						break;
-					case 13:
+					case 12:
 						if((set_value >= '9') || (set_value < '0'))
 							set_value = '0';
 						else
 							set_value++;
 						break;
+					case 13:
 					case 14:
 						if(set_value == 1)
 							set_value = 0;
 						else
-							set_value = 1;
+							set_value = 1;	
 						break;
 				}
 				value_change = TRUE;
@@ -1725,11 +1834,18 @@ void Misc_keycope(uint16 key_value)
 						break;
 					case 7:	// bardrate
 						if(set_value == 0)
-							set_value = 4;
+							set_value = 5;
 						else
 							set_value --;
 						break;
+						
 					case 8:
+						if(set_value == 1)
+							set_value = 0;
+						else
+							set_value = 1;
+						break; 
+					case 9:
 						if(sub_menu_index == 0)
 						{
 							if(set_value > 2000)
@@ -1788,7 +1904,7 @@ void Misc_keycope(uint16 key_value)
 							}
 						}
 						break;
-					case 9:
+					case 10:
 						if(sub_menu_index == 0)
 						{
 							if(set_value > 0)
@@ -1804,40 +1920,41 @@ void Misc_keycope(uint16 key_value)
 								set_value = 59;
 						}
 						break;
-					case 10:
-					case 11:
-						if((key_value & KEY_FUNCTION_MASK) == KEY_SPEED_1)
-						{
-							if(set_value)
-								set_value -= SPEED_1;
-							else
-								set_value = 255;
-						}
-						else
-							set_value = ((set_value > SPEED_10) ? (set_value - SPEED_10) : 255);
-						
-						if(set_value == 0)
-							set_value = 255;
+//					case 10:
+//					case 11:
+//						if((key_value & KEY_FUNCTION_MASK) == KEY_SPEED_1)
+//						{
+//							if(set_value)
+//								set_value -= SPEED_1;
+//							else
+//								set_value = 255;
+//						}
+//						else
+//							set_value = ((set_value > SPEED_10) ? (set_value - SPEED_10) : 255);
+//						
+//						if(set_value == 0)
+//							set_value = 255;
 
-						break;
-					case 12:
+//						break;
+					case 11:
 						if(set_value == 1)
 							set_value = 0;
 						else
 							set_value = 1;
 						break;
-					case 13:
+					case 12:
 						if((set_value <= '0') || (set_value > '9'))
 							set_value = '9';
 						else
 							set_value--;
 						break;
+					case 13:
 					case 14:
 						if(set_value == 1)
 							set_value = 0;
 						else
 							set_value = 1;
-						break; 
+						break;						
 				}
 				value_change = TRUE;
 			}

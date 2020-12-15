@@ -29,7 +29,7 @@ void tcp_server_appcall(void)
 
 	if(uip_newdata())//收到客户端发过来的数据
 	{
-		net_rx_count  = 2 ;
+//		net_rx_count  = 2 ;
 		memcpy(&tcp_server_databuf[0], uip_appdata,uip_len);		
 		// check modbus data
 		if( (tcp_server_databuf[0] == 0xee) && (tcp_server_databuf[1] == 0x10) &&
@@ -52,7 +52,7 @@ void tcp_server_appcall(void)
 		|| ((tcp_server_databuf[6] == 0))
 		)
 		{	
-			net_tx_count  = 2 ;
+//			net_tx_count  = 2 ;
 			send_flag = 1;
 			responseCmd(1,tcp_server_databuf);
 			internalDeal(1, tcp_server_databuf);

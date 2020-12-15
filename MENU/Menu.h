@@ -43,7 +43,7 @@ extern uint8 const   ppm_text[];
 extern uint8 const   int_space[];
 //extern uint8 const code online_text[];
 //extern uint8 const code offline_text[];
-extern uint8 const   warming_text[];
+//extern uint8 warming_text[13];
 
 extern uint8 menu_block_seconds;
 extern uint8 backlight_keep_seconds; 
@@ -67,7 +67,7 @@ void show_system_info(void);
 void update_menu_state(uint8 MenuId);
 void exit_request_password(void);
 void vStartMenuTask(unsigned char uxPriority);
-void vStartScrollingTask(unsigned char uxPriority);
+//void vStartScrollingTask(unsigned char uxPriority);
 void print(char *p);
 
 #endif

@@ -21,6 +21,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_rtc.h"
+#include "delay.h"
 
 /** @addtogroup STM32F10x_StdPeriph_Driver
   * @{
@@ -44,6 +45,7 @@
 #define RTC_LSB_MASK     ((uint32_t)0x0000FFFF)  /*!< RTC LSB Mask */
 #define PRLH_MSB_MASK    ((uint32_t)0x000F0000)  /*!< RTC Prescaler MSB Mask */
 
+//extern void watchdog(void);
 /**
   * @}
   */
@@ -204,12 +206,19 @@ uint32_t RTC_GetDivider(void)
   * @param  None
   * @retval None
   */
-void RTC_WaitForLastTask(void)
+u8 RTC_WaitForLastTask(void)
 {
+	u16 temp=0;
   /* Loop until RTOFF flag is set */
   while ((RTC->CRL & RTC_FLAG_RTOFF) == (uint16_t)RESET)
   {
+		temp++;
+		//delay_ms(100);
+		//watchdog();
+		if(temp>=300)
+			return 1;
   }
+	return 0;
 }
 
 /**
@@ -220,14 +229,21 @@ void RTC_WaitForLastTask(void)
   * @param  None
   * @retval None
   */
-void RTC_WaitForSynchro(void)
+u8 RTC_WaitForSynchro(void)
 {
+	u16 temp=0;
   /* Clear RSF flag */
   RTC->CRL &= (uint16_t)~RTC_FLAG_RSF;
   /* Loop until RSF flag is set */
   while ((RTC->CRL & RTC_FLAG_RSF) == (uint16_t)RESET)
   {
+		temp++;
+		//watchdog();
+		//delay_ms(100);
+		if(temp>= 300)
+			return 1;
   }
+	return 0;
 }
 
 /**

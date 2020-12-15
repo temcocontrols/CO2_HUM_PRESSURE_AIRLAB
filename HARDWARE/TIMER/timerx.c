@@ -127,7 +127,7 @@ void TIM6_IRQHandler(void)//1ms
 	{
 		uip_timer++;		//uip计时器增加1
 	}
-	if(SilenceTime < 1000)
+	if(SilenceTime < 5000)
 	{
 		//SilenceTime ++ ;
 		//miliseclast_cur = miliseclast_cur + SWTIMER_INTERVAL;

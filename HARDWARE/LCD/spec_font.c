@@ -1,7 +1,7 @@
 
 #include "config.h"
 //#include "../co2/co2.h"
-
+#if 1
 U8_T const   Character[13][6][22] = 
 {
 	{
@@ -799,5 +799,5 @@ void Lcd_Show_Pres(uint8 pos_row, uint8 pos_line,uint8 *str)
 	
 }
 
-
+#endif // (DOT_MATRIX_SCREEN)
 

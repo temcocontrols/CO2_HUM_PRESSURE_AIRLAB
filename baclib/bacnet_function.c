@@ -55,6 +55,8 @@ void switch_to_modbus(void)
 		uart1_init(38400);
 	else if(modbus.baudrate  == BAUDRATE_57600)
 		uart1_init(57600);
+	else if(modbus.baudrate  == BAUDRATE_76800)
+		uart1_init(76800); 
 	else if(modbus.baudrate  == BAUDRATE_115200)
 		uart1_init(115200); 
 }
@@ -74,6 +76,8 @@ uint8_t RS485_Get_Baudrate(void)
   return 8;
  else if(modbus.baudrate == BAUDRATE_115200)
   return 9;
+ else if(modbus.baudrate == BAUDRATE_76800)
+  return 10;  
  else 
   return 6;// default is 19200
 }
@@ -107,8 +111,8 @@ void Get_AVS(void)
 float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 {	
 	float ftemp;
-	if(i == 0) return 1;    //start from var1.
-	else i -= 1;
+//	if(i == 0) return 1;    //start from var1.
+//	else i -= 1;
 	switch(type)
 	{  
 		case AV: 
@@ -383,8 +387,8 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 {
 
 		uint16 StartAdd;
-		if(i == 0) return;    //start from var1.
-		else i -= 1;
+//		if(i == 0) return;    //start from var1.
+//		else i -= 1;
 		switch(type)
 		{
 			case AV:  
@@ -705,8 +709,8 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 void write_bacnet_name_to_buf(uint8_t type,uint8_t priority,uint8_t i,char* str)
 {
  
-		if(i == 0) return;    //start from var1.
-		else i -= 1;
+//		if(i == 0) return;    //start from var1.
+//		else i -= 1;
 		switch(type)
 		{
 			case AI: 
@@ -758,7 +762,7 @@ void write_bacnet_unit_to_buf(uint8_t type,uint8_t priority,uint8_t i,uint8_t un
 		}	
 }
 //------------------------------------------------------------
-char get_AM_Status(uint8_t type,uint8_t num)
+char Get_Out_Of_Service(uint8_t type,uint8_t num)
 {	
 	if (type == AV) 
 	{
@@ -771,7 +775,7 @@ char get_AM_Status(uint8_t type,uint8_t num)
 	
 }
 //------------------------------------------------------------
-void write_bacent_AM_to_buf(uint8_t type,uint8_t i,uint8_t am)
+void write_Out_Of_Service(uint8_t type,uint8_t i,uint8_t am)
 {
 	if (type == AV) 
 	{
@@ -789,8 +793,8 @@ void add_remote_panel_db(uint32_t device_id,uint8_t panel)
 
 char* get_label(uint8_t type,uint8_t num)
 {
-	if(num == 0) return "null";    //start from var1.
-	else num -= 1;
+//	if(num == 0) return "null";    //start from var1.
+//	else num -= 1;
 	
 	switch(type)
       {
@@ -802,12 +806,61 @@ char* get_label(uint8_t type,uint8_t num)
             break;
          case AI:
 			 if(num < MAX_INS)
-				return (char *)inputs[num].label;
+			 {
+				 if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+				 {
+					if((num==0)||(num==1)||(num==2))
+						return (char *)inputs[num].label;
+					else
+						return (char *)"null";
+				 }
+				 else if((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
+				 {
+					if(num==3)
+						return (char *)inputs[num].label;
+					else
+						return (char *)"null";
+				 }
+				 else if(PRODUCT_ID == STM32_PM25) 
+				 {
+					if((num==4)||(num==5))
+						return (char *)inputs[num].label;
+					else
+						return (char *)"null";
+				 }
+				 else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+				 {
+					if(humidity_version == LIGHT_SENSOR)
+					{
+						 if((num==0)||(num==1)||(num==6))
+							return (char *)inputs[num].label;
+					}
+					else
+					{
+						 if((num==0)||(num==1))
+							return (char *)inputs[num].label;
+					}
+					return (char *)"null";
+				 }
+			 }
             break;
          case AO: 
-			 if(num < MAX_AOS)
-				return (char *)outputs[num].label; 
-	 
+			 {
+				 uint8 AOS_TEMP;
+				 if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+						AOS_TEMP = 3;
+				 else if((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
+						AOS_TEMP = 1;
+				 else if(PRODUCT_ID == STM32_PM25) 
+						AOS_TEMP = 2;
+				 else //if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+						AOS_TEMP = 2;
+				 if(num < AOS_TEMP)//(num < MAX_AOS)
+				 { 
+					return (char *)outputs[num].label;  
+				 }
+					
+			 }
             break;
           case BO:
 			  
@@ -822,8 +875,8 @@ char* get_label(uint8_t type,uint8_t num)
 }
 char* get_description(uint8_t type,uint8_t num)
 {
-	if(num == 0) return "null";    //start from var1.
-	else num -= 1;
+//	if(num == 0) return "null";    //start from var1.
+//	else num -= 1;
 	
 	switch(type)
       {
@@ -850,7 +903,31 @@ char* get_description(uint8_t type,uint8_t num)
 
 char get_range(uint8_t type,uint8_t num)
 { 
-	return 		UNITS_NO_UNITS ; 
+	switch(type)
+	{
+		case AV: 
+			
+			if(num == 14)	
+				return UNITS_KILOJOULES_PER_KILOGRAM_DRY_AIR;
+		break;
+		
+		case AI:
+			if(num == 0)
+			{
+				if(deg_c_or_f == DEGREE_C)
+					return 	UNITS_DEGREES_CELSIUS ;
+				else	
+					return 	UNITS_DEGREES_FAHRENHEIT ;					
+			}
+			else if(num == 1)
+				return 	UNITS_PERCENT_RELATIVE_HUMIDITY ; 
+		break;
+		
+		case AO:
+			return 	UNITS_NO_UNITS ; 
+		break;		
+	}
+	
 }
 
 void Set_Object_Name(char * name)	
@@ -858,13 +935,13 @@ void Set_Object_Name(char * name)
 	u8 temp = strlen(name);
 	if(temp > 20) temp = 20;
 	memcpy(panelname,name,temp + 1);   
-	AT24CXX_Write(EEP_TSTAT_NAME1, panelname,temp+ 1); 
+	//AT24CXX_Write(EEP_TSTAT_NAME1, panelname,temp+ 1); 
 }
 void write_bacnet_description_to_buf(uint8_t type, uint8_t priority, uint8_t i, char* str)
 {
 	
-		if(i == 0) return ;    //start from var1.
-		else i -= 1;
+//		if(i == 0) return ;    //start from var1.
+//		else i -= 1;
 	
 		switch(type)
 		{ 
@@ -936,4 +1013,83 @@ void Set_TXEN(u8 dir)
 		TXEN = 0;
 }
 	
+float Get_Output_Relinguish(uint8_t type,uint8_t i)
+{
+	return 0;
+}	
+
+void write_Output_Relinguish(uint8_t type,uint8_t i,float value)
+{
 	
+}
+
+U16_T Get_Vendor_ID(void)
+{
+//	switch(Bacnet_Vendor_ID)
+//	{
+//		case 1: //netixcontrols
+//			bacnet_vendor_name = BACNET_VENDOR_NETIX;
+//		bacnet_vendor_product = BACNET_PRODUCT_NETIX;
+//			return BACNET_VENDOR_ID_NETIX;
+//		case 2: // jet controls
+//			bacnet_vendor_name = BACNET_VENDOR_JET;
+//		bacnet_vendor_product = BACNET_PRODUCT_JET;
+//			return BACNET_VENDOR_ID_JET;
+//		default: // temco controls
+//			bacnet_vendor_name = BACNET_VENDOR_TEMCO;
+//			bacnet_vendor_product = BACNET_PRODUCT_TEMCO;
+//			return BACNET_VENDOR_ID_TEMCO;  
+//	}
+	return 148;
+}
+
+
+
+const char*  Get_Vendor_Name(void)
+{
+//	switch(Bacnet_Vendor_ID)
+//	{
+//		case 1: //netixcontrols
+//			return BACNET_VENDOR_NETIX;
+//		case 2: // jet controls
+//			return BACNET_VENDOR_JET;
+//		default: // temco controls
+//			return BACNET_VENDOR_TEMCO;  
+//	}
+	return "temco controls";
+}
+
+const char*  Get_Vendor_Product(void)
+{
+//	switch(Bacnet_Vendor_ID)
+//	{
+//		case 1: //netixcontrols
+//			return BACNET_VENDOR_NETIX;
+//		case 2: // jet controls
+//			return BACNET_VENDOR_JET;
+//		default: // temco controls
+//			return BACNET_VENDOR_TEMCO;  
+//	}
+	if(PRODUCT_ID == STM32_CO2_NET)
+		return "CO2_NET";
+	else if(PRODUCT_ID == STM32_CO2_RS485)
+		return "CO2_RS485";
+	else if(PRODUCT_ID == STM32_HUM_NET)
+		return "HUM_NET";
+	else if(PRODUCT_ID == STM32_HUM_RS485)
+		return "HUM_RS485";
+	else if(PRODUCT_ID == STM32_PRESSURE_NET)
+		return "PRESSURE_NET";
+	else if(PRODUCT_ID == STM32_PRESSURE_RS485)
+		return "PRESSURE_RS485";
+	else if(PRODUCT_ID == STM32_PM25)
+		return "PM2.5_NET";
+	else
+		return "null";
+}
+
+uint8_t Get_modbus_address(void)
+{
+	return modbus.address;
+}
+

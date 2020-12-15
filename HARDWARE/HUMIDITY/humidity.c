@@ -1,7 +1,9 @@
 
 #include "config.h"
 #include "myiic.h"
+#include "sht3x.h"
 
+uint8 point_num = 0; 
 bit serial_int_flag = 0;
 uint8 humidity_version;
 STR_HUMIDITY HumSensor; 
@@ -157,6 +159,211 @@ void GIVE_PIC_ACK()
 	SDA = 1;
 } 
 
+void GIVE_PIC_NACK(void)
+{
+	SDA_OUT();		//sdaÏßÊä³ö
+	SCL_OUT();
+  SCL = 0;
+  SDA = 1;
+  delay_us(30);
+  SCL = 1;
+  delay_us(30);
+  SDA = 0;
+}
+
+void start_light_sensor_mearsure(void)
+{
+	uint16 temp_version;
+ 
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+	}
+	delay_us(100);
+	i2c_pic_write(0x80);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+	}
+	delay_us(100);
+	i2c_pic_write(0x03);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+	}
+	i2c_pic_stop();
+}
+
+uint8 read_light_sensors_time(void)
+{
+	uint8 time;
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	delay_us(100);
+	i2c_pic_write(0x81);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	i2c_pic_stop();
+	delay_us(100);
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
+	time = i2c_pic_read();
+	GIVE_PIC_NACK();
+	delay_us(30);
+	i2c_pic_stop(); 
+	return time;
+}
+
+uint8 read_light_sensors_gain(void)
+{
+	uint8 time;
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	delay_us(100);
+	i2c_pic_write(0x87);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	i2c_pic_stop();
+	delay_us(100);
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
+	time = i2c_pic_read();
+	GIVE_PIC_NACK();
+	delay_us(30);
+	i2c_pic_stop(); 
+	return time;
+}
+
+uint16 read_light_sensors_data0(void)
+{
+	uint16 data;
+	uint8 time[2];
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	delay_us(100);
+	i2c_pic_write(0x94);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	i2c_pic_stop();
+	delay_us(100);
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
+	time[0] = i2c_pic_read();
+	GIVE_PIC_ACK();
+	delay_us(30);
+	time[1] = i2c_pic_read();
+	GIVE_PIC_NACK();
+	delay_us(30);
+	i2c_pic_stop(); 
+	data = (uint16)time[1]<<8 | time[0];
+	return data;
+}
+
+uint16 read_light_sensors_data1(void)
+{
+	uint16 data;
+	uint8 time[2];
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	delay_us(100);
+	i2c_pic_write(0x95);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	i2c_pic_stop();
+	delay_us(100);
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
+	time[0] = i2c_pic_read();
+	GIVE_PIC_ACK();
+	delay_us(30);
+	time[1] = i2c_pic_read();
+	GIVE_PIC_NACK();
+	delay_us(30);
+	i2c_pic_stop(); 
+	data = (uint16)time[1]<<8 | time[0];
+	return data;
+}
+
+bit read_light_sensor_version(void)
+{
+	uint16 temp_version;
+ 
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	delay_us(100);
+	i2c_pic_write(0x92);
+	delay_us(30);
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	//delay_us(30);
+	i2c_pic_stop();
+	delay_us(100);
+	i2c_pic_start();
+	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
+	temp_version = i2c_pic_read();
+	GIVE_PIC_NACK();
+	delay_us(30);
+	i2c_pic_stop(); 
+	
+	if((temp_version & 0x70)!= 0)
+		return 1;
+	else 
+		return 0;
+}
 
 bit read_humidity_sensor_version(void)
 {
@@ -1007,17 +1214,20 @@ void update_humidity_display(uint8 ForceUpdate)
 {
 	uint16 pre_disp_humidity = 0;
 
-	if((humidity_version == 111) || (humidity_version == 10) || (humidity_version == 222))
-		return;
-
-	if(ForceUpdate || (pre_disp_humidity != HumSensor.humidity))
+	if(isColorScreen== false)
 	{
-		Lcd_Show_Data(0, 12, HumSensor.humidity, 1, ALIGN_RIGHT, DISP_NOR);
-		pre_disp_humidity = HumSensor.humidity;
-	}
+		if((humidity_version == 111) || (humidity_version == 10) || (humidity_version == 222))
+			return;
 
-	if(ForceUpdate)
-		Lcd_Write_Char(0, 13, '%', DISP_NOR);
+		if(ForceUpdate || (pre_disp_humidity != HumSensor.humidity))
+		{
+			Lcd_Show_Data(0, 12, HumSensor.humidity, 1, ALIGN_RIGHT, DISP_NOR);
+			pre_disp_humidity = HumSensor.humidity;
+		}
+
+		if(ForceUpdate)
+			Lcd_Write_Char(0, 13, '%', DISP_NOR);
+	}
 }
 
 bit read_sensor(void)
@@ -1115,8 +1325,6 @@ bit pic_read_light_val(uint16 *val)
 }
 void external_operation(void)
 {  
- 
- 
 	switch(external_operation_flag)
 	{
 		case TEMP_CALIBRATION:  
@@ -1127,26 +1335,48 @@ void external_operation(void)
 				new_write_eeprom(EEP_TEMP_OFFSET+1,HumSensor.offset_t>>8);  
 			break;
 		case HUM_CALIBRATION: 
-				if(table_sel== USER)
+				if(hum_exists == 1)
 				{
-					HumSensor.offset_h = external_operation_value- humidity_back;
+					if(table_sel== USER)
+					{
+						HumSensor.offset_h = external_operation_value- humidity_back;
+						new_write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h); 
+						new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8);
+					}
+					else
+					{
+						HumSensor.offset_h_default = external_operation_value - humidity_back;
+						new_write_eeprom(EEP_CAL_DEFAULT_HUM,HumSensor.offset_h_default); 
+						new_write_eeprom(EEP_CAL_DEFAULT_HUM+1,HumSensor.offset_h_default>>8); 
+					}
+				}
+				else if(hum_exists == 2)
+				{
+					HumSensor.offset_h = external_operation_value - hum_org;
 					new_write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h); 
 					new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8);
-				}
-				else
-				{
-					HumSensor.offset_h_default = external_operation_value - humidity_back;
-					new_write_eeprom(EEP_CAL_DEFAULT_HUM,HumSensor.offset_h_default); 
-					new_write_eeprom(EEP_CAL_DEFAULT_HUM+1,HumSensor.offset_h_default>>8); 
 				}
 				external_operation_flag = 0; 
 			break;
 				
 			case HUM_HEATER:
-				if(pic_heating_control((uint8)external_operation_value))
+				if(hum_exists == 2)
 				{
+					if(external_operation_value == 1)
+						SHT3X_EnableHeater();
+					else if(external_operation_value == 0)
+						SHT3X_DisableHeater();
 					external_operation_flag = 0;
 					hum_heat_status = external_operation_value;
+			
+				}
+				else
+				{
+					if(pic_heating_control((uint8)external_operation_value))
+					{
+						external_operation_flag = 0;
+						hum_heat_status = external_operation_value;
+					}
 				}
 			break;
 		default:
@@ -1168,10 +1398,21 @@ void auto_heating(void)
 					read_count++;  			
 				else  						//every ten minutes
 				{
-					if(pic_heating_control(1)) 
+					if(hum_exists == 2)
 					{
-						read_count = 0;
-						hum_heat_status = 1;
+						if(SHT3X_EnableHeater() == 0) 
+						{
+							read_count = 0;
+							hum_heat_status = 1;
+						}					
+					}
+					else
+					{
+						if(pic_heating_control(1)) 
+						{
+							read_count = 0;
+							hum_heat_status = 1;
+						}
 					}
 				}
 			}
@@ -1184,10 +1425,21 @@ void auto_heating(void)
 				read_count++;
 			else
 			{
-				if(pic_heating_control(0)) 
+				if(hum_exists == 2)
 				{
-					read_count = 0;
-					hum_heat_status = 0;
+					if(SHT3X_DisableHeater() == 0) 
+					{
+						read_count = 0;
+						hum_heat_status = 0;
+					}					
+				}
+				else
+				{
+					if(pic_heating_control(0)) 
+					{
+						read_count = 0;
+						hum_heat_status = 0;
+					}
 				}
 			} 
 		} 	

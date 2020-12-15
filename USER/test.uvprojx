@@ -14,7 +14,7 @@
         <TargetCommonOption>
           <Device>STM32F103VE</Device>
           <Vendor>STMicroelectronics</Vendor>
-          <PackID>Keil.STM32F1xx_DFP.1.0.5</PackID>
+          <PackID>Keil.STM32F1xx_DFP.1.1.0</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IROM(0x08000000,0x80000) IRAM(0x20000000,0x10000) CPUTYPE("Cortex-M3") CLOCK(12000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -47,7 +47,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>..\OBJ\</OutputDirectory>
-          <OutputName>CO2_HUM_RESSURE_REV25</OutputName>
+          <OutputName>PM25_CO2_HUM_RESSURE_REV57</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -347,7 +347,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>2</Optim>
+            <Optim>3</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>0</OneElfS>
@@ -365,7 +365,7 @@
               <MiscControls></MiscControls>
               <Define>STM32F10X_HD, USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>..\CORE;..\USER;..\STM32F10x_FWLib\inc;..\HARDWARE\LED;..\HARDWARE\LCD;..\FreeRTOS\include;..\FreeRTOS\portable\RVDS\ARM_CM3;..\SYSTEM\delay;..\SYSTEM\usart;..\SYSTEM;..\HARDWARE\KEY;..\HARDWARE\IIC;..\HARDWARE\24CXX;..\HARDWARE\SPI;..\HARDWARE\TOUCH;..\HARDWARE\FLASH;..\HARDWARE\STMFLASH;..\HARDWARE\DMA;..\HARDWARE\SDCARD;..\FATFS\src;..\FATFS\exfuns;..\VMALLOC;..\HARDWARE\TIMER;..\HARDWARE\ENC28J60;..\uIP-1.0\uip;..\uIP-1.0\apps\dhcpc;..\uIP-1.0\apps\resolv;..\uIP-1.0\apps\webserver;..\uIP-APP;..\HARDWARE\RTC;..\USB\CONFIG\inc;..\USB\LIB\inc;..\USB\APP;..\MODBUS;..\TCPIP;..\KEY;..\bac_lib\h_header;..\FILTER;..\RANGE;..\baclib\include;..\baclib;..\INPUT_LIB;..\STORE_DATA;..\INFO;..\MENU;..\baclib\object;..\baclib\include</IncludePath>
+              <IncludePath>..\CORE;..\USER;..\STM32F10x_FWLib\inc;..\HARDWARE\LED;..\HARDWARE\LCD;..\FreeRTOS\include;..\FreeRTOS\portable\RVDS\ARM_CM3;..\SYSTEM\delay;..\SYSTEM\usart;..\SYSTEM;..\HARDWARE\KEY;..\HARDWARE\IIC;..\HARDWARE\24CXX;..\HARDWARE\SPI;..\HARDWARE\TOUCH;..\HARDWARE\FLASH;..\HARDWARE\STMFLASH;..\HARDWARE\DMA;..\HARDWARE\SDCARD;..\FATFS\src;..\FATFS\exfuns;..\VMALLOC;..\HARDWARE\TIMER;..\HARDWARE\ENC28J60;..\uIP-1.0\uip;..\uIP-1.0\apps\dhcpc;..\uIP-1.0\apps\resolv;..\uIP-1.0\apps\webserver;..\uIP-APP;..\HARDWARE\RTC;..\USB\CONFIG\inc;..\USB\LIB\inc;..\USB\APP;..\MODBUS;..\TCPIP;..\KEY;..\bac_lib\h_header;..\FILTER;..\RANGE;..\baclib\include;..\baclib;..\INPUT_LIB;..\STORE_DATA;..\INFO;..\MENU;..\baclib\object;..\baclib\include;..\HARDWARE\HUMIDITY;..\TEMPERATURE</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -628,6 +628,21 @@
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\LCD\spec_font.c</FilePath>
             </File>
+            <File>
+              <FileName>i2c_hal.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HUMIDITY\i2c_hal.c</FilePath>
+            </File>
+            <File>
+              <FileName>sht3x.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HUMIDITY\sht3x.c</FilePath>
+            </File>
+            <File>
+              <FileName>ER-TFT024-3_4-Wire_SPI.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\LCD\ER-TFT024-3_4-Wire_SPI.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -791,19 +806,6 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>FILTER</GroupName>
-          <Files>
-            <File>
-              <FileName>filter.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\FILTER\filter.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>T3PT12</GroupName>
-        </Group>
-        <Group>
           <GroupName>BACLIB</GroupName>
           <Files>
             <File>
@@ -817,9 +819,9 @@
               <FilePath>..\baclib\bip.c</FilePath>
             </File>
             <File>
-              <FileName>bacnet_ARM_with_bip_rev8.lib</FileName>
+              <FileName>bacnet_ARM_rev13_T3.lib</FileName>
               <FileType>4</FileType>
-              <FilePath>..\baclib\bacnet_ARM_with_bip_rev8.lib</FilePath>
+              <FilePath>..\baclib\bacnet_ARM_rev13_T3.lib</FilePath>
             </File>
           </Files>
         </Group>
@@ -872,11 +874,6 @@
               <FilePath>..\co2\co2.c</FilePath>
             </File>
             <File>
-              <FileName>scan.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\co2\scan.c</FilePath>
-            </File>
-            <File>
               <FileName>sub_net.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\co2\sub_net.c</FilePath>
@@ -885,6 +882,11 @@
               <FileName>subnet_scan.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\co2\subnet_scan.c</FilePath>
+            </File>
+            <File>
+              <FileName>scan.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\co2\scan.c</FilePath>
             </File>
           </Files>
         </Group>

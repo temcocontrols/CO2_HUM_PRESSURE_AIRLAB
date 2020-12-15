@@ -52,6 +52,8 @@ void vKEYTask( void *pvParameters )
 	
 	for( ;; )
 	{
+		if ((PRODUCT_ID != STM32_CO2_NET)&&(PRODUCT_ID != STM32_HUM_NET)&&(PRODUCT_ID != STM32_PRESSURE_NET)&&(PRODUCT_ID != STM32_PM25)) 
+		 watchdog();
 
 		if((key_temp = KEY_Scan()) != pre_key)
 		{
@@ -79,7 +81,7 @@ void vKEYTask( void *pvParameters )
 					long_press_key_start++;
 			}
 		} 
-		watchdog();
+
 		vTaskDelay(100 / portTICK_RATE_MS);
 //		stack_detect(&test[8]);
     }

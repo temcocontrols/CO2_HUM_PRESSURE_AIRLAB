@@ -15,6 +15,7 @@ uint8 const   Prs_Unit[][6] =
 	"Kgcm ",
 	"atmos",
 	"bar  ",
+	"Pa   ",
 };
 
 // *************************************************************************************
@@ -174,7 +175,10 @@ static float get_mmhg_ratio(unsigned char unit)  //rate = unit/mmhg*10^7
 	   case bar:          //bar				0.000001	0.001
 				Ftemp = 13328;				
 	   break; 
- 
+	   case pa:          //bar				0.000001	0.001
+				Ftemp = 1332800000;				
+	   break; 
+		 
 	}
     return Ftemp;
 }
@@ -199,9 +203,9 @@ static float get_units_ratio(unsigned char new_unit,unsigned char default_unit)
 // 	input: pressure value, data base and data index unit
 //	output: none  
 // ************************************************************************************* 
-u8 const code  decimal_num[2][8] = {
-	{2,4,5,2,5,6,6,6},		//default unit = inWC
-	{0,0,1,0,2,3,3,3}		//default unit = Psi
+u8 const code  decimal_num[2][9] = {
+	{2,4,5,2,5,6,6,6,0},		//default unit = inWC
+	{0,0,1,0,2,3,3,3,0}		//default unit = Psi
 };
 
  
@@ -315,7 +319,8 @@ void Pressure_Task(void)
 	{  
 		if(Pressure.SNR_Model == DLVR_L01D)
 		{
-			stemp = Get_DLVR_Pressure();
+			//if(Run_Timer > FIRST_TIME)
+				stemp = Get_DLVR_Pressure();
 			if(stemp > 1000) stemp = Pressure.pre_val;
 		}
 		else

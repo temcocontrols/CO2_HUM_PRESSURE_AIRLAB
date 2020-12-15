@@ -8,7 +8,7 @@
 
 #include "bitmap.h"    
 
-#define	EXCEPTION_PPM			65535
+#define	EXCEPTION_PPM			99//65535
 #define	ISP_PPM					1
 
 #define DEFAULT_ALARM_SP		2500
@@ -37,7 +37,7 @@
 #define	INTERNAL_CO2_SENSOR	0
 #define	EXTERNAL_CO2_SENSOR	1
 
-#define	INTERNAL_CO2_EXIST_CTR		5
+#define	INTERNAL_CO2_EXIST_CTR		50
 #define	MAX_CO2_REQUIRE_FAIL_CTR	10
 
 #define	ALARM_ON_TIME_MAX			20
@@ -51,8 +51,22 @@ typedef enum
   MAYBE_TEMCO_CO2		,
   OGM200				,
   TEMCO_CO2				,
-  SENSOR_TYPE_ALL		,
+	SCD30,  // 5 
+	MH_Z19B,  // 6
+  SENSOR_TYPE_ALL,
 }CO2_SENSOR_TYPE;
+
+typedef enum
+{
+	SCD30_CMD_NULL,
+	SCD30_CMD_CONTINUE_MEASUREMENT,
+	SCD30_CMD_GET_DATA_READY,
+	SCD30_CMD_READ_MEASUREMENT,
+	SCD30_CMD_READ_ASC,
+	SCD30_CMD_ENABLE_ASC,
+	SCD30_CMD_DISABLE_ASC,
+	SCD30_SET_FRC,
+}SCD30_CMD_LIST;
 
 typedef struct _CO2_STRUCT_
 {
@@ -67,6 +81,7 @@ typedef struct _CO2_STRUCT_
 } CO2_STR;
 
 extern CO2_STR far int_co2_str;
+extern uint16 co2_asc;
 //extern CO2_STR far ext_co2_str[MAX_EXT_CO2];
 
 extern U16_T co2_int;
@@ -87,6 +102,7 @@ extern U8_T int_co2_filter;
 extern U8_T internal_co2_module_type;
 extern uint8 internal_co2_bad_comms;
 extern u8 read_co2_ctr ; 
+extern U8_T scd30_co2_cmd_status;
 
 typedef enum
 {
@@ -138,6 +154,7 @@ void Co2_task(void *pvParameters );
 void Alarm_task(void *pvParameters );
 
 extern uint16 test[20];
+extern uint8 co2_autocal_disable;
 
 #endif
 

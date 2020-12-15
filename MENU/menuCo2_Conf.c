@@ -9,25 +9,28 @@ uint8 const   offline_text[] = " OFFLINE";
 
 void display_zone_text(uint8 index)
 {
-	index %= MAX_ROW;
-	if((index == 0) && (item_index < 5)) // zone0, internal sensor
-	{
-		if(internal_co2_exist == TRUE)
-			sprintf((char *)text, "%s%s", internal_text, online_text);
-		else
-			sprintf((char *)text, "%s%s", internal_text, offline_text);
-	}
-	else // external sensors
-	{
-		// read location name from external sensor
-		sprintf((char *)text, "%s%u: %s", external_text, (uint16)scan_db[index + item_index / 5 * 5].id, online_text);
-	}
+	//if(isColorScreen==false)
+		{
+		index %= MAX_ROW;
+		if((index == 0) && (item_index < 5)) // zone0, internal sensor
+		{
+			if(internal_co2_exist == TRUE)
+				sprintf((char *)text, "%s%s", internal_text, online_text);
+			else
+				sprintf((char *)text, "%s%s", internal_text, offline_text);
+		}
+		else // external sensors
+		{
+			// read location name from external sensor
+			sprintf((char *)text, "%s%u: %s", external_text, (uint16)scan_db[index + item_index / 5 * 5].id, online_text);
+		}
 
-	Lcd_Clear_Row(index);
-	if(index == (item_index % MAX_ROW))
-		Lcd_Show_String(index, 0, DISP_INV, text);
-	else
-		Lcd_Show_String(index, 0, DISP_NOR, text);
+		Lcd_Clear_Row(index);
+		if(index == (item_index % MAX_ROW))
+			Lcd_Show_String(index, 0, DISP_INV, text);
+		else
+			Lcd_Show_String(index, 0, DISP_NOR, text);
+	}
 }
 
 void Co2_Conf_init(void)

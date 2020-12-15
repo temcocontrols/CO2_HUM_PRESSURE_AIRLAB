@@ -10,7 +10,8 @@
 //IO操作函数	 
 #define IIC_SCL		PAout(3)	//SCL
 #define IIC_SDA		PAout(2)	//SDA	 
-#define READ_SDA	PAin(2)		//输入SDA 
+#define READ_SDA	PAin(2)		//输入SDA
+#define READ_SCL  PAin(3)
 //#define IIC_WP		PCout(5)
 
 //IIC所有操作函数
@@ -27,5 +28,6 @@ void IIC_NAck(void);				//IIC不发送ACK信号
 //u8 IIC_Read_One_Byte(u8 daddr,u8 addr);
 void SDA_IN(void);
 void SDA_OUT(void);
-
+void SCL_IN(void);
+void SCL_OUT(void);
 #endif

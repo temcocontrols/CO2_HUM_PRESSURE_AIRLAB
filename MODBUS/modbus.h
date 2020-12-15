@@ -158,7 +158,7 @@ typedef struct
 	u8 tx_count;
 }STR_UART;
 extern STR_UART uart;
-
+extern signed int short ctest[20];
 extern STR_MODBUS modbus ;
 extern vu8 serial_receive_timeout_count ;
  void dealwithData(void) ;

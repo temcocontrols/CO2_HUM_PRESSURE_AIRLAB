@@ -156,7 +156,10 @@ uint16 get_ad_val(uint8 channel)
 		
 		case PRE_AD:
 			for(i=0;i<10;i++)
+		{
 				read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 6]; 
+				delay_ms(10);
+		}
 			break;
 		
 		case TEMP_AD:

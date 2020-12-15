@@ -25,6 +25,7 @@ enum
 	HAZARDOUS,
 };
  
+extern uint16 aqi_table_customer[];
 void get_aqi_value(uint16 PM_val, uint16 *AQI_val,uint8 *AQI_level);
 
 

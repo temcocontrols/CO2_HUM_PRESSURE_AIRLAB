@@ -2,6 +2,7 @@
 #define _DEFINE_H
 #include "ProductModel.h"
 #define STM32F10X
+//#define NO_HUM
 extern unsigned char PRODUCT_ID;
  
 //#if (PRODUCT_ID == STM32_CO2_NET)
@@ -42,8 +43,24 @@ BIT:	 0		 1		 2		   3   		4
 //	#define  SENSOR_TYPE	0x00
 //#endif
 
+//typedef enum{
+//	DOT_MATRIX_SCREEN,
+//	COLOR_SCREEN,
+//}eScreenType;
+
+//#define DOT_MATRIX_SCREEN   //COLOR_SCREEN  //
 
 #ifdef STM32F10X
+
+typedef enum{
+  NO_ERROR       = 0x00, // no error
+  ACK_ERROR      = 0x01, // no acknowledgment error
+  CHECKSUM_ERROR = 0x02, // checksum mismatch error
+  TIMEOUT_ERROR  = 0x04, // timeout error
+  PARM_ERROR     = 0x80, // parameter out of range error
+}etError;
+
+
 #define far 
 #define xdata
 #define idata
@@ -52,7 +69,7 @@ BIT:	 0		 1		 2		   3   		4
 #define READ_WRITE_PROPERTY 1
 
 
-#define SOFTREV    25
+#define SOFTREV    58
  
 
 #define DEFAULT_FILTER  5 
@@ -65,6 +82,8 @@ BIT:	 0		 1		 2		   3   		4
 #define	BAUDRATE_38400			38400			//2
 #define	BAUDRATE_57600			57600			//3
 #define	BAUDRATE_115200			115200		//4
+#define	BAUDRATE_76800			76800		//5
+
 
 #define EN_OUT 0 
 #define EN_IN  1

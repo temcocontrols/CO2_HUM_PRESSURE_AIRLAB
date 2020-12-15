@@ -5,7 +5,7 @@
 //xTaskHandle Handle_SubSerial;
 
 //U8_T sub_transmit_finished;
-U8_T subnet_response_buf[SUB_BUF_LEN];
+U8_T subnet_response_buf[60];
 U8_T subnet_rec_package_size;
 
 //U8_T subnet_status = SUBNET_IDLE;
@@ -64,7 +64,7 @@ xQueueHandle qSubSerial;
 
 
 
-void set_sub_serial_baudrate(U16_T BR)
+void set_sub_serial_baudrate(U32_T BR)
 {
 	uart2_init(BR);
 //	delay_ms(1);
@@ -192,16 +192,8 @@ void sub_send_string(U8_T *p, U8_T length)
 		sub_send_byte(p[i], FALSE);
 	Sub_USART_SendDataString(DONE);
 }
-
-
-
-
-
-
-
-
  
-  void serial1_restart(void)
+void serial1_restart(void)
 { 
 	rece_count1 = 0;
 	dealwithTag1 = FALSE; 		    		  
@@ -223,21 +215,57 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 // 		USART_ITConfig(USART2, USART_IT_RXNE, DISABLE);
 		if(PRODUCT_ID == STM32_PM25)
 		{
-			if(rece_count1 < SUB_BUF_LEN)
-			{	
-				subnet_response_buf[rece_count1++] =buf; 
+			if(pm25_sensor_type == SENSIRION)
+			{
+			  if(pm25_current_cmd == SENSIRION_READ_MEASUREMENT)
+				{
+				  if((buf == 0x7E)&&(sensirion_rev_cnt == 0))//rcv first byte
+					{
+						subnet_response_buf[sensirion_rev_cnt++] = buf;				
+					}
+					else if((sensirion_rev_cnt) && (buf != 0x7E))
+					{
+						if(shift_flag == 1)
+						{
+							if(buf == 0x5e)
+								subnet_response_buf[sensirion_rev_cnt++] = 0x7e;
+							else if(buf == 0x5d)
+								subnet_response_buf[sensirion_rev_cnt++] = 0x7d;
+							else if(buf == 0x31)
+								subnet_response_buf[sensirion_rev_cnt++] = 0x11;
+							else if(buf == 0x33)
+								subnet_response_buf[sensirion_rev_cnt++] = 0x13;
+							shift_flag = 0;
+						}
+						else
+						{
+							if(buf == 0x7D)
+								shift_flag = 1;
+							else
+								subnet_response_buf[sensirion_rev_cnt++] = buf;
+						}
+						
+						
+						
+					}
+
+					else if(buf == 0x7E && sensirion_rev_cnt > 40)
+					{
+						sensirion_rev_end = PACKAGE_END;
+					}
+				}
 			}
-			else
-				serial1_restart();
-//			if(rece_count1 >= PM25_PEL_LENTH)
-//			{	 
-//			// full packet received - turn off serial timeout
-////				serial_receive_timeout_count1 = 0;	  
-//				dealwithTag1 = TRUE;   
-//				
+//			else
+//			{
+//				if(rece_count1 < SUB_BUF_LEN)
+//				{	
+//					subnet_response_buf[rece_count1++] =buf; 
+//				}
+//				else
+//					serial1_restart();
 //			}
 		}
-		else if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200))
+		else if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200) || (internal_co2_module_type == MH_Z19B) || (internal_co2_module_type == SCD30))//add new co2 sensor 
 		{
 			 
 			xQueueSendFromISR(qSubSerial, (void *)&buf, (void *)&cTaskWokenByPost);
@@ -327,8 +355,8 @@ static void internalDeal1(uint16 start_address)
 	}
 	else if ( subnet_response_buf[1] ==READ_VARIABLES) 
 	{
-		if(Slave_address == REG_CO2_VALUE)
-			co2_data_temp= ((uint16)subnet_response_buf[3] << 8) + subnet_response_buf[4];
+//		if(Slave_address == REG_CO2_VALUE)
+//			co2_data_temp= ((uint16)subnet_response_buf[3] << 8) + subnet_response_buf[4];
 	 
 	} 		
 }

@@ -9,7 +9,7 @@
  
 //#if (PRODUCT_ID == STM32_CO2_NET)
 const u8 pro_info[20] __attribute__((at(0x08008200))) = {'T', 'e', 'm', 'c', 'o', 'C', 'O', '2',  'A', 'L', 'L',0, 0, 0, 0,  FW_VER_LOW, FW_VER_HIGH, 0, 0, 0,};
-
+//const u8 pro_info[20] __attribute__((at(0x08008200))) = {'T', 'e', 'm', 'c', 'o', 'H', 'U', 'M',  'N', 'E', 'T',0, 0, 0, 0,  FW_VER_LOW, FW_VER_HIGH, 0, 0, 0,};
 //#elif (PRODUCT_ID == STM32_CO2_RS485) 
 //const u8 pro_info[20] __attribute__((at(0x08008200))) = {'T', 'e', 'm', 'c', 'o', 'C', 'O', '2',  'R', 'S', '4','8','5', 0, 0,  FW_VER_LOW, FW_VER_HIGH, 0, 0, 0,};
 

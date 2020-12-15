@@ -17,6 +17,9 @@
 #define	EXTERNAL_TEMPERATURE_SENSOR		1
 
 //extern int16 temperature_f, temperature_c;
+extern uint16 hum_read_delay;
+extern float tem_org;
+extern float hum_org;
 extern uint8 deg_c_or_f;
 extern uint8 pre_deg_c_or_f;
 extern int16 previous_temperature;
@@ -75,6 +78,7 @@ typedef struct
 	uint8 filter;
 	uint16 ad;
 	uint16 k;
+	uint16 org;
 }STR_LIGHT_SENSOR;
 
 extern STR_LIGHT_SENSOR light;

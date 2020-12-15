@@ -61,17 +61,20 @@
 			inHg = 4,
 			Kg_cm2 = 5,
 			atmosphere = 6,
-			bar = 7, 
+			bar = 7,
+      pa = 8,			
 			Unit_End,
 		};  
 		
 		extern _STR_PRESSURE_  Pressure;
 		extern uint8 const code Prs_Unit[][6];
-		extern u8 const code  decimal_num[2][8]; 
+		extern u8 const code  decimal_num[2][9]; 
 		void Pressure_Task(void); 
 		u8 get_default_unit(u8 pro_model);
  		void Pressure_initial(void);
 		s16 Get_DLVR_Pressure(void); 
 		void vUpdate_Pressure_Task( void *pvParameters );
+		extern uint16 pm25_org_value;
+		extern uint16 pm10_org_value;
  
 #endif

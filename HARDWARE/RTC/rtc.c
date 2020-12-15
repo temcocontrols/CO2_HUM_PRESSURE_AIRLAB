@@ -21,6 +21,7 @@ u8 const table_week[12] = {0, 3, 3, 6, 1, 4, 6, 2, 5, 0, 3, 5};	//月修正数据表
 //平年的月份日期表
 const u8 mon_table[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+extern void watchdog(void);
 /*
 void set_clock(u16 divx)
 {
@@ -230,8 +231,9 @@ static u8 RTC_Get(void)
  * 输出  ：无
  * 调用  ：外部调用
  */
-void RTC_Configuration(void)
+u8 RTC_Configuration(void)
 {
+	u16 temp = 0;
 	/* Enable PWR and BKP clocks */
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);
 	
@@ -246,7 +248,13 @@ void RTC_Configuration(void)
 	print("\r\n Wait till LSE is ready");
 	/* Wait till LSE is ready */
 	while (RCC_GetFlagStatus(RCC_FLAG_LSERDY) == RESET)
-	{}
+	{
+		//watchdog();
+		temp++;
+		delay_ms(10);
+		if(temp >= 300)return 1;	//初始化时钟失败,晶振有问题
+	}
+	
 	print("\r\n LSE is ready");
 	/* Select LSE as RTC Clock Source */
 	RCC_RTCCLKConfig(RCC_RTCCLKSource_LSE);
@@ -271,6 +279,8 @@ void RTC_Configuration(void)
 	
 	/* Wait until last write operation on RTC registers has finished */
 	RTC_WaitForLastTask();
+	
+	return 0;
 }
 		  
 
@@ -283,7 +293,8 @@ void RTC_Configuration(void)
 u8 RTC_Init(void)
 {
 	//检查是不是第一次配置时钟
-//	u8 temp = 0;
+	u8 i = 0;
+	uint8 rtc_state = 0;
 	RTC_NVIC_Config();							//RCT中断分组设置	
 	print( "\r\n This is a RTC demo...... \r\n" );
 	
@@ -294,7 +305,8 @@ u8 RTC_Init(void)
 		print("\r\n\n RTC not yet configured....");
 		
 		/* RTC Configuration */
-		RTC_Configuration();
+		if(RTC_Configuration()== 1)
+			return 1;
 		
 		print("\r\n RTC configured....");
 		
@@ -318,13 +330,15 @@ u8 RTC_Init(void)
 		
 		print("\r\n No need to configure RTC....");
 		/* Wait for RTC registers synchronization */
-		RTC_WaitForSynchro();
+		if(RTC_WaitForSynchro() == 1)
+			return 1;
 		
 		/* Enable the RTC Second */
 		RTC_ITConfig(RTC_IT_SEC, ENABLE);
 		
 		/* Wait until last write operation on RTC registers has finished */
-		RTC_WaitForLastTask();
+		if(RTC_WaitForLastTask())
+			return 1;
 	}
 	/* Clear reset flags */
 	RCC_ClearFlag();
@@ -345,11 +359,27 @@ u8 Time_Adjust(void)
 //		/* Allow access to BKP Domain */
 //	PWR_BackupAccessCmd(ENABLE);												//使能后备寄存器访问 
 	
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
+	//if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ||( PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PM25))
+	if(isColorScreen == true)
 		return RTC_Set(calendar.w_year,	calendar.w_month,	calendar.w_date,\
 					calendar.hour,	calendar.min,		calendar.sec);
-	else
-		return 1; 
+		else
+		{
+			if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+				return RTC_Set(calendar.w_year,	calendar.w_month,	calendar.w_date,\
+					calendar.hour,	calendar.min,		calendar.sec);
+			else
+				return 1; 
+		}
+//		#if 1//defined (COLOR_SCREEN)
+//	else if( PRODUCT_ID == STM32_HUM_NET)
+//	{
+//		if(isColorScreen == true)
+//			return RTC_Set(calendar.w_year,	calendar.w_month,	calendar.w_date,\
+//					calendar.hour,	calendar.min,		calendar.sec);
+//		}
+//		#endif
+
 //	RCC_ClearFlag();
 	
 }

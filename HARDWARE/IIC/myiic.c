@@ -1,5 +1,6 @@
 #include "myiic.h"
 #include "delay.h"
+#include "temperature.h"
 
 //IO方向设置
 //#define SDA_IN()	{GPIOB->CRL &= 0XFFFFFFF0; GPIOB->CRL |= ((u32)8 << 0);}
@@ -20,6 +21,24 @@
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 //	GPIO_SetBits(GPIOA, GPIO_Pin_2);
+}
+
+  void SCL_IN(void)
+{
+	GPIO_InitTypeDef GPIO_InitStructure; 
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU; 
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_SetBits(GPIOA, GPIO_Pin_3);
+}
+  void SCL_OUT(void)
+{
+	GPIO_InitTypeDef GPIO_InitStructure; 
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
 }
 //初始化IIC
 void IIC_Init(void)
@@ -47,9 +66,9 @@ void IIC_Start(void)
 	SDA_OUT();		//sda线输出
 	IIC_SDA = 1;	  	  
 	IIC_SCL = 1;
-	delay_us(4);
+	delay_us(4*hum_read_delay);
  	IIC_SDA = 0;	//START:when CLK is high,DATA change form high to low 
-	delay_us(4);
+	delay_us(4*hum_read_delay);
 	IIC_SCL = 0;	//钳住I2C总线，准备发送或接收数据 
 }
 	  
@@ -59,10 +78,10 @@ void IIC_Stop(void)
 	SDA_OUT();		//sda线输出
 	IIC_SCL = 0;
 	IIC_SDA = 0;	//STOP:when CLK is high DATA change form low to high
- 	delay_us(4);
+ 	delay_us(4*hum_read_delay);
 	IIC_SCL = 1; 
 	IIC_SDA = 1;	//发送I2C总线结束信号
-	delay_us(4);							   	
+	delay_us(4*hum_read_delay);							   	
 }
 
 //等待应答信号到来
@@ -73,9 +92,9 @@ u8 IIC_Wait_Ack(void)
 	u8 ucErrTime = 0;
 	SDA_IN();		//SDA设置为输入  
 	IIC_SDA = 1;
-	delay_us(1);	   
+	delay_us(1*hum_read_delay);	   
 	IIC_SCL = 1;
-	delay_us(1);	 
+	delay_us(1*hum_read_delay);	 
 	while(READ_SDA)
 	{
 		ucErrTime++;
@@ -95,9 +114,9 @@ void IIC_Ack(void)
 	IIC_SCL = 0;
 	SDA_OUT();
 	IIC_SDA = 0;
-	delay_us(2);
+	delay_us(2*hum_read_delay);
 	IIC_SCL = 1;
-	delay_us(2);
+	delay_us(2*hum_read_delay);
 	IIC_SCL = 0;
 }
 
@@ -107,9 +126,9 @@ void IIC_NAck(void)
 	IIC_SCL = 0;
 	SDA_OUT();
 	IIC_SDA = 1;
-	delay_us(2);
+	delay_us(2*hum_read_delay);
 	IIC_SCL = 1;
-	delay_us(2);
+	delay_us(2*hum_read_delay);
 	IIC_SCL = 0;
 }
 					 				     
@@ -126,11 +145,11 @@ void IIC_Send_Byte(u8 txd)
     {              
         IIC_SDA = (txd & 0x80) >> 7;
         txd <<= 1; 	  
-		delay_us(2);   //对TEA5767这三个延时都是必须的
+		delay_us(2*hum_read_delay);   //对TEA5767这三个延时都是必须的
 		IIC_SCL = 1;
-		delay_us(2); 
+		delay_us(2*hum_read_delay); 
 		IIC_SCL = 0;	
-		delay_us(2);
+		delay_us(2*hum_read_delay);
     }	 
 }
 	    
@@ -144,11 +163,11 @@ u8 IIC_Read_Byte(unsigned char ack)
     for(i = 0; i < 8; i++)
 	{
         IIC_SCL = 0; 
-        delay_us(2);
+        delay_us(2*hum_read_delay);
 		IIC_SCL = 1;
         receive <<= 1;
         if(READ_SDA)receive++;   
-		delay_us(1); 
+		delay_us(1*hum_read_delay); 
     }
 						 
     if(!ack)

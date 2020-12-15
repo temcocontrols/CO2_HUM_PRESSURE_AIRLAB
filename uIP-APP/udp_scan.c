@@ -18,6 +18,10 @@
 #define UDP_SCAN_LPORT 		1234
 #define UDP_CLIENT_RPORT	5555
 
+
+
+
+
 u8   InformationStr[60];
 u8    state=1;
 u8    scanstart=0;
@@ -89,8 +93,8 @@ void udp_scan_reply(u8 type)
      InformationStr[33] = 0;
  
 // two lower bytes of bacnet instance, no use in bootloader
-     InformationStr[34] = Instance;
-     InformationStr[35] = Instance >> 8;
+     InformationStr[34] = (Instance>>8)&0xff;
+     InformationStr[35] = Instance&0xff;
  
 // one byte bacnet station number, no use in bootloader
       InformationStr[36] = 0;
@@ -99,8 +103,8 @@ void udp_scan_reply(u8 type)
       memcpy(&InformationStr[37], panelname, 20);
  
 // two higher bytes of bacnet instance, no use in bootloader
-     InformationStr[57] = Instance >> 16;
-     InformationStr[58] = Instance >> 24;
+     InformationStr[57] = (Instance>>24)&0xff;
+     InformationStr[58] = (Instance>>16)&0xff;
  
 // bootloader mode or runtime mode, 0=runtime, !0=bootloader
 	InformationStr[59] = 0;
@@ -140,7 +144,7 @@ void UDP_SCAN_APP(void)
 //      /* new data comes in */
             
       len = uip_len; 
-	   memcpy(scan_temp, uip_appdata, len);
+			memcpy(scan_temp, uip_appdata, len);
       if(scan_temp[0] == 0x64)
       {
          state = 1;
@@ -164,8 +168,16 @@ void UDP_SCAN_APP(void)
    {
      
 //	  print("%u,%u,%u,%u,%u,%u,%u,%u,", temp[1],temp[2],temp[3],temp[4],temp[5],temp[6],temp[7],temp[8]);
-	  n = 5;
-	udp_scan_reply(1); 
+	  // cmd(1 byte) + changed ip(4 bytes) + new ip(4 bytes) + new subnet(4 bytes) + new getway(4)  --- old protocal
+		 // + sn(4 bytes)  -- new protocal, used to change conflict ip
+ 
+		 if(((scan_temp[17] == modbus.serial_Num[0]) && (scan_temp[18] == modbus.serial_Num[1]) && (scan_temp[19] == modbus.serial_Num[2]) && (scan_temp[20] == modbus.serial_Num[3]))
+			 || ((scan_temp[17] == 0) && (scan_temp[18] == 0) && (scan_temp[19] == 0) && (scan_temp[20] == 0)))
+		 {
+
+		 
+		 n = 5;
+		 udp_scan_reply(1); 
      modbus.ip_mode = 0;
    
      modbus.ip_addr[0] = scan_temp[n++];
@@ -208,8 +220,7 @@ void UDP_SCAN_APP(void)
 //     ChangeIP = 1;
         if((modbus.ip_addr[0] != 0)  && (modbus.ip_addr[1] != 0)  && (modbus.ip_addr[3] != 0) )
         {
-
-					
+		
 		for(i=0; i<4; i++)
 		{
 			
@@ -230,6 +241,7 @@ void UDP_SCAN_APP(void)
 //               AX11000_SoftReboot();
 //            }
       }
+		}
   }
  // uip_send((char *)InformationStr, 60);
    #endif
@@ -302,13 +314,26 @@ void dhcpc_configured(const struct dhcpc_state *s)
 			modbus.ghost_mask_addr[i] = modbus.mask_addr[i];
 			modbus.ghost_gate_addr[i] = modbus.gate_addr[i];
 			
-//			AT24CXX_WriteOneByte(EEP_IP_ADDRESS_1+i, modbus.ip_addr[i]);
-//			AT24CXX_WriteOneByte(EEP_SUB_MASK_ADDRESS_1+i, modbus.mask_addr[i]);
-//			AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_1+i, modbus.gate_addr[i]);						
+			AT24CXX_WriteOneByte(EEP_IP_ADDRESS_1+i, modbus.ip_addr[i]);
+			AT24CXX_WriteOneByte(EEP_SUB_MASK_ADDRESS_1+i, modbus.mask_addr[i]);
+			AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_1+i, modbus.gate_addr[i]);						
 		}
 	}
 
-	uip_ipaddr(uip_hostaddr_submask, modbus.ip_addr[0], modbus.ip_addr[1], modbus.ip_addr[2],255);
+	{U8_T temp[4];
+	// fix submask by chelsea
+	temp[0] = modbus.ip_addr[0];
+	temp[1] = modbus.ip_addr[1];
+	temp[2] = modbus.ip_addr[2];
+	temp[3] = modbus.ip_addr[3];
+	
+	temp[0] |= (255 - modbus.mask_addr[0]);
+	temp[1] |= (255 - modbus.mask_addr[1]);
+	temp[2] |= (255 - modbus.mask_addr[2]);
+	temp[3] |= (255 - modbus.mask_addr[3]);
+	
+	uip_ipaddr(uip_hostaddr_submask,temp[0], temp[1],temp[2] ,temp[3]);
+	}//uip_ipaddr(uip_hostaddr_submask, modbus.ip_addr[0], modbus.ip_addr[1], modbus.ip_addr[2],255);
 
 	bip_Init();
 }

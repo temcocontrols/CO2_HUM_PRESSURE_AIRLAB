@@ -466,15 +466,15 @@ resolv_found(char *name, u16_t *ipaddr)
 {
     if(ipaddr == NULL)
     {
-        printf("Host %s not found.\n", name);
+//        printf("Host %s not found.\n", name);
     }
     else
     {
-        printf("Found name '%s' = %d.%d.%d.%d\n", name,
-               htons(ipaddr[0]) >> 8,
-               htons(ipaddr[0]) & 0xff,
-               htons(ipaddr[1]) >> 8,
-               htons(ipaddr[1]) & 0xff);
+//        printf("Found name '%s' = %d.%d.%d.%d\n", name,
+//               htons(ipaddr[0]) >> 8,
+//               htons(ipaddr[0]) & 0xff,
+//               htons(ipaddr[1]) >> 8,
+//               htons(ipaddr[1]) & 0xff);
         /*    webclient_get("www.sics.se", 80, "/~adam/uip");*/
     }
 }

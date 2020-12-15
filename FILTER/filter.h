@@ -28,5 +28,5 @@
 
 
 //u16 filter_inputs(u8 channel,u16 input) ;
-signed int RangeConverter(unsigned char function, signed int para,signed int cal,unsigned char i);
+//signed int RangeConverter(unsigned char function, signed int para,signed int cal,unsigned char i);
 #endif 
