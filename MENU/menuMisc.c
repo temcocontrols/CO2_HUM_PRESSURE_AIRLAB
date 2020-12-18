@@ -1198,9 +1198,10 @@ void Misc_keycope(uint16 key_value)
 					}
 					else
 					{
+#if OLD_CO2
 						if(modbus.address != set_value)	
 							modify_master_id_in_database(modbus.address, set_value);
-
+#endif
 						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
 						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
 						in_sub_menu = FALSE;
@@ -1655,7 +1656,9 @@ void Misc_keycope(uint16 key_value)
 							set_value = (((set_value + SPEED_10) < 255) ? (set_value + SPEED_10) : 1);
 
 						set_value %= 255;
+#if OLD_CO2
 						set_value = check_master_id_in_database(set_value, 1);
+#endif
 						break;
 					case 7:	// bardrate
 						if(set_value >= 5)
@@ -1829,8 +1832,9 @@ void Misc_keycope(uint16 key_value)
 						}
 						else
 							set_value = ((set_value > SPEED_10) ? (set_value - SPEED_10) : 254);
-
+#if OLD_CO2
 						set_value = check_master_id_in_database(set_value, 0);
+#endif
 						break;
 					case 7:	// bardrate
 						if(set_value == 0)

@@ -1,4 +1,6 @@
  #include "../co2/subnet_scan.h"
+ 
+#if OLD_CO2
 #define UART3_SERIAL_RECEIVE_TIMEOUT		10  
 uint8 uart3_rece_count = 0;
 uint8 uart3_dealwithTag = 0; 
@@ -477,4 +479,4 @@ U8_T wait_for_uart3_idle(U8_T nDoubleTick)
 	return FALSE;
 }
 
-
+#endif

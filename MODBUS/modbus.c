@@ -22,6 +22,11 @@
 #include "config.h"
 #include "stmflash.h"
 #include "sht3x.h"
+#include "bsp_esp8266.h"
+#include "store.h"
+
+extern uint8_t flag_set_wifi;
+
 
 extern uint8 update_flag;
 uint8 mhz19_cal_h = 0;
@@ -68,6 +73,9 @@ bool isThirdLineChange = false;
 uint16_t co2_frc = 0;
 
 extern uint8 sensirion_co2_cmd_ForcedCalibration[8];
+
+void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type) ;
+U16_T read_wifi_data_by_block(U16_T addr);
 
 extern void watchdog(void);
 void USART1_IRQHandler(void)                	//串口1中断服务程序
@@ -147,7 +155,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 							{
 							serial_receive_timeout_count = 0;
 							dealwithTag = 2;		// making this number big to increase delay
-							rx_count = 2 ;
+							//rx_count = 2 ;
 							uart.rx_count++;
 							
 //							for(i=0;i<rece_size;i++)
@@ -226,7 +234,7 @@ void send_byte(u8 ch, u8 crc)
 {	
 	USART_ClearFlag(USART1, USART_FLAG_TC); 
 	USART_SendData(USART1,  ch);
-	tx_count = 2 ;
+//	tx_count = 2 ;
 	if(crc)
 	{
 		crc16_byte(ch);
@@ -243,7 +251,7 @@ void send_byte(u8 ch, u8 crc)
 // }
  void USART_SendDataString( u16 num )
  {
-	 tx_count = 2 ;
+//	 tx_count = 2 ;
 	 sendbyte_num = num;
 	 uart_num = 0 ;
 	 if(modbus.protocal == MODBUS)
@@ -467,6 +475,10 @@ void internalDeal(u8 type,  u8 *pData)
 		{  
 			write_user_data_by_block(StartAdd,HeadLen,pData);
 		}
+		else if(StartAdd >= MODBUS_WIFI_START && StartAdd <= MODBUS_WIFI_END)
+		{
+			write_wifi_data_by_block(StartAdd,HeadLen,pData,0);
+		}	
 		if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485) || (PRODUCT_ID == STM32_PM25) || (PRODUCT_ID == STM32_CO2_NET) || (PRODUCT_ID == STM32_CO2_RS485))
 		{
 			if(StartAdd  >= TSTAT_NAME1 && StartAdd <= TSTAT_NAME8)
@@ -499,7 +511,11 @@ void internalDeal(u8 type,  u8 *pData)
 	}
  	else if(pData[HeadLen + 1] == WRITE_VARIABLES)
 	{
-		 
+		if(StartAdd >= MODBUS_WIFI_START && StartAdd <= MODBUS_WIFI_END)
+		{			
+			write_wifi_data_by_block(StartAdd,HeadLen,pData,0);
+		}
+		else
 		 Data_Deal(StartAdd,pData[HeadLen+4],pData[HeadLen+5]);
 	}
  		
@@ -555,11 +571,15 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //			}
 		else if(StartAdd == MODBUS_ADDRESS )
 		{
+#if OLD_CO2
 			 if(Data_L != check_master_id_in_database(Data_L-1, 0))
+#endif
 			{				 
 				modbus.address = Data_L;
 				AT24CXX_WriteOneByte(EEP_ADDRESS, modbus.address);
+#if OLD_CO2
 				scan_db[0].id = modbus.address; // update the scan talbe
+#endif
 				Station_NUM = modbus.address;
 				//Inital_Bacnet_Server();
 				dlmstp_init(NULL);
@@ -743,14 +763,17 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					
 					//intial variable
 					STMFLASH_Unlock();	
-					STMFLASH_ErasePage(AV_PAGE_FLAG);
-					STMFLASH_WriteHalfWord(AV_PAGE_FLAG, 0xffff) ;
+//					STMFLASH_ErasePage(AV_PAGE_FLAG);
+//					STMFLASH_WriteHalfWord(AV_PAGE_FLAG, 0xffff) ;
 					
 					STMFLASH_ErasePage(IN_PAGE_FLAG);
 					STMFLASH_WriteHalfWord(IN_PAGE_FLAG, 0xffff) ;
 					
 					STMFLASH_ErasePage(OUT_PAGE_FLAG);
 					STMFLASH_WriteHalfWord(OUT_PAGE_FLAG, 0xffff) ;
+					
+					STMFLASH_ErasePage(WIFI_PAGE_FLAG);
+					STMFLASH_WriteHalfWord(WIFI_PAGE_FLAG, 0xffff) ;
 					STMFLASH_Lock();
 					
 //-----------------IP Mode-----------------------					
@@ -842,7 +865,9 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			modbus.address = Data_L;
 			//write_eeprom(EEP_STATION_NUMBER,Data_L);  
 			AT24CXX_WriteOneByte(EEP_ADDRESS, modbus.address);
+#if OLD_CO2
 			scan_db[0].id = modbus.address; // update the scan talbe
+#endif
 			Station_NUM = modbus.address;
 			//Inital_Bacnet_Server();
 			dlmstp_init(NULL);
@@ -2402,6 +2427,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //				flash_write_int(FLASH_BACKLIGHT_KEEP_SECONDS, backlight_keep_seconds);
 			
 		}
+#if OLD_CO2
 		else if(StartAdd == MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY)
 		{
 			if(((uint16)Data_H << 8) | Data_L)
@@ -2411,25 +2437,25 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //				start_data_save_timer();
 //				flash_write_int(FLASH_EXTERNAL_NODES_PLUG_AND_PLAY, external_nodes_plug_and_play);
 		}
-
+#endif
 		
 		
 		 
-		else if(StartAdd == MODBUS_RESET)
-		{ 				// only for test, added it by chelsea
-			
-			co2_reset();
-		
+//		else if(StartAdd == MODBUS_RESET)
+//		{ 				// only for test, added it by chelsea
+//			
+//			//co2_reset();
+//		
 //				 modbus.reset = pData[HeadLen+5] ;
-//				if(modbus.reset == 1)
-//				{
-//					for(i=0; i<255; i++)
-//					AT24CXX_WriteOneByte(i, 0xff);
-//				}				
-//				EEP_Dat_Init();
-//////				AT24CXX_WriteOneByte(16, 1);
-//				SoftReset();
-		}
+////				if(modbus.reset == 1)
+////				{
+////					for(i=0; i<255; i++)
+////					AT24CXX_WriteOneByte(i, 0xff);
+////				}				
+////				EEP_Dat_Init();
+////////				AT24CXX_WriteOneByte(16, 1);
+////				SoftReset();
+//		}
 		
 		else if((StartAdd >= MODBUS_TEST1) && (StartAdd <= MODBUS_TEST20))
 		{ 				
@@ -2440,7 +2466,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				write_eeprom(EEP_RESTART_NUM, Data_L);
 			}
 		} 
-
+		
 		
 		else if(StartAdd == MODBUS_INT_TEMPRATURE_FILTER) 
 		{
@@ -2983,8 +3009,16 @@ void responseCmd(u8 type, u8* pData)
 				sendbuf[HeadLen + i] = pData[HeadLen + i];	
 			}
 			
-			memcpy(tcp_server_sendbuf,sendbuf,6+ HeadLen);
-			tcp_server_sendlen = 6 + HeadLen;
+			if(type == WIFI)
+			{
+				memcpy(modbus_wifi_buf, sendbuf, 6+ HeadLen);
+				modbus_wifi_len = 6 + HeadLen;
+			}
+			else
+			{
+				memcpy(tcp_server_sendbuf,sendbuf,6+ HeadLen);
+				tcp_server_sendlen = 6 + HeadLen;
+			}
 //			if(cSemaphoreTake( xSemaphore_tcp_send, ( portTickType ) 10 ) == pdTRUE)
 //			{				
 //				TCPIP_TcpSend(pHttpConn->TcpSocket, sendbuf, 6 + UIP_HEAD, TCPIP_SEND_NOT_FINAL); 
@@ -3023,11 +3057,17 @@ void responseCmd(u8 type, u8* pData)
 				{
 					sendbuf[HeadLen + i] = pData[HeadLen + i];	
 				}
-				memcpy(tcp_server_sendbuf,sendbuf,	6 + HeadLen);
-				tcp_server_sendlen = 6 + HeadLen;
-		}
-		
-				
+				if(type == WIFI)
+				{
+					memcpy(modbus_wifi_buf, sendbuf, 6+ HeadLen);
+					modbus_wifi_len = 6 + HeadLen;
+				}
+				else
+				{
+					memcpy(tcp_server_sendbuf,sendbuf,	6 + HeadLen);
+					tcp_server_sendlen = 6 + HeadLen;
+				}
+		}	
 	}
 	else if(cmd == READ_VARIABLES)
 	{
@@ -3365,23 +3405,6 @@ void responseCmd(u8 type, u8* pData)
 			} 
 			else if((address >= MODBUS_TEST1)&&(address <= MODBUS_TEST20))
 			{ 				
-				
-//				test[0] = sizeof(Str_out_point); //45
-//				test[1] = sizeof(Str_in_point);  //46
-//				test[2] = sizeof(Str_variable_point);//39
-//				test[3] = sizeof(Str_program_point); //37
-//				test[4] = sizeof(Str_weekly_routine_point);//42
-//				test[5] = sizeof(Str_annual_routine_point);//33
-//				test[6] = sizeof(Wr_one_day); //16
-//				test[7] = sizeof(Str_controller_point);//28
-//				test[8] = MODBUS_CONTROLLER_BLOCK_FIRST;
-//				test[9] = MODBUS_CONTROLLER_BLOCK_LAST;
-//				if(address == MODBUS_TEST5)
-//				{
-//					temp1 = (uint16)HumSensor.temperature_c >> 8 ;
-//					temp2 = (uint16)HumSensor.temperature_c & 0xff;
-//				
-//				}
 				temp1 = ((int16)ctest[address - MODBUS_TEST1]) >> 8 ;
 				temp2 = ((int16)ctest[address - MODBUS_TEST1]) & 0xff;
 				
@@ -3395,7 +3418,7 @@ void responseCmd(u8 type, u8* pData)
 /******************* read IN OUT by block start ******************************************/
 			else if(address >= MODBUS_USER_BLOCK_FIRST && address <= MODBUS_USER_BLOCK_LAST)
 			{
-				U16_T far temp;
+				U16_T  temp;
 				temp = read_user_data_by_block(address);
 				
 				temp1 = (temp >> 8) & 0xFF;;
@@ -3405,6 +3428,21 @@ void responseCmd(u8 type, u8* pData)
 				crc16_byte(temp1);
 				crc16_byte(temp2);
 			} 
+			//--------------------wifi start -----------------
+				else if(address >= MODBUS_WIFI_START && address <= MODBUS_WIFI_END)
+				{
+					U16_T  temp;
+					temp = read_wifi_data_by_block(address);
+					ctest[3]++;
+					temp1 = (temp >> 8) & 0xFF;
+					temp2 = temp & 0xFF;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+// ------------------wifi end --------------------
 /*******************************after register 100****************************************************/				
 			else if((address < MODBUS_HUM_END )&&((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485)))
 			{
@@ -5428,90 +5466,90 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
-				else if(address == MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY)
-				{ 
-					temp1= 0 ;
-					temp2= external_nodes_plug_and_play ;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_SCAN_DB_CTR)
-				{ 
-					temp1= 0 ;
-					temp2= db_ctr;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_RESET_SCAN_DB)
-				{ 
-					temp1= 0;
-					temp2= reset_scan_db_flag;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if((address >= MODBUS_SCAN_START) && (address < MODBUS_SCAN_END))
-				{
-					uint8 A, B;
-					A = (i + address - MODBUS_SCAN_START) / SCAN_DB_SIZE;
-					B = (i + address - MODBUS_SCAN_START) % SCAN_DB_SIZE;
-					temp1 = 0;
-					switch(B)
-					{
-						case 0:
-							temp2 = scan_db[A].id ;  
-							break;
-						case 1:
-							temp2 = (uint8)(scan_db[A].sn >> 0) ;
-							break;
-						case 2:
-							temp2 = (uint8)(scan_db[A].sn >> 8) ;
-							break;
-						case 3:
-							temp2 = (uint8)(scan_db[A].sn >> 16);
-							break;
-						case 4:
-							temp2 = (uint8)(scan_db[A].sn >> 24);
-							break;
-					} 
-					
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if((address >= MODBUS_GET_NODES_PARA_START) && (address < MODBUS_GET_NODES_PARA_END))
-				{ 
-					temp1= 0;
-					temp2= get_para[i + address - MODBUS_GET_NODES_PARA_START] ;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if((address >= MODBUS_SCAN_OCCUPY_START) && (address < MODBUS_SCAN_OCCUPY_END))
-				{ 
-					temp1= 0;
-					temp2= db_occupy[i + address - MODBUS_SCAN_OCCUPY_START] ;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if((address >= MODBUS_SCAN_ONLINE_START) && (address < MODBUS_SCAN_ONLINE_END))
-				{ 
-					temp1= 0;
-					temp2= db_online[i + address - MODBUS_SCAN_ONLINE_START];
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
+//				else if(address == MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY)
+//				{ 
+//					temp1= 0 ;
+//					temp2= external_nodes_plug_and_play ;
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if(address == MODBUS_SCAN_DB_CTR)
+//				{ 
+//					temp1= 0 ;
+//					temp2= db_ctr;
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if(address == MODBUS_RESET_SCAN_DB)
+//				{ 
+//					temp1= 0;
+//					temp2= reset_scan_db_flag;
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if((address >= MODBUS_SCAN_START) && (address < MODBUS_SCAN_END))
+//				{
+//					uint8 A, B;
+//					A = (i + address - MODBUS_SCAN_START) / SCAN_DB_SIZE;
+//					B = (i + address - MODBUS_SCAN_START) % SCAN_DB_SIZE;
+//					temp1 = 0;
+//					switch(B)
+//					{
+//						case 0:
+//							temp2 = scan_db[A].id ;  
+//							break;
+//						case 1:
+//							temp2 = (uint8)(scan_db[A].sn >> 0) ;
+//							break;
+//						case 2:
+//							temp2 = (uint8)(scan_db[A].sn >> 8) ;
+//							break;
+//						case 3:
+//							temp2 = (uint8)(scan_db[A].sn >> 16);
+//							break;
+//						case 4:
+//							temp2 = (uint8)(scan_db[A].sn >> 24);
+//							break;
+//					} 
+//					
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if((address >= MODBUS_GET_NODES_PARA_START) && (address < MODBUS_GET_NODES_PARA_END))
+//				{ 
+//					temp1= 0;
+//					temp2= get_para[i + address - MODBUS_GET_NODES_PARA_START] ;
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if((address >= MODBUS_SCAN_OCCUPY_START) && (address < MODBUS_SCAN_OCCUPY_END))
+//				{ 
+//					temp1= 0;
+//					temp2= db_occupy[i + address - MODBUS_SCAN_OCCUPY_START] ;
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+//				else if((address >= MODBUS_SCAN_ONLINE_START) && (address < MODBUS_SCAN_ONLINE_END))
+//				{ 
+//					temp1= 0;
+//					temp2= db_online[i + address - MODBUS_SCAN_ONLINE_START];
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
 				
 				else if(address == MODBUS_INT_TEMPRATURE_FILTER) 
 				{
@@ -6259,8 +6297,16 @@ void responseCmd(u8 type, u8* pData)
 				sendbuf[3] = 0 ;
 				sendbuf[4] = (3 + RegNum * 2) >> 8; 
 				sendbuf[5] =(u8)(3 + RegNum * 2) ;
-				memcpy(tcp_server_sendbuf,sendbuf,RegNum * 2 + 3 + HeadLen);
-				tcp_server_sendlen = RegNum * 2 + 3 + HeadLen;
+			  if(type == WIFI)
+				{
+					memcpy(modbus_wifi_buf,sendbuf,RegNum * 2 + 3 + HeadLen);
+					modbus_wifi_len = RegNum * 2 + 3 + HeadLen;
+				}
+				else
+				{
+					memcpy(tcp_server_sendbuf,sendbuf,RegNum * 2 + 3 + HeadLen);
+					tcp_server_sendlen = RegNum * 2 + 3 + HeadLen;
+				}
 		}
 	}
 
@@ -6436,7 +6482,7 @@ u8 checkData(u16 address)
  }
 
  
- 
+ extern uint8 comm_good;
  void dealwithData(void)
 {	
 	u16 address;
@@ -6455,6 +6501,7 @@ u8 checkData(u16 address)
 		internalDeal(0, USART_RX_BUF);
 		uart.tx_count++;
 		if(uart.tx_count > 99) uart.tx_count = 0;
+		comm_good = TRUE;
 	}
 	else
 	{
@@ -6479,3 +6526,186 @@ void stack_detect(u16 *p)
 //	unsigned portBASE_TYPE temp;
 	*p = uxTaskGetStackHighWaterMark(NULL); 
 }
+
+
+void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type) 
+{
+	U8_T far i,j;
+	if(StartAdd == MODBUS_WIFI_SSID_MANUAL_EN)
+	{
+		SSID_Info.MANUEL_EN = pData[HeadLen + 5];
+		write_page_en[WIFI_TYPE] = 1;
+		Flash_Write_Mass();
+//		ESP8266_JoinAP_DEF(SSID_Info.name,SSID_Info.password);
+//		//if(SSID_Info.MANUEL_EN != 0)
+//		{
+			Restore_WIFI();
+////			if(type == WIFI)
+////			{
+////				flag_connect_AP = 1;
+////			}
+////			else
+////			{
+////				connect_AP();	
+				SoftReset();					
+////			}
+////			
+//		}
+	}
+	else if(StartAdd == MODBUS_WIFI_RESTORE)
+	{
+		if(pData[HeadLen + 5] == 1)
+		{
+			Restore_WIFI();
+			// Clear SSID
+			memset(&SSID_Info,0,sizeof(STR_SSID));
+			write_page_en[WIFI_TYPE] = 1; 
+			Flash_Write_Mass();
+			//QuickSoftReset();	
+		}
+	}
+	else if(StartAdd == MODBUS_WIFI_MODE)
+	{
+		SSID_Info.IP_Auto_Manual = pData[HeadLen + 5];
+	}
+	else if(StartAdd == MODBUS_WIFI_BACNET_PORT)
+	{
+		SSID_Info.bacnet_port = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+	}
+	else if(StartAdd == MODBUS_WIFI_MODBUS_PORT)
+	{
+		SSID_Info.modbus_port = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+	}
+	else if(StartAdd >= MODBUS_WIFI_SSID_START && StartAdd <= MODBUS_WIFI_SSID_END)
+	{
+		if((StartAdd - MODBUS_WIFI_SSID_START) % 32 == 0)
+		{
+			memset(&SSID_Info.name,'\0',64);
+			memcpy(&SSID_Info.name,&pData[HeadLen + 7],64);
+		}
+	}
+	else if(StartAdd >= MODBUS_WIFI_PASS_START && StartAdd <= MODBUS_WIFI_PASS_END)
+	{
+		if((StartAdd - MODBUS_WIFI_PASS_START) % 16 == 0)
+		{
+			memset(&SSID_Info.password,'\0',32);
+			memcpy(&SSID_Info.password,&pData[HeadLen + 7],32);
+		}
+	}
+	else if(StartAdd == MODBUS_WIFI_IP1) 
+	{
+		if((StartAdd - MODBUS_WIFI_IP1) % 12 == 0)
+		{
+			SSID_Info.ip_addr[0] = pData[HeadLen + 8];
+			SSID_Info.ip_addr[1] = pData[HeadLen + 10];
+			SSID_Info.ip_addr[2] = pData[HeadLen + 12];
+			SSID_Info.ip_addr[3] = pData[HeadLen + 14];
+					
+			SSID_Info.net_mask[0] = pData[HeadLen + 16];
+			SSID_Info.net_mask[1] = pData[HeadLen + 18];
+			SSID_Info.net_mask[2] = pData[HeadLen + 20];
+			SSID_Info.net_mask[3] = pData[HeadLen + 22];
+			
+			SSID_Info.getway[0] = pData[HeadLen + 24];
+			SSID_Info.getway[1] = pData[HeadLen + 26];
+			SSID_Info.getway[2] = pData[HeadLen + 28];
+			SSID_Info.getway[3] = pData[HeadLen + 30];
+					
+			
+		}
+	}
+	else if(StartAdd == MDOBUS_WIFI_MACADDR) 
+	{
+		if((StartAdd - MDOBUS_WIFI_MACADDR) % 6 == 0)
+		{
+			uint8_t mac_addr[6];
+			mac_addr[0] = pData[HeadLen + 8];
+			mac_addr[1] = pData[HeadLen + 10];
+			mac_addr[2] = pData[HeadLen + 12];
+			mac_addr[3] = pData[HeadLen + 14];					
+			mac_addr[4] = pData[HeadLen + 16];
+			mac_addr[5] = pData[HeadLen + 18];	
+
+			ESP8266_Set_MAC(mac_addr);			
+			flag_set_wifi = 1;
+		}
+	}
+	
+}
+
+
+
+U16_T read_wifi_data_by_block(U16_T addr) 
+{
+	uint8 item;	
+	uint16 *block;			
+	uint8 *block1;
+	if(addr == MODBUS_WIFI_SSID_MANUAL_EN)
+	{
+		return SSID_Info.MANUEL_EN;		
+	}
+	else if(addr == MODBUS_WIFI_MODE)
+	{
+		return SSID_Info.IP_Auto_Manual;
+	}
+	else if(addr == MODBUS_WIFI_STATUS)
+	{
+		return SSID_Info.IP_Wifi_Status;
+	}
+	else if(addr == MODBUS_WIFI_MODBUS_PORT)
+	{
+		return SSID_Info.modbus_port;
+	}
+	else if(addr == MODBUS_WIFI_BACNET_PORT)
+	{
+		return SSID_Info.bacnet_port;
+	}
+	else if(addr == MODBUS_WIFI_REV)
+	{
+		return SSID_Info.rev;
+	}
+	else if(addr == MODBUS_WIFI_RSSI)
+	{		
+		return SSID_Info.rssi;
+	}
+	else if(addr >= MODBUS_WIFI_SSID_START && addr <= MODBUS_WIFI_SSID_END)
+	{
+		block = (U16_T *)&SSID_Info.name;
+		item = (addr - MODBUS_WIFI_SSID_START) % 32;  // size is 64
+		return block[item];
+	}
+	else if(addr >= MODBUS_WIFI_PASS_START && addr <= MODBUS_WIFI_PASS_END)
+	{
+		block = (U16_T *)&SSID_Info.password;
+		item = (addr - MODBUS_WIFI_PASS_START) % 16;  // size is 32
+		return block[item];
+	}				
+	else if((addr >= MODBUS_WIFI_IP1) && (addr <= MODBUS_WIFI_IP1 + 3))
+	{
+		block1 = (U8_T *)&SSID_Info.ip_addr;
+		item = (addr - MODBUS_WIFI_IP1) % 4; 
+		return block1[item];		
+	}
+	else if((addr >= MODBUS_WIFI_NETMASK) && (addr <= MODBUS_WIFI_NETMASK + 3))
+	{
+		block1 = (U8_T *)&SSID_Info.net_mask;
+		item = (addr - MODBUS_WIFI_NETMASK) % 4; 
+		return block1[item];
+	}
+	else if((addr >= MODBUS_WIFI_GETWAY) && (addr <= MODBUS_WIFI_GETWAY + 3))
+	{
+		block1 = (U8_T *)&SSID_Info.getway;
+		item = (addr - MODBUS_WIFI_GETWAY) % 4;
+		return block1[item];
+	}
+	else if((addr >= MDOBUS_WIFI_MACADDR) && (addr <= MDOBUS_WIFI_MACADDR + 5))
+	{
+		block1 = (U8_T *)&SSID_Info.mac_addr;
+		item = (addr - MDOBUS_WIFI_MACADDR) % 6;  
+		return block1[item];
+	}
+	else		
+		return 0;
+	
+}
+

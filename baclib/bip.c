@@ -52,6 +52,7 @@
 #include "uip.h"
 #include "LCD.h"
 
+extern uint8_t flag_wifi;
 #if ARM
 #ifdef BIP
 
@@ -91,7 +92,9 @@ static struct in_addr BIP_Broadcast_Address;
  * @param sock_fd [in] Handle for the BACnet/IP socket.
  */
 
-
+// for wifi
+extern uint8_t bacnet_wifi_buf[500];
+extern uint16_t bacnet_wifi_len;
 		
 typedef struct _BIP_CONN
 {
@@ -195,6 +198,9 @@ void bip_Init(void)
 //	uip_ipaddr_t addr;
 	bip_set_socket(0);
 	bip_set_addr(0);
+//bip_set_port(modbus.bacnet_port);
+//uip_listen(HTONS(modbus.bacnet_port));
+//uip_udp_bind(&uip_udp_conns[1], HTONS(modbus.bacnet_port));
 	bip_set_port(UDP_BACNET_LPORT); 	
 	// udp server
 	uip_listen(HTONS(UDP_BACNET_LPORT));
@@ -348,7 +354,8 @@ int bip_send_pdu(
  //   (void) npdu_data;
     /* assumes that the driver has already been initialized */
 	
-
+#if 1
+	if(flag_wifi == 0)
 	if(protocal == BAC_IP)
 	{
 		if (BIP_Socket < 0) 
@@ -368,11 +375,6 @@ int bip_send_pdu(
         bip_decode_bip_address(dest, &address, &port);
         mtu[1] = BVLC_ORIGINAL_UNICAST_NPDU;
     } else { 
-#if USB_HOST
-		if(protocal == BAC_IP) 		
-			
-        /* invalid address */
-#endif
 		  
         return -1;
 
@@ -386,59 +388,23 @@ int bip_send_pdu(
         (uint16_t) (pdu_len + 4 /*inclusive */ ));
     memcpy(&mtu[mtu_len], pdu, pdu_len);
     mtu_len += pdu_len;
-#if USB_HOST
-	if((protocal == BAC_GSM) && (dest->mac_len != 6))
-	{
-		mtu_len = 26;
-		mtu[0] = 0x81;
-		mtu[1] = 0x0b;
-		mtu[2] = 0x00;
-		mtu[3] = 0x19;
-		mtu[4] = 0x01;
-		mtu[5] = 0x20;
-		mtu[6] = 0xff;
-		mtu[7] = 0xff;
-		mtu[8] = 0x00;
-		mtu[9] = 0xff;
-		mtu[10] = 0x10;
-		mtu[11] = 0x00;
-		mtu[12] = 0xc4;
-		mtu[13] = 0x02;
-		mtu[14] = 0x00;
-		mtu[15] = (U8_T)(Instance >> 8);
-		mtu[16] = (U8_T)(Instance);
-		mtu[17] = 0x22;
-		mtu[18] = 0x02;
-		mtu[19] = 0x58;
-		mtu[20] = 0x19;
-		mtu[21] = 0x91;
-		mtu[22] = 0x03;
-		mtu[23] = 0x22;
-		mtu[24] = 0x01;
-		mtu[25] = 0x04;
-	}
-#endif
 	if(protocal == BAC_IP)
 	{
-#if ASIX
-			TCPIP_UdpSend(BIP_Socket, 0, 0, mtu, mtu_len);	
-#endif
-		
-#if ARM
-#ifdef BIP
-		uip_send((char *)mtu, mtu_len);
-#endif
-#endif
+		if(flag_wifi == 0)
+			uip_send((char *)mtu, mtu_len);
+		else
+		{
+			// for wifi	
+			memcpy(bacnet_wifi_buf,mtu,mtu_len);
+			bacnet_wifi_len = mtu_len;
+		}
 	}
-#if USB_HOST
-	else if(protocal == BAC_GSM)
-	{
-		USB_Send_GSM(mtu,mtu_len);
-	}
-#endif
+
+	
+	bytes_sent = mtu_len;
 	memset(mtu,0,MAX_MPDU_IP);
 	mtu_len = 0;
-
+#endif
     return bytes_sent;	 
 }
 
@@ -476,18 +442,14 @@ uint16_t bip_receive(
 //	bool status = false;
     /* Make sure the socket is open */
 
-
+	if(flag_wifi == 0)
+		
 	if(protocal == BAC_IP)
 	if (BIP_Socket < 0)
 	{		
      return 0;
 	}
 
-#if ASIX 
-	
-	received_bytes = bip_len;
-  bip_Data = pdu;
-#endif 
 	
 #if ARM
 #ifdef BIP
@@ -498,7 +460,7 @@ uint16_t bip_receive(
 #endif
 
     /* See if there is a problem */
-	if(protocal == BAC_IP)
+	if((protocal == BAC_IP) && (flag_wifi == 0))
 	{
 	    if (received_bytes < 0)        
 				return 0;
@@ -511,8 +473,8 @@ uint16_t bip_receive(
 	received_bytes = 0;
 	
   /* the signature of a BACnet/IP packet */
-		if (pdu[0] != BVLL_TYPE_BACNET_IP)
-		{ 	  
+		if((pdu[0] != BVLL_TYPE_BACNET_IP) && (flag_wifi == 0))
+		{ 
 				return 0;
 		}
 
@@ -526,17 +488,21 @@ uint16_t bip_receive(
 		original_sin.sin_port = 0;
 		dest.sin_addr.s_addr = 0;
 		dest.sin_port = 0;
-		if(function == BVLC_REGISTER_FOREIGN_DEVICE)
+//		if(function == BVLC_REGISTER_FOREIGN_DEVICE)
+//		{
+//		decode_unsigned32(&pdu[6], (uint32_t *)&sin.sin_addr);
+//		decode_unsigned16(&pdu[6 + 4], &sin.sin_port);	
+//		}
+//		else
+//		{
+//		decode_unsigned32(&pdu[pdu_len],(uint32_t *)&sin.sin_addr);
+//		decode_unsigned16(&pdu[pdu_len + 4], &sin.sin_port);
+//		}			
+		if(flag_wifi == 0)
 		{
-		decode_unsigned32(&pdu[6], (uint32_t *)&sin.sin_addr);
-		decode_unsigned16(&pdu[6 + 4], &sin.sin_port);	
+			sin.sin_port = uip_udp_conn->rport;
+			memcpy(&sin.sin_addr.s_addr,uip_udp_conn->ripaddr,4);
 		}
-		else
-		{
-		decode_unsigned32(&pdu[pdu_len],(uint32_t *)&sin.sin_addr);
-		decode_unsigned16(&pdu[pdu_len + 4], &sin.sin_port);
-		}			
-
     /* subtract off the BVLC header */
     pdu_len -= 4;
 

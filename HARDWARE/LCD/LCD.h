@@ -199,8 +199,11 @@ extern uint16 const rightdown[];
 extern uint16 const rightup[];
 extern uint16 const cmnct_send[]; 
 extern uint16 const cmnct_rcv[]; 
-extern uint16 const wifinocnnct[];
-extern uint16 const wificonnect[];
+extern uint16 const wifi_0[];
+extern uint16 const wifi_1[];
+extern uint16 const wifi_2[];
+extern uint16 const wifi_3[];
+extern uint16 const wifi_4[];
 
 extern U8_T const   network_status_text[];
 extern U8_T const   net_status_ok_text[];

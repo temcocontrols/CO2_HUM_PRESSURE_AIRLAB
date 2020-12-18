@@ -14,6 +14,10 @@ extern uint8 tx_icon;
 
 void Idle_init(void)
 {
+	//ifndef OLD_CO2  added by chelesa
+	uint8 db_ctr;
+	db_ctr = 1;
+//#endif
 	Lcd_Full_Screen(0);
 	exit_request_password();
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )

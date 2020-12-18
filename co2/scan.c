@@ -1,7 +1,7 @@
 
 #include "config.h" 
 
-
+#if OLD_CO2
 #define ParameterOperationSTACK_SIZE	portMINIMAL_STACK_SIZE//512
 xTaskHandle Handle_Scan, Handle_ParameterOperation;
 
@@ -650,4 +650,4 @@ void vStartScanTask(unsigned char uxPriority)
  
 }
 
-
+#endif

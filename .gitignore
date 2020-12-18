@@ -82,3 +82,12 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+*.o
+*.d
+*.crf
+*.htm
+*.hex
+*.sct
+*.dep
+*.lst
+*.axf

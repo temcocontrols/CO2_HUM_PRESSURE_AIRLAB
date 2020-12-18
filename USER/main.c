@@ -5,6 +5,7 @@
 int16 ctest[20];
 uint8 update_flag = 0;
 unsigned char PRODUCT_ID;  
+void vWifitask(void *pvParameters);
 static void vFlashTask( void *pvParameters );  
 static void vCOMMTask( void *pvParameters );
 
@@ -41,6 +42,7 @@ static void debug_config(void)
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOA, ENABLE);
 	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);
 }
+U8_T MAX_MASTER;
 
 int main(void)
 {
@@ -55,14 +57,13 @@ int main(void)
  	delay_init(72);	
   
 	watchdog_init();
-	qSubSerial3 = xQueueCreate(UART3_MAX_BUF, 1);
 	
 	qSubSerial = xQueueCreate(SUB_BUF_LEN, 1);
 	
 	xMutex = xQueueCreateMutex();
 	IicMutex = xQueueCreateMutex();
 	qKey = xQueueCreate(5, 2);
-	if(( qSubSerial3 == NULL )||( qSubSerial == NULL )  ||( xMutex == NULL )||( IicMutex == NULL ))    
+	if(( qSubSerial == NULL )  ||( xMutex == NULL )||( IicMutex == NULL ))    
 	{
 		while(1);
 	}
@@ -75,7 +76,12 @@ int main(void)
 		}
 		write_eeprom(EEP_UPDATE_STATUS,0);
 	}
-	
+	MAX_MASTER = read_eeprom(EEP_MAX_MASTER);
+	if(MAX_MASTER == 255 || MAX_MASTER <= 1)
+	{
+		MAX_MASTER = 254;
+		write_eeprom(EEP_MAX_MASTER,MAX_MASTER);
+	}
 	isColorScreen = read_eeprom(EEP_IS_COLOR_SCREEN);
 	if(isColorScreen == false)
 	{
@@ -238,16 +244,18 @@ int main(void)
 	 
 	xTaskCreate(vStartPIDTask, (signed portCHAR *)"vStartPIDTask", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 3, NULL);
  
- 	xTaskCreate( vFlashTask, ( signed portCHAR * ) "FLASH", configMINIMAL_STACK_SIZE + 1500, NULL, tskIDLE_PRIORITY + 5, NULL );
+ 	xTaskCreate( vFlashTask, ( signed portCHAR * ) "FLASH", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, NULL );
   
-    xTaskCreate( vOutPutTask		,( signed portCHAR * ) "OutPut" , configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
+   xTaskCreate( vOutPutTask	,( signed portCHAR * ) "OutPut" , configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
  
-    xTaskCreate( vKEYTask, ( signed portCHAR * ) "KEY", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
+   xTaskCreate( vKEYTask, ( signed portCHAR * ) "KEY", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
 	//#if defined (COLOR_SCREEN)
 	if(isColorScreen == true)
-   xTaskCreate( vLCDtask, ( signed portCHAR * ) "LCD", configMINIMAL_STACK_SIZE+512, NULL, tskIDLE_PRIORITY + 5, NULL );
+   xTaskCreate( vLCDtask, ( signed portCHAR * ) "LCD", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, NULL );
 	//#endif
-    vStartMenuTask(tskIDLE_PRIORITY + 3);
+	xTaskCreate( vWifitask, ( signed portCHAR * ) "Wifitask", configMINIMAL_STACK_SIZE+1024, NULL, tskIDLE_PRIORITY + 5, NULL );
+    
+	vStartMenuTask(tskIDLE_PRIORITY + 3);
   	
 	vTaskStartScheduler();
 }
@@ -339,7 +347,7 @@ void vLCDtask(void *pvParameters)
 			{
 				if(isFirstLineChange)
 				{
-					for(i = 0; i<7; i++)
+					for(i = 0; i<6; i++)
 					{
 						disp_ch(0,THERM_METER_POS,0+40*i,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 					}

@@ -1056,7 +1056,8 @@ const char*  Get_Vendor_Name(void)
 //		default: // temco controls
 //			return BACNET_VENDOR_TEMCO;  
 //	}
-	return "temco controls";
+	//return "temco controls";
+	return "TemcoControls";
 }
 
 const char*  Get_Vendor_Product(void)
@@ -1093,3 +1094,27 @@ uint8_t Get_modbus_address(void)
 	return modbus.address;
 }
 
+bool Analog_Input_Change_Of_Value(unsigned int object_instance)
+{
+
+		return false;
+}
+
+bool Analog_Value_Change_Of_Value(unsigned int object_instance)
+{
+	
+	return false;
+}	
+
+void Store_Instance_To_Eeprom(uint32_t Instance)
+{
+	AT24CXX_WriteOneByte((u16)EEP_INSTANCE_1, (Instance>>24)&0xff);
+	AT24CXX_WriteOneByte((u16)EEP_INSTANCE_2, (Instance>>16)&0xff);
+	AT24CXX_WriteOneByte((u16)EEP_INSTANCE_3, (Instance>>8)&0xff);
+	AT24CXX_WriteOneByte((u16)EEP_INSTANCE_4, Instance&0xff);
+}
+
+void Store_MASTER_To_Eeprom(uint8_t master)
+{
+	AT24CXX_WriteOneByte(EEP_MAX_MASTER,master);
+}

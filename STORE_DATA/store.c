@@ -8,6 +8,7 @@
 //#include "registerlist.h"
 //#include "24cxx.h"
 #include "config.h"
+#include "bsp_esp8266.h"
 #define PAGE_LENTH		MAX_AVS * sizeof(Str_variable_point)
 
 uint8_t write_page_en[MAX_TYPE];
@@ -97,21 +98,30 @@ void Flash_Write_Mass(void)
 		STMFLASH_Lock();	
 	} 
 	
-	if(write_page_en[VAR_TYPE] == 1)
-	{  
-			
+//	if(write_page_en[VAR_TYPE] == 1)
+//	{  
+//			
+//		STMFLASH_Unlock();
+//		STMFLASH_ErasePage(AV_PAGE_FLAG);
+//		STMFLASH_ErasePage(AV_PAGE_FLAG + 2048);
+//		 
+//		len = MAX_AVS * sizeof(Str_variable_point) ; 
+//		memcpy(tempbuf,(void*)&var[0].description[0],len); 
+//		iap_write_appbin(AV_PAGE,(uint8_t*)tempbuf, len); 
+//		
+//		STMFLASH_WriteHalfWord(AV_PAGE_FLAG, 10000) ;	
+//		STMFLASH_Lock();
+//		write_page_en[VAR_TYPE] = 0 ; 
+//	}	
+	if(write_page_en[WIFI_TYPE] == 1)
+	{ 			
 		STMFLASH_Unlock();
-		STMFLASH_ErasePage(AV_PAGE_FLAG);
-		STMFLASH_ErasePage(AV_PAGE_FLAG + 2048);
-		 
-		len = MAX_AVS * sizeof(Str_variable_point) ; 
-		memcpy(tempbuf,(void*)&var[0].description[0],len); 
-		iap_write_appbin(AV_PAGE,(uint8_t*)tempbuf, len); 
-		
-		STMFLASH_WriteHalfWord(AV_PAGE_FLAG, 10000) ;	
+		STMFLASH_ErasePage(WIFI_PAGE_FLAG);
+		iap_write_appbin(WIFI_PAGE,(u8 *)(&SSID_Info),sizeof(STR_SSID));
+		STMFLASH_WriteHalfWord(WIFI_PAGE_FLAG, 10000) ;	
 		STMFLASH_Lock();
-		write_page_en[VAR_TYPE] = 0 ; 
-	}				
+		write_page_en[WIFI_TYPE] = 0 ; 
+	}	
 	io_control(); 
 }
 const uint8 Var_label[MAX_AVS][9] = {
@@ -322,35 +332,35 @@ void mass_flash_init(void)
 		STMFLASH_MUL_Read(OUT_PAGE,(void *)&outputs[0].description[0], len );	
 	}
 	
-	temp = STMFLASH_ReadHalfWord(AV_PAGE_FLAG);  
-	if(temp == 0xffff)
-	{
-		STMFLASH_Unlock();
-		STMFLASH_ErasePage(AV_PAGE_FLAG);
-		STMFLASH_ErasePage(AV_PAGE_FLAG + 2048);
-		for(loop=0; loop<MAX_AVS; loop++ )
-		{
-			memcpy(var[loop].description,Var_Description[loop],21);  
-			memcpy(var[loop].label,Var_label[loop],9); 
-			var[loop].value = 0; 
-			var[loop].auto_manual = 0 ;
-			var[loop].digital_analog = 1 ;
-			var[loop].control = 0 ;
-			var[loop].unused = 0 ;
-			var[loop].range = 0 ;
-			var[loop].range = 0 ;
-		}
-		len = MAX_AVS * sizeof(Str_variable_point) ;
-		memcpy(tempbuf,(void*)&var[0].description[0],len); 
-		iap_write_appbin(AV_PAGE,(uint8_t*)tempbuf, len); 
-		STMFLASH_WriteHalfWord(AV_PAGE_FLAG, 10000) ;	
-		STMFLASH_Lock();
-	}
-	else
-	{
-		len = MAX_AVS * sizeof(Str_variable_point) ;
-		STMFLASH_MUL_Read(AV_PAGE,(void *)&var[0].description[0], len );
-	}
+//	temp = STMFLASH_ReadHalfWord(AV_PAGE_FLAG);  
+//	if(temp == 0xffff)
+//	{
+//		STMFLASH_Unlock();
+//		STMFLASH_ErasePage(AV_PAGE_FLAG);
+//		STMFLASH_ErasePage(AV_PAGE_FLAG + 2048);
+//		for(loop=0; loop<MAX_AVS; loop++ )
+//		{
+//			memcpy(var[loop].description,Var_Description[loop],21);  
+//			memcpy(var[loop].label,Var_label[loop],9); 
+//			var[loop].value = 0; 
+//			var[loop].auto_manual = 0 ;
+//			var[loop].digital_analog = 1 ;
+//			var[loop].control = 0 ;
+//			var[loop].unused = 0 ;
+//			var[loop].range = 0 ;
+//			var[loop].range = 0 ;
+//		}
+//		len = MAX_AVS * sizeof(Str_variable_point) ;
+//		memcpy(tempbuf,(void*)&var[0].description[0],len); 
+//		iap_write_appbin(AV_PAGE,(uint8_t*)tempbuf, len); 
+//		STMFLASH_WriteHalfWord(AV_PAGE_FLAG, 10000) ;	
+//		STMFLASH_Lock();
+//	}
+//	else
+//	{
+//		len = MAX_AVS * sizeof(Str_variable_point) ;
+//		STMFLASH_MUL_Read(AV_PAGE,(void *)&var[0].description[0], len );
+//	}
 	
 	temp = STMFLASH_ReadHalfWord(IN_PAGE_FLAG);
 	if(temp == 0xffff)
@@ -386,6 +396,21 @@ void mass_flash_init(void)
 		STMFLASH_MUL_Read(IN_PAGE,(void *)&inputs[0].description[0], len ); 
 	}
 
+	
+	temp = STMFLASH_ReadHalfWord(WIFI_PAGE_FLAG);
+	if(temp != 10000)
+	{
+		memset(&SSID_Info,0,sizeof(STR_SSID));
+		STMFLASH_Unlock();
+		STMFLASH_ErasePage(WIFI_PAGE_FLAG);
+		iap_write_appbin(WIFI_PAGE,(void *)(&SSID_Info), sizeof(STR_SSID));	
+		STMFLASH_WriteHalfWord(WIFI_PAGE_FLAG, 1000);
+		STMFLASH_Lock();
+	}
+	else//
+	{
+		STMFLASH_MUL_Read(WIFI_PAGE,(void *)(&SSID_Info),sizeof(STR_SSID));
+	}
 }
 
 uint8 IO_Change_Flag[3];

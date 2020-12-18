@@ -1239,6 +1239,7 @@ void update_message_context(void)
 			length = strlen((char *)sub_net_status_text);
 			memcpy(message + scroll_message_length, sub_net_status_text, length);
 			scroll_message_length += length;
+#if OLD_CO2
 			if(db_ctr == current_online_ctr)
 			{
 				length = strlen((char *)net_status_ok_text);
@@ -1263,6 +1264,7 @@ void update_message_context(void)
 						scroll_message_length += length;
 					}
 				}
+
 				// clear the last ','
 				scroll_message_length--;
 
@@ -1271,7 +1273,7 @@ void update_message_context(void)
 				memcpy(message + scroll_message_length, text, length);
 				scroll_message_length += length;
 			}
-
+#endif
 		
 
 			if(PRODUCT_ID == STM32_PM25)

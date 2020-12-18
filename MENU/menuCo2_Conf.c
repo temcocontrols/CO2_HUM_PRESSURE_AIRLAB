@@ -19,12 +19,14 @@ void display_zone_text(uint8 index)
 			else
 				sprintf((char *)text, "%s%s", internal_text, offline_text);
 		}
+#if OLD_CO2 // added by chelesa
 		else // external sensors
 		{
 			// read location name from external sensor
 			sprintf((char *)text, "%s%u: %s", external_text, (uint16)scan_db[index + item_index / 5 * 5].id, online_text);
 		}
-
+#endif
+		
 		Lcd_Clear_Row(index);
 		if(index == (item_index % MAX_ROW))
 			Lcd_Show_String(index, 0, DISP_INV, text);
@@ -36,7 +38,10 @@ void display_zone_text(uint8 index)
 void Co2_Conf_init(void)
 {
 	uint8 i, display_lines;
-
+//ifndef OLD_CO2  added by chelesa
+	uint8 db_ctr;
+	db_ctr = 1;
+//#endif
 	Lcd_Full_Screen(0);
 
 	if(((db_ctr % MAX_ROW) == 0) || (item_index < (db_ctr / 5 * 5)))
@@ -54,6 +59,10 @@ void Co2_Conf_init(void)
 
 void Co2_Conf_display(void)
 {
+//ifndef OLD_CO2  added by chelesa
+	uint8 db_ctr;
+	db_ctr = 1;
+//#endif
 	if(pre_item_index != item_index)
 	{
 		if( ((pre_item_index % MAX_ROW == 4) && (item_index % MAX_ROW == 0))
@@ -79,6 +88,10 @@ void Co2_Conf_display(void)
 
 void Co2_Conf_keycope(uint16 key_value)
 {
+//ifndef OLD_CO2  added by chelesa
+	uint8 db_ctr;
+	db_ctr = 1;
+//#endif
 	start_back_light(backlight_keep_seconds);
 	switch(key_value & KEY_SPEED_MASK)
 	{

@@ -81,21 +81,26 @@
       <Books>
         <Book>
           <Number>0</Number>
-          <Title>Base Board Schematics (MCBSTM32E)</Title>
-          <Path>C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\1.1.0\Documents\mcbstm32e-base-board-schematics.pdf</Path>
+          <Title>Quick Start Guide (MCBSTM32E)</Title>
+          <Path>C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0\Boards/Keil/MCBSTM32E/Documentation/STM32E_QSG.pdf</Path>
         </Book>
         <Book>
           <Number>1</Number>
-          <Title>Display Board Schematics (MCBSTM32E)</Title>
-          <Path>C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\1.1.0\Documents\mcbstm32e-display-board-schematics.pdf</Path>
+          <Title>Base Board Schematics (MCBSTM32E)</Title>
+          <Path>C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0\Boards/Keil/MCBSTM32E/Documentation/mcbstm32e-base-board-schematics.pdf</Path>
         </Book>
         <Book>
           <Number>2</Number>
-          <Title>User Manual (MCBSTM32E)</Title>
-          <Path>C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\1.1.0\Documents\mcbstm32e.chm</Path>
+          <Title>Display Board Schematics (MCBSTM32E)</Title>
+          <Path>C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0\Boards/Keil/MCBSTM32E/Documentation/mcbstm32e-display-board-schematics.pdf</Path>
         </Book>
         <Book>
           <Number>3</Number>
+          <Title>User Manual (MCBSTM32E)</Title>
+          <Path>C:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0\Boards/Keil/MCBSTM32E/Documentation/mcbstm32e.chm</Path>
+        </Book>
+        <Book>
+          <Number>4</Number>
           <Title>MCBSTM32E Evaluation Board Web Page (MCBSTM32E)</Title>
           <Path>http://www.keil.com/mcbstm32e/</Path>
         </Book>
@@ -894,7 +899,7 @@
 
   <Group>
     <GroupName>SYSTEM</GroupName>
-    <tvExp>1</tvExp>
+    <tvExp>0</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
@@ -1242,7 +1247,7 @@
       <FileNumber>73</FileNumber>
       <FileType>4</FileType>
       <tvExp>0</tvExp>
-      <Focus>1</Focus>
+      <Focus>0</Focus>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
       <PathWithFileName>..\baclib\bacnet_ARM_rev13_T3.lib</PathWithFileName>
@@ -1343,7 +1348,7 @@
 
   <Group>
     <GroupName>CO2</GroupName>
-    <tvExp>0</tvExp>
+    <tvExp>1</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
@@ -1458,7 +1463,7 @@
 
   <Group>
     <GroupName>MENU</GroupName>
-    <tvExp>1</tvExp>
+    <tvExp>0</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
@@ -1638,7 +1643,7 @@
 
   <Group>
     <GroupName>PM25</GroupName>
-    <tvExp>1</tvExp>
+    <tvExp>0</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
@@ -1665,6 +1670,40 @@
       <bDave2>0</bDave2>
       <PathWithFileName>..\PM25\aqi.c</PathWithFileName>
       <FilenameWithoutPath>aqi.c</FilenameWithoutPath>
+      <RteFlg>0</RteFlg>
+      <bShared>0</bShared>
+    </File>
+  </Group>
+
+  <Group>
+    <GroupName>wifi</GroupName>
+    <tvExp>0</tvExp>
+    <tvExpOptDlg>0</tvExpOptDlg>
+    <cbSel>0</cbSel>
+    <RteFlg>0</RteFlg>
+    <File>
+      <GroupNumber>22</GroupNumber>
+      <FileNumber>100</FileNumber>
+      <FileType>1</FileType>
+      <tvExp>0</tvExp>
+      <Focus>0</Focus>
+      <tvExpOptDlg>0</tvExpOptDlg>
+      <bDave2>0</bDave2>
+      <PathWithFileName>.\wifi.c</PathWithFileName>
+      <FilenameWithoutPath>wifi.c</FilenameWithoutPath>
+      <RteFlg>0</RteFlg>
+      <bShared>0</bShared>
+    </File>
+    <File>
+      <GroupNumber>22</GroupNumber>
+      <FileNumber>101</FileNumber>
+      <FileType>1</FileType>
+      <tvExp>0</tvExp>
+      <Focus>0</Focus>
+      <tvExpOptDlg>0</tvExpOptDlg>
+      <bDave2>0</bDave2>
+      <PathWithFileName>.\bsp_esp8266.c</PathWithFileName>
+      <FilenameWithoutPath>bsp_esp8266.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

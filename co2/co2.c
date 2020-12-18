@@ -14,6 +14,7 @@ uint16 co2_asc;
 //U8_T subnet_idle;
 //extern xSemaphoreHandle sem_subnet_tx;
 //xQueueHandle qSubSerial;
+uint8 comm_good;
 
 CO2_STR   int_co2_str;
 //CO2_STR   ext_co2_str[MAX_EXT_CO2];
@@ -101,9 +102,9 @@ static void request_internal_co2(void)
 //		internal_co2_module_type = MAYBE_TEMCO_CO2;
 //	else if(internal_co2_module_type == MAYBE_TEMCO_CO2)
 //		internal_co2_module_type = MAYBE_OGM200;
-	 
+#if 1//OLD_CO2
 	if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200))
-	{ctest[10]++;
+	{
 //		set_sub_serial_baudrate(9600);
 		for(i=0;i<5;i++)
 		{
@@ -129,8 +130,10 @@ static void request_internal_co2(void)
 		 
 	}
 	
-	else if(internal_co2_module_type == MH_Z19B)
-	{ctest[11]++;
+	else 
+#endif
+		if(internal_co2_module_type == MH_Z19B)
+	{
 		set_sub_serial_baudrate(9600);
 		if(update_flag == 3)//disable auto co2 calibration
 		{
@@ -169,7 +172,7 @@ static void request_internal_co2(void)
 		 
 	}
 	else if( internal_co2_module_type == SCD30)
-	{ctest[12]++;
+	{
 		set_sub_serial_baudrate(19200);
 		
 		if(scd30_co2_cmd_status == SCD30_CMD_CONTINUE_MEASUREMENT)
@@ -287,11 +290,13 @@ static void request_internal_co2(void)
 		else
 		{
 			int_co2_str.co2_int = EXCEPTION_PPM;
+#if OLD_CO2
 			if(current_online[scan_db[0].id / 8] & (1 << (scan_db[0].id % 8)))
 			{
 				current_online[scan_db[0].id / 8] &= ~(1 << (scan_db[0].id % 8));
 				current_online_ctr--;
 			}
+#endif
 		}
 	}
 	else
@@ -299,11 +304,13 @@ static void request_internal_co2(void)
 		co2_check_status = 7;
  		int_co2_str.warming_time = FALSE;
 		int_co2_str.fail_counter = 0;
+#if OLD_CO2
 		if((current_online[scan_db[0].id / 8] & (1 << (scan_db[0].id % 8))) == 0x00)
 		{
 			current_online[scan_db[0].id / 8] |= (1 << (scan_db[0].id % 8));
 			current_online_ctr++;
 		} 
+#endif
 		if((co2_data_temp >0) && (co2_data_temp < 10000))
 		{
 			if(Run_Timer > FIRST_TIME)
@@ -460,7 +467,7 @@ void receive_internal_co2_ppm(U8_T *p)
 				if(checksum == p[8])
 				{
 					co2_data_temp = p[2] * 256 + p[3];
-					ctest[5] = co2_data_temp;
+//					ctest[5] = co2_data_temp;
 				}
 				//old_sensor_check = 1;
 			}
@@ -786,7 +793,7 @@ void co2_alarm(void)
 //			ext_co2_str[index - 1].alarm_state = alarm_temp;
 ////			write_parameters_to_nodes(index, SLAVE_MODBUS_PIC_OUTPUT, alarm_output_word);
 //		}
-
+#if OLD_CO2
 		index++;
 		index %= db_ctr;
 
@@ -797,6 +804,7 @@ void co2_alarm(void)
 //			else
 //				alarm_state = (alarm_state > ext_co2_str[i - 1].alarm_state) ? alarm_state : ext_co2_str[i - 1].alarm_state;
 		}
+#endif
 	}
 
 	switch(alarm_state & (~ALARM_MANUAL))
@@ -840,6 +848,7 @@ void co2_alarm(void)
 			alarm_delay_time_ctr = alarm_delay_time;
 			break;
 	}
+
 }
 
 void Co2_task(void *pvParameters )
@@ -888,21 +897,70 @@ void Co2_task(void *pvParameters )
 	}
 }
 
+
+void co2_self_control(void)
+{
+//	if(self_control_timer)
+//		self_control_timer--;
+//	else
+	{
+		
+		if(co2_asc >= int_co2_str.alarm_setpoint)
+			alarm_status = (alarm_status & 0x01) | 0x08;
+		else if(co2_asc >= int_co2_str.pre_alarm_setpoint)
+			alarm_status = (alarm_status & 0x01) | 0x04;
+		else
+			alarm_status = (alarm_status & 0x01) | 0x02;
+	}
+}
+
+void refresh_led_alarm(void)
+{
+		static uint8 pre_alarm_status = 0;
+		static uint8 comm_ctr = 4;
+	
+		co2_self_control();
+		if(comm_ctr)
+		{
+			comm_ctr--;
+			if(comm_ctr == 0)
+			{
+				comm_ctr = 4; 
+				if(comm_good == TRUE)
+					alarm_status |= 0x01;
+				else
+					alarm_status &= ~0x01;
+
+				comm_good = FALSE;
+			}
+		}
+
+		if(pre_alarm_status != alarm_status)
+		{			
+			refresh_alarm_status_led(alarm_status);
+			pre_alarm_status = alarm_status;
+		}
+		refresh_net_status_led(alarm_status); 
+}
+
 void Alarm_task(void *pvParameters )
 {
 	portTickType xDelayPeriod = (portTickType)1000 / portTICK_RATE_MS;
 	print("alarm Task\r\n");
 	delay_ms(100);
-	
+	LED_Init();
 	while(1)
 	{ 
  		co2_alarm();
+		refresh_led_alarm();
 //		taskYIELD();
 		update_message_context();
 		vTaskDelay(xDelayPeriod); 
 //		stack_detect(&test[4]);
 	}
 }
+
+
 
 
 //void vStartCo2Task(unsigned char uxPriority)

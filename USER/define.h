@@ -69,7 +69,7 @@ typedef enum{
 #define READ_WRITE_PROPERTY 1
 
 
-#define SOFTREV    58
+#define SOFTREV    59
  
 
 #define DEFAULT_FILTER  5 
