@@ -1,9 +1,9 @@
 #include "controls.h"
 
+Str_out_point far	outputs[MAX_AOS];
 
 #ifdef OUTPUT_CONTROL
 
-Str_out_point far	outputs[MAX_AOS];
 
 void control_output(void)
 {
@@ -40,17 +40,17 @@ void control_output(void)
 					switch( outs->range )
 					{
 						case V0_10:	
-							outs->value = swap_double(10000);		
+							outs->value = 10000;		
 							break;
 						case P0_100_Open:
 						case P0_100_Close:
 						case P0_100:
 //						case P0_100_PWM:	
-							outs->value = swap_double(100000);
+							outs->value = 100000;
 							break;
 						case P0_20psi:
 						case I_0_20ma:
-							outs->value = swap_double(20000);
+							outs->value = 20000;
 							break;
 						default:
 							val = 0;
@@ -76,7 +76,7 @@ void control_output(void)
 						
 					  set_output_raw(point,val);//output_raw[point] = val;					
 
-						outs->value = swap_double(val);	
+						outs->value = val;	
 						
 					}
 					else if( outs->digital_analog == 1 ) //  analog
@@ -105,7 +105,7 @@ void control_output(void)
 							 }
 
 
-							 outs->value = swap_double(val);	
+							 outs->value = val;	
 					}
 				}
 			}

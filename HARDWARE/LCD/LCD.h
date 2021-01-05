@@ -188,6 +188,7 @@ extern uint16 const moonicon[];
 //extern uint16 const heaticon[]; 
 //extern uint16 const coolicon[];
 extern uint16 const aqiicon[];
+extern uint16 const pm10icon[];
 extern uint16 const pm25icon[];
 extern uint16 const pressicon[];
 
@@ -204,6 +205,7 @@ extern uint16 const wifi_1[];
 extern uint16 const wifi_2[];
 extern uint16 const wifi_3[];
 extern uint16 const wifi_4[];
+extern uint16 const wifi_none[];
 
 extern U8_T const   network_status_text[];
 extern U8_T const   net_status_ok_text[];
@@ -329,7 +331,7 @@ extern void display_pm25( int16 value);
 #define SCREEN_AREA_NONE	3
 #define SCREEN_AREA_PM25	4
 #define SCREEN_AREA_PRESSURE	5
-
+#define SCREEN_AREA_PM10	6
 
 //extern uint8 const   AQI_LEVEL[6][15];
 //extern struct _CURSOR_ cursor;

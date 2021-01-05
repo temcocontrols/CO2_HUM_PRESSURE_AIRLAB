@@ -13,7 +13,7 @@ static void vCOMMTask( void *pvParameters );
 
 static void vNETTask( void *pvParameters );
 
-
+uint8 isWagnerProduct;
  void vLCDtask(void *pvParameters);
  
 static void vMSTP_TASK(void *pvParameters );
@@ -220,7 +220,7 @@ int main(void)
 	}
 	
 	
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PM25))  
+	if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PM25))  
 		xTaskCreate( vNETTask, ( signed portCHAR * ) "NET",  configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 1 , NULL );
   
   xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE + 512  , NULL, tskIDLE_PRIORITY + 6, NULL );
@@ -610,6 +610,10 @@ void vLCDtask(void *pvParameters)
 			{
 				Top_area_display(TOP_AREA_DISP_ITEM_CO2, 0, TOP_AREA_DISP_UNIT_C);
 			}
+			else if(screenArea3 == SCREEN_AREA_PM10)
+			{
+				Top_area_display(TOP_AREA_DISP_ITEM_CO2, pm25_weight_100, TOP_AREA_DISP_UNIT_C);
+			}
 //			clear_line(1);
 //			clear_lines();
 			if(enableScroll)
@@ -748,11 +752,20 @@ void Inital_Bacnet_Server(void)
 	address_init();
 	bip_set_broadcast_addr(0xffffffff); 
  
-	AIS = MAX_INS + 1;
-	AOS = MAX_AOS + 1;
-	BOS = 0;
-	AVS = MAX_AVS + 1;
-  
+	if(PRODUCT_ID == STM32_PM25)
+	{
+		AIS = 2;
+		AOS = 2;
+		BOS = 0;
+	}
+	else  // tbd:
+	{
+		AIS = MAX_INS + 1;
+		AOS = MAX_AOS + 1;
+		BOS = 0;
+	}
+  AVS = MAX_AVS + 1;
+
 }
 //#define SWITCH_TIMER	 600
 void vMSTP_TASK(void *pvParameters )
@@ -1099,8 +1112,11 @@ void EEP_Dat_Init(void)
 		modbus.address = AT24CXX_ReadOneByte(EEP_ADDRESS);
 		if((modbus.address == 255)||(modbus.address == 0))
 		{
-					modbus.address = 254 ;
-					AT24CXX_WriteOneByte(EEP_ADDRESS, modbus.address);
+			if(isWagnerProduct )
+				modbus.address = 2;
+			else
+				modbus.address = 254 ;
+			AT24CXX_WriteOneByte(EEP_ADDRESS, modbus.address);
 		}
 		modbus.product = AT24CXX_ReadOneByte(EEP_PRODUCT_MODEL);
 		PRODUCT_ID = modbus.product;
@@ -1220,8 +1236,8 @@ void EEP_Dat_Init(void)
 				{
 					temp[0] = 192 ;
 					temp[1] = 168 ;
-					temp[2] = 0 ;
-					temp[3] = 183 ;
+					temp[2] = 0;
+					temp[3] = 3;
 					AT24CXX_WriteOneByte(EEP_IP_ADDRESS_1, temp[0]);
 					AT24CXX_WriteOneByte(EEP_IP_ADDRESS_2, temp[1]);
 					AT24CXX_WriteOneByte(EEP_IP_ADDRESS_3, temp[2]);
@@ -1534,8 +1550,25 @@ void EEP_Dat_Init(void)
 			screenArea3 = 2;
 			write_eeprom(EEP_SCREEN_AREA_3,screenArea3); 
 		}
+		
+		if(PRODUCT_ID == STM32_PM25)
+		{
+			isWagnerProduct = 1;//read_eeprom(EEP_IS_WAGNER_PRODUCT);
+			if(isWagnerProduct > 1)
+			{
+				isWagnerProduct = 0;
+				write_eeprom(EEP_IS_WAGNER_PRODUCT,isWagnerProduct); 
+			}
+		}
+		else
+			isWagnerProduct = 0;
 		if((PRODUCT_ID == STM32_PM25)||(PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+		{
+			if(isWagnerProduct)
+				screenArea3 = SCREEN_AREA_PM10;
+			else
 				screenArea3 = SCREEN_AREA_NONE;
+		}			
 		else if((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
 				screenArea3 = SCREEN_AREA_PRESSURE;
 				
@@ -1546,10 +1579,17 @@ void EEP_Dat_Init(void)
 			if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 				enableScroll = false;
 			else
-				enableScroll = true;
+			{
+				if(isWagnerProduct)
+					enableScroll = false;
+				else
+					enableScroll = true;
+			}
 			write_eeprom(EEP_ENABLE_SCROLL, enableScroll);
 		}
 		
+		if(isWagnerProduct)
+			enableScroll = false;
 		alarmEnable = read_eeprom(EEP_ENABLE_ALARM);
 		if(alarmEnable >1)
 		{

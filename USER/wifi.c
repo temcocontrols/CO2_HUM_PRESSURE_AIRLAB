@@ -29,7 +29,7 @@
 extern int16 ctest[20];
 char * wifi_itoa( int value, char *string, int radix );	
 
-void Get_SSID_RSSI(void);
+char Get_SSID_RSSI(void);
 void connect_AP(void);
 uint8 flag_wifi;
 extern uint8_t panelname[21] ;
@@ -143,6 +143,7 @@ void connect_AP(void)
 		ESP8266_JoinAP(SSID_Info.name,SSID_Info.password);
 		//ESP8266_JoinAP("TEMCO_TEST_2.4G","Travel321");
 		//ÐèÒªµÈ´ý
+		count = 0;
 		while(count++ < 5)
 		{
 			memcpy(cStr,ESP8266_ReceiveString(DISABLE),1024);
@@ -192,7 +193,7 @@ void vWifitask( void *pvParameters )
 		SSID_Info.modbus_port = 502;
 	}
 	if((SSID_Info.name[0] == 0xff) && (SSID_Info.name[1] == 0xff))
-	{ctest[10]++;
+	{
 		memset(SSID_Info.name,0,64);
 	}
 	if((SSID_Info.password[0] == 0xff) && (SSID_Info.password[1] == 0xff))
@@ -277,7 +278,6 @@ void vWifitask( void *pvParameters )
 		//if(isWifiExist)
 		
 		
-		ctest[2]++;
 		if(ATret == 2)
 		{
 			if(flag_set_wifi == 1)
@@ -289,7 +289,8 @@ void vWifitask( void *pvParameters )
 		}
 		if(ATret != 2)  // not response OK
 			continue;
-		if(SSID_Info.IP_Wifi_Status != WIFI_NORMAL)//go into smart config mode
+		if((SSID_Info.IP_Wifi_Status != WIFI_NORMAL) && (SSID_Info.IP_Wifi_Status != WIFI_NO_WIFI ))//go into smart config mode
+			//go into smart config mode
 		{
 			if(SSID_Info.IP_Auto_Manual == 0)
 			{
@@ -377,7 +378,7 @@ void vWifitask( void *pvParameters )
 				if(packet_len > 0)
 				{
 					if(ucID >= 2 && ucID <= 4)  // modbus TCP 502
-					{ctest[11]++;
+					{
 				// check modbus data
 						if((packet[0] == 0xee) && (packet[1] == 0x10) &&
 						(packet[2] == 0x00) && (packet[3] == 0x00) &&
@@ -392,11 +393,11 @@ void vWifitask( void *pvParameters )
 						}
 						else if(packet[6] ==  modbus.address 
 						|| ((packet[6] == 255) && (packet[7] != 0x19)))
-						{ctest[12]++;
+						{
 							responseCmd(WIFI, packet);
 							internalDeal(WIFI, packet);
 							if(modbus_wifi_len > 0)
-							{ctest[13]++;
+							{
 								ESP8266_SendString ( DISABLE, (uint8_t *)&modbus_wifi_buf, modbus_wifi_len,cStr[7] - '0' );
 								modbus_wifi_len = 0;								
 							}
@@ -411,14 +412,14 @@ void vWifitask( void *pvParameters )
 					{
 						uint16_t pdu_len = 0;  
 						BACNET_ADDRESS far src;
-						count = 0;ctest[12]++;
+						count = 0;
 						if(flag_wifi == 0)
 						{
 							flag_wifi = 1;
 							pdu_len = datalink_receive(&src, &packet[0], packet_len, 0 ,BAC_IP);
 							{
 								if((pdu_len > 0) && (pdu_len < 512)) 
-								{ctest[13]++;
+								{
 									npdu_handler(&src, &packet[0], pdu_len, BAC_IP);	
 									if(bacnet_wifi_len > 0)
 									{
@@ -433,9 +434,9 @@ void vWifitask( void *pvParameters )
 					else if(ucID == UCID_SCAN) // private scan port
 					{ 
 						u8 n;
-						u8 i;ctest[14]++;
+						u8 i;
 						if(packet[0] == 0x64)
-						{	ctest[15]++;
+						{
 							state = 1;
 							for(n = 0;n < (u8)packet_len / 4;n++)
 							{       
@@ -468,7 +469,19 @@ void vWifitask( void *pvParameters )
 				}
 				if(count_checkip % 100 == 0)
 				{
-					Get_SSID_RSSI();
+					static u8 count_normal = 0;
+					
+					if(Get_SSID_RSSI() == 0)
+					{
+						count_normal++;
+					}
+					else
+					{
+						count_normal = 0;
+					}
+					
+					if(count_normal == 3)
+						SSID_Info.IP_Wifi_Status = WIFI_NO_WIFI;
 				}
 				if(count_checkip++ > 300)
 				{

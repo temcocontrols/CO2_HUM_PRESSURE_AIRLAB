@@ -2,6 +2,8 @@
 #include "ud_str.h"
 #include "controls.h"
 //#include "inputs.h"
+
+#if 1
 static uint16_t analog_buffer[MAX_AI_CHANNEL] ;
 
 // 根据input_type[point]设置相应的硬件
@@ -118,3 +120,5 @@ uint32_t get_high_spd_counter(uint8_t point)
 
 	return uiResult;	
 }
+
+#endif

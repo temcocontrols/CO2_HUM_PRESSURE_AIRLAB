@@ -26,7 +26,7 @@
 #include "store.h"
 
 extern uint8_t flag_set_wifi;
-
+extern uint8 isWagnerProduct;
 
 extern uint8 update_flag;
 uint8 mhz19_cal_h = 0;
@@ -782,7 +782,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					AT24CXX_WriteOneByte(EEP_IP_ADDRESS_1, 192);
 					AT24CXX_WriteOneByte(EEP_IP_ADDRESS_2, 168);
 					AT24CXX_WriteOneByte(EEP_IP_ADDRESS_3, 0);
-					AT24CXX_WriteOneByte(EEP_IP_ADDRESS_4, 34);
+					AT24CXX_WriteOneByte(EEP_IP_ADDRESS_4, 3);
 					
 //-----------------MASK Address-----------------------		 
 					AT24CXX_WriteOneByte(EEP_SUB_MASK_ADDRESS_1, 255);
@@ -793,7 +793,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_1, 192);
 					AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_2, 168);
 					AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_3, 0);
-					AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_4, 4); 			
+					AT24CXX_WriteOneByte(EEP_GATEWAY_ADDRESS_4, 1); 			
 //-----------------TCP Serve-----------------------	 
 					AT24CXX_WriteOneByte(EEP_TCP_SERVER, 0); 
 //-----------------Listen Port-----------------------	    
@@ -2890,6 +2890,20 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			scd30_co2_cmd_status = SCD30_SET_FRC; 
 		 co2_frc = (uint16)(sensirion_co2_cmd_ForcedCalibration[4]<<8 )|sensirion_co2_cmd_ForcedCalibration[5];
 	 }
+	  else if(StartAdd == MODBUS_IS_WAGNER_PRODUCT)
+	 {
+		 isWagnerProduct = Data_L;
+		 write_eeprom(EEP_IS_WAGNER_PRODUCT, isWagnerProduct);
+	 }
+	 else if(StartAdd == MODBUS_WAGNER_EVEN)
+	 {
+		 if(Data_L<3)
+		 {
+				uart1_parity = Data_L;
+				write_eeprom(EEP_UART1_PARITY, uart1_parity);
+			 uart1_init(modbus.baudrate);
+		 }
+	 }
 			
 			
 		
@@ -3141,6 +3155,15 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);				
 				} 
+				else if(address == MODBUS_ISP_REV)
+				{					
+					temp1 = 0;
+					temp2 = AT24CXX_ReadOneByte(EEP_ISP_REV);;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
 				else if(address == MODBUS_HUM_VERSION)
 				{ 
 					temp1= 0;
@@ -3173,8 +3196,7 @@ void responseCmd(u8 type, u8* pData)
 					sendbuf[send_cout++] = temp2 ;
 					crc16_byte(temp1);
 					crc16_byte(temp2);				
-				}
-				
+				}	
 	 
 				else if(address == MODBUS_UPDATE_STATUS)
 				{
@@ -6115,6 +6137,24 @@ void responseCmd(u8 type, u8* pData)
 				{
 					temp1 = co2_frc>>8;
 					temp2 = co2_frc & 0xff;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_IS_WAGNER_PRODUCT)
+				{
+					temp1 = 0;
+					temp2 = isWagnerProduct;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_WAGNER_EVEN)
+				{
+					temp1 = 0;
+					temp2 = uart1_parity;
 					sendbuf[send_cout++] = temp1 ;
 					sendbuf[send_cout++] = temp2 ;
 					crc16_byte(temp1);

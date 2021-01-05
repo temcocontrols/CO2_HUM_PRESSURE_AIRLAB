@@ -805,6 +805,7 @@ void co2_alarm(void)
 //				alarm_state = (alarm_state > ext_co2_str[i - 1].alarm_state) ? alarm_state : ext_co2_str[i - 1].alarm_state;
 		}
 #endif
+		alarm_state = int_co2_str.alarm_state;
 	}
 
 	switch(alarm_state & (~ALARM_MANUAL))

@@ -8,7 +8,7 @@
 
 #include "bitmap.h"    
 
-#define	EXCEPTION_PPM			99//65535
+#define	EXCEPTION_PPM			0//65535
 #define	ISP_PPM					1
 
 #define DEFAULT_ALARM_SP		2500

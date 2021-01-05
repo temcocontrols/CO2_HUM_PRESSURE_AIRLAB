@@ -1,11 +1,11 @@
 #include "controls.h"
 #include "modbus.h"
 
+Str_in_point             inputs[MAX_INS];
 
 #ifdef INPUT_CONTROL
 
 Str_table_point			 custom_tab[MAX_TBLS];
-Str_in_point             inputs[MAX_INS];
 
 uint8_t  input_type[MAX_INS];
 //uint8_t  input_type1[MAX_INS];

@@ -846,7 +846,7 @@ uint8_t ESP8266_Set_MAC(uint8_t * pStamac)
 	return ret;
 }
 
-void Get_SSID_RSSI(void)
+char Get_SSID_RSSI(void)
 {
 	char uc;
 	char * pCh;
@@ -866,7 +866,7 @@ void Get_SSID_RSSI(void)
 	if ( pCh )
 		pCh += 12;
 	else
-		return ;
+		return 0;
 	
 	for ( uc = 0; uc < 60; uc ++ )
 	{
@@ -885,7 +885,7 @@ void Get_SSID_RSSI(void)
 	if ( pCh )
 		pCh += 21;
 	else
-		return ;
+		return 0;
 	
 	for ( uc = 0; uc < 5; uc ++ )
 	{
@@ -923,6 +923,8 @@ void Get_SSID_RSSI(void)
 		SSID_Info.rssi = rssi[0] * 10 + rssi[1];
 	else if(datlen == 3)
 		SSID_Info.rssi = rssi[0] * 100 + rssi[1] * 10 + rssi[2];	
+	
+	return 1;
 }
 
 /*

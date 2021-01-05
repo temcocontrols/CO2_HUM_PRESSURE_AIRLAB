@@ -12,15 +12,90 @@
 #include "registerlist.h"
 #include "store.h"
 #include "config.h"
-//#ifdef CO2_SENSOR
-//	uint8_t panelname[21] = "CO2_NET";
-//#elif defined PRESSURE_SENSOR	
-//	uint8_t panelname[21] = "Pressure";
-//#elif defined HUM_SENSOR	
-//	uint8_t panelname[21] = "Humdity";
-//#else
-//	uint8_t panelname[21] = "CO2_NET";
-//#endif 
+
+
+
+const uint8 Var_label[MAX_AVS][9] = {
+	
+	"SN_L",   //0
+	"SN_H",   //1
+	"SW_Ver", //2
+	"Address",//3
+	"Model",  //4 
+	"Instance",//5					 
+	"Station",//6
+	"BaudRate",//7
+	"Update",  //8
+	"Protocol",//9
+	"AM_Mode", //10 
+	"dew_pt",  //11
+	"Pws",     //12
+	"MixRatio",//13
+	"Enthalpy",//14  
+	"OffSet_H",//15
+	"OffSet_T",//16 
+	"OffSet_C",//17 
+	"OffSet_P",//18
+	"OfSe_P25",//19
+	"OfSt_P10",//20
+	"Filter_H",//21
+	"Filter_T",//22
+	"Filter_C",//23 
+	"Filter_P",//24
+	"Filt_P25",//25
+	"Filt_P10",//26
+	"T_Unit",  //27 
+	"OutMode", //28
+	 
+	"MIN_RNG0",//29 
+	"MAX_RNG0",//30
+	"MIN_RNG1",//31
+	"MAX_RNG1",//32
+	"MIN_RNG2",//33
+	"MAX_RNG2",//34 
+	"AQI"	   //35
+
+};
+const uint8 Var_Description[MAX_AVS][21] = {
+	
+	"SerialNumberLowByte",   	//0
+	"SerialNumberHighByte",   	//1
+	"SoftWare Version", 		//2
+	"ID Address",				//3
+	"Product Model",			//4
+	"Instance",					//5					 
+	"Station number",			//6
+	"Uart BaudRate",			//7
+	"Update", 					//8
+	"Protocol",					//9
+	"Auto/Manual",				//10 
+	"dew point",				// 
+	"Pws",						// 
+	"MixRatio",					// 
+	"Enthalpy",  				// 
+	"OffSet Humdity",			//15 
+	"OffSet Tempeature", 		// 
+	"OffSet Co2",				//  
+	"OffSet_Pressure",			//
+	"OffSet_P25",				//
+	"OffSet_P10",				//20
+	"Filter Humdity",			// 
+	"Filter Temperature",		// 
+	"Filter Co2",				// 
+	"Filter_Pressure",			//
+	"Filter_Pm25",				//25
+	"Filter_Pm10",				//
+	"Temperature Unit",			//  
+	"OutMode",					//  
+	"Humdity Min Range",		// 
+	"Humdity Max Range",		//30 
+	"Temperatur Min Range",		// 
+	"Temperatur Max Range",		//  
+	"Co2 Min Range",			// 
+	"Co2 Max Range", 			//
+	"Air Quality Index"			//35
+
+};
 
 	uint8_t panelname[21];
 	
@@ -312,38 +387,55 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 		case AI:
 			if(i < MAX_INS)
 			{ 
-				switch (i)
+				if(PRODUCT_ID == STM32_PM25)
 				{
-					case 0: //temperature
-						if(deg_c_or_f == DEGREE_C)
-							ftemp = (float)HumSensor.temperature_c/10;
-						else
-							ftemp = (float)HumSensor.temperature_f/10;
-						break;
-					case 1: //humidity
-						ftemp = (float)HumSensor.humidity/10;
-						break;
-					case 2://co2
-						ftemp = int_co2_str.co2_int;
-						break;
-					case 3://pressure
-						if((Pressure.SNR_Model == PRS_26PCGFA)||(Pressure.SNR_Model == PRS_26PCGFA))
-							ftemp = (float)Pressure.org_val/10;
-						else
-							ftemp =(float)Pressure.org_val/100;
-						break;
-					case 4://PM2.5
-						ftemp = (float)pm25_sensor.pm25/10;
-						break;
-					case 5://PM10
-						ftemp =(float)pm25_sensor.pm10/10;
-						break; 
-					case 6://light sensor
-						ftemp =(float)light.val;
-						break; 
-					default:break;
-						
+					switch (i)
+					{
+						case 0://PM2.5
+							ftemp = (float)pm25_weight_25;//pm25_sensor.pm25/10;
+							break;
+						case 1://PM10
+							ftemp =(float)pm25_weight_100;//pm25_sensor.pm10/10;
+							break; 
+						default:
+							break;
+					}
 				}
+				else // tbd:
+				{
+					switch (i)
+					{
+						case 0: //temperature
+							if(deg_c_or_f == DEGREE_C)
+								ftemp = (float)HumSensor.temperature_c/10;
+							else
+								ftemp = (float)HumSensor.temperature_f/10;
+							break;
+						case 1: //humidity
+							ftemp = (float)HumSensor.humidity/10;
+							break;
+						case 2://co2
+							ftemp = int_co2_str.co2_int;
+							break;
+						case 3://pressure
+							if((Pressure.SNR_Model == PRS_26PCGFA)||(Pressure.SNR_Model == PRS_26PCGFA))
+								ftemp = (float)Pressure.org_val/10;
+							else
+								ftemp =(float)Pressure.org_val/100;
+							break;
+						case 4://PM2.5
+							ftemp = (float)pm25_sensor.pm25/10;
+							break;
+						case 5://PM10
+							ftemp =(float)pm25_sensor.pm10/10;
+							break; 
+						case 6://light sensor
+							ftemp =(float)light.val;
+							break; 
+						default:break;
+							
+					}
+			}
 				return ftemp;
 			}
 						
@@ -584,6 +676,11 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 				if(i < MAX_INS)
 				{ 	
 					s16 itemp;
+					if(PRODUCT_ID == STM32_PM25)
+					{
+					}
+					else
+					{
 					switch (i)
 					{
 						case 0: //temperature
@@ -689,6 +786,7 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 						default:break;
 					}
 				}
+				}
 
 			break;
 			case BO:
@@ -709,41 +807,41 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 void write_bacnet_name_to_buf(uint8_t type,uint8_t priority,uint8_t i,char* str)
 {
  
-//		if(i == 0) return;    //start from var1.
-//		else i -= 1;
-		switch(type)
-		{
-			case AI: 
-				if(i < MAX_INS)
-				{
-					memcpy(inputs[i].label,str,9);
-					inputs[i].label[8] = 0;
-					write_page_en[IN_TYPE] = 1;
-				}
-				break;
-//			case BO:
-//				memcpy(outputs[i].label,str,8);
+////		if(i == 0) return;    //start from var1.
+////		else i -= 1;
+//		switch(type)
+//		{
+//			case AI: 
+//				if(i < MAX_INS)
+//				{
+//					memcpy(inputs[i].label,str,9);
+//					inputs[i].label[8] = 0;
+//					write_page_en[IN_TYPE] = 1;
+//				}
 //				break;
-			case AO:
-				if(i < MAX_AOS)
-				{
-					memcpy(outputs[i].label,str,9); 
-					outputs[i].label[8] = 0;
-					write_page_en[OUT_TYPE] = 1;
-				} 
-				break;
-			case AV:
-				if(i < MAX_AVS) 
-				{
-					memcpy(var[i].label,str,9); 
-					var[i].label[8] = 0;
-					 write_page_en[VAR_TYPE] = 1;
-				}
-				break;
-	
-			default:
-			break;
-		} 
+////			case BO:
+////				memcpy(outputs[i].label,str,8);
+////				break;
+//			case AO:
+//				if(i < MAX_AOS)
+//				{
+//					memcpy(outputs[i].label,str,9); 
+//					outputs[i].label[8] = 0;
+//					write_page_en[OUT_TYPE] = 1;
+//				} 
+//				break;
+//			case AV:
+//				if(i < MAX_AVS) 
+//				{
+//					memcpy(var[i].label,str,9); 
+//					var[i].label[8] = 0;
+//					 write_page_en[VAR_TYPE] = 1;
+//				}
+//				break;
+//	
+//			default:
+//			break;
+//		} 
 }
 //---------------------------------------------------
 void write_bacnet_unit_to_buf(uint8_t type,uint8_t priority,uint8_t i,uint8_t unit)
@@ -801,7 +899,7 @@ char* get_label(uint8_t type,uint8_t num)
          case AV: 
 			if(num < MAX_AVS)
 			{
-				return (char *)var[num].label; 
+				return (char *)Var_label[num];//var[num].label; 
 			}  
             break;
          case AI:
@@ -823,10 +921,14 @@ char* get_label(uint8_t type,uint8_t num)
 				 }
 				 else if(PRODUCT_ID == STM32_PM25) 
 				 {
-					if((num==4)||(num==5))
-						return (char *)inputs[num].label;
-					else
-						return (char *)"null";
+//					if((num==4)||(num==5))
+//						return (char *)inputs[num].label;
+//					else
+//						return (char *)"null";
+					 if(num == 0)
+						 return "PM2.5";
+					 else if(num == 1)
+						 return "PM10";
 				 }
 				 else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 				 {
@@ -852,7 +954,12 @@ char* get_label(uint8_t type,uint8_t num)
 				 else if((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
 						AOS_TEMP = 1;
 				 else if(PRODUCT_ID == STM32_PM25) 
-						AOS_TEMP = 2;
+				 { //AOS_TEMP = 2;
+						if(num == 0)
+							return "PM2.5_AO";
+						else if(num == 1)
+							return "PM10_AO";
+				 }					
 				 else //if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 						AOS_TEMP = 2;
 				 if(num < AOS_TEMP)//(num < MAX_AOS)
@@ -912,6 +1019,12 @@ char get_range(uint8_t type,uint8_t num)
 		break;
 		
 		case AI:
+			if(PRODUCT_ID == STM32_PM25)
+			{
+				return 	UNITS_NO_UNITS ; 
+			}
+			else
+			{
 			if(num == 0)
 			{
 				if(deg_c_or_f == DEGREE_C)
@@ -921,6 +1034,7 @@ char get_range(uint8_t type,uint8_t num)
 			}
 			else if(num == 1)
 				return 	UNITS_PERCENT_RELATIVE_HUMIDITY ; 
+		}
 		break;
 		
 		case AO:
@@ -939,38 +1053,35 @@ void Set_Object_Name(char * name)
 }
 void write_bacnet_description_to_buf(uint8_t type, uint8_t priority, uint8_t i, char* str)
 {
-	
-//		if(i == 0) return ;    //start from var1.
-//		else i -= 1;
-	
-		switch(type)
-		{ 
-			case AO:
-				if(i < MAX_AOS)
-				{
-					memcpy(outputs[i].description,str,20); 
-					write_page_en[OUT_TYPE] = 1;
-				} 
-				break;
-			case AI:
-				if(i < MAX_INS)
-				{
-					memcpy(inputs[i].description,str,20); 
-					write_page_en[IN_TYPE] = 1;
-				} 
-				break;
-			case AV:
-				if(i < MAX_AVS) 
-				{
-					memcpy(var[i].description,str,20); 
-					var[i].description[20] = 0;
-					write_page_en[VAR_TYPE] = 1; 
-				}
-				break;
-	
-			default:
-			break;
-		} 
+
+//		switch(type)
+//		{ 
+//			case AO:
+//				if(i < MAX_AOS)
+//				{
+//					memcpy(outputs[i].description,str,20); 
+//					write_page_en[OUT_TYPE] = 1;
+//				} 
+//				break;
+//			case AI:
+//				if(i < MAX_INS)
+//				{
+//					memcpy(inputs[i].description,str,20); 
+//					write_page_en[IN_TYPE] = 1;
+//				} 
+//				break;
+//			case AV:
+//				if(i < MAX_AVS) 
+//				{
+//					memcpy(var[i].description,str,20); 
+//					var[i].description[20] = 0;
+//					write_page_en[VAR_TYPE] = 1; 
+//				}
+//				break;
+//	
+//			default:
+//			break;
+//		} 
 }	
 
 char* Get_Object_Name(void)
@@ -1118,3 +1229,77 @@ void Store_MASTER_To_Eeprom(uint8_t master)
 {
 	AT24CXX_WriteOneByte(EEP_MAX_MASTER,master);
 }
+
+uint8_t AI_Index_To_Instance[MAX_INS];
+//uint8_t BI_Index_To_Instance[MAX_INS];
+
+uint8_t AI_Instance_To_Index[MAX_INS];
+//uint8_t BI_Instance_To_Index[MAX_INS];
+
+BACNET_POLARITY Binary_Output_Polarity(
+    uint32_t object_instance)
+{
+	
+	return POLARITY_NORMAL;
+}
+
+bool Binary_Output_Polarity_Set(
+    uint32_t object_instance,
+    BACNET_POLARITY polarity)
+{
+	return false;
+}
+
+void Set_Vendor_Name(char* name)
+{
+//	write_page_en[EN_OTHER] = 1;
+//	memcpy(bacnet_vendor_name,name,20);
+}
+
+
+void Set_Vendor_Product(char* product)
+{
+//	write_page_en[EN_OTHER] = 1;
+//	memcpy(bacnet_vendor_product,product,20);
+}
+
+void Set_Vendor_ID(uint16_t vendor_id)
+{
+
+//	AT24CXX_WriteOneByte(EEP_BAC_VENDOR_ID_LO ,vendor_id);
+//	AT24CXX_WriteOneByte(EEP_BAC_VENDOR_ID_HI ,vendor_id >> 8);
+//	if((vendor_id == 0) || (vendor_id == 255) || (vendor_id == 65535) // temco
+//		|| (vendor_id == 1)  // netIX
+//		|| (vendor_id == 2))  // JET
+//	{
+//		//Bacnet_Vendor_ID = 
+//		
+//		return;
+//	}
+//	else
+//		Bacnet_Vendor_ID = vendor_id;
+	
+}
+
+char get_current_mstp_port(void)
+{// no matter which port , same result. T3 only has one UART
+	return 0;
+
+}
+//BACNET_POLARITY Binary_Input_Polarity(
+//    uint32_t object_instance)
+//{
+////?????????????????????	
+//	return POLARITY_NORMAL;
+//}
+
+//bool Binary_Input_Polarity_Set(
+//    uint32_t object_instance,
+//    BACNET_POLARITY polarity)
+//{
+//		bool status = false;
+
+////???????????????????
+//		return status;
+//}
+
