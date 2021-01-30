@@ -26,7 +26,7 @@
 #include "24cxx.h"
 #include "LCD.h"
 
-extern int16 ctest[20];
+extern u16 Test[50];
 char * wifi_itoa( int value, char *string, int radix );	
 
 char Get_SSID_RSSI(void);
@@ -34,6 +34,7 @@ void connect_AP(void);
 uint8 flag_wifi;
 extern uint8_t panelname[21] ;
 
+#if WIFITEST
 uint8 flag_set_wifi;
 
 uint8_t bacnet_wifi_buf[500];
@@ -277,7 +278,6 @@ void vWifitask( void *pvParameters )
 		
 		//if(isWifiExist)
 		
-		
 		if(ATret == 2)
 		{
 			if(flag_set_wifi == 1)
@@ -469,18 +469,19 @@ void vWifitask( void *pvParameters )
 				}
 				if(count_checkip % 100 == 0)
 				{
-					static u8 count_normal = 0;
+					static u8 count_abnormal = 0;
 					
 					if(Get_SSID_RSSI() == 0)
 					{
-						count_normal++;
+						count_abnormal++;
 					}
 					else
 					{
-						count_normal = 0;
+						SSID_Info.IP_Wifi_Status = WIFI_NORMAL;
+						count_abnormal = 0;
 					}
 					
-					if(count_normal == 3)
+					if(count_abnormal == 3)
 						SSID_Info.IP_Wifi_Status = WIFI_NO_WIFI;
 				}
 				if(count_checkip++ > 300)
@@ -547,4 +548,5 @@ void vWifitask( void *pvParameters )
 //    dma_send_uart_data(nlength);
 //}
 
+#endif
 

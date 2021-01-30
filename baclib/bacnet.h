@@ -43,20 +43,20 @@
 /* This is used in constructing messages and to tell others our limits */
 /* 50 is the minimum; adjust to your memory and physical layer constraints */
 /* Lon=206, MS/TP=480, ARCNET=480, Ethernet=1476, BACnet/IP=1476 */
-#if !defined(MAX_APDU)
-    /* #define MAX_APDU 50 */
-    /* #define MAX_APDU 1476 */
+//#if !defined(MAX_APDU)
+//    /* #define MAX_APDU 50 */
+//    /* #define MAX_APDU 1476 */
 
 
-#define MAX_APDU 600//500//1476
-/* #define MAX_APDU 128 enable this IP for testing readrange so you get the More Follows flag set */
-#elif defined (BACDL_ETHERNET)
-#define MAX_APDU 1476
-#else
-#define MAX_APDU 480
-#endif
+//#define MAX_APDU 600//500//1476
+///* #define MAX_APDU 128 enable this IP for testing readrange so you get the More Follows flag set */
+//#elif defined (BACDL_ETHERNET)
+//#define MAX_APDU 1476
+//#else
+//#define MAX_APDU 480
+//#endif
 
-
+#define MAX_APDU 600
 	   
 
 /* for confirmed messages, this is the number of transactions */
@@ -223,7 +223,7 @@ void Timer_Silence_Reset( void);
 #endif
 
 
-extern uint8_t TransmitPacket[600];
+extern uint8_t TransmitPacket[MAX_PDU];//uint8_t TransmitPacket[600];
 extern uint8_t TransmitPacket_panel;
 extern uint8_t Send_Private_Flag;
 extern uint8_t MSTP_Transfer_OK;
@@ -241,6 +241,7 @@ void write_bacnet_description_to_buf(uint8_t type,uint8_t priority,uint8_t i,cha
 void write_bacent_AM_to_buf(uint8_t type,uint8_t i,uint8_t am);
 void Set_Object_Name(char * name);
  
+void Count_VAR_Object_Number(void);
 
 #if BAC_SCHEDULE
 #include "schedule.h"

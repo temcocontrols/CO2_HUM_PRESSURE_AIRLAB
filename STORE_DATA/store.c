@@ -9,6 +9,8 @@
 //#include "24cxx.h"
 #include "config.h"
 #include "bsp_esp8266.h"
+#include "define.h"
+
 #define PAGE_LENTH		MAX_AVS * sizeof(Str_variable_point)
 
 uint8_t write_page_en[MAX_TYPE];
@@ -113,6 +115,7 @@ void Flash_Write_Mass(void)
 //		STMFLASH_Lock();
 //		write_page_en[VAR_TYPE] = 0 ; 
 //	}	
+#if WIFITEST
 	if(write_page_en[WIFI_TYPE] == 1)
 	{ 			
 		STMFLASH_Unlock();
@@ -122,6 +125,7 @@ void Flash_Write_Mass(void)
 		STMFLASH_Lock();
 		write_page_en[WIFI_TYPE] = 0 ; 
 	}	
+#endif
 	io_control(); 
 }
 //const uint8 Var_label[MAX_AVS][9] = {
@@ -398,6 +402,7 @@ void mass_flash_init(void)
 
 	
 	temp = STMFLASH_ReadHalfWord(WIFI_PAGE_FLAG);
+#if WIFITEST
 	if(temp != 10000)
 	{
 		memset(&SSID_Info,0,sizeof(STR_SSID));
@@ -411,6 +416,7 @@ void mass_flash_init(void)
 	{
 		STMFLASH_MUL_Read(WIFI_PAGE,(void *)(&SSID_Info),sizeof(STR_SSID));
 	}
+#endif
 }
 
 uint8 IO_Change_Flag[3];

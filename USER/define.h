@@ -69,8 +69,9 @@ typedef enum{
 #define READ_WRITE_PROPERTY 1
 
 
-#define SOFTREV    59
+#define SOFTREV    64
  
+#define WIFITEST 0
 
 #define DEFAULT_FILTER  5 
 #define T38AI8AO6DO   	44
@@ -124,7 +125,7 @@ typedef enum{
 #define MAX_OUTS				(MAX_AOS + MAX_DO)
 
  
-#define MAX_AVS  				 36
+#define MAX_AVS  				 37
 //#define MAX_VARS				4 
 #define MAX_CONS				3
 

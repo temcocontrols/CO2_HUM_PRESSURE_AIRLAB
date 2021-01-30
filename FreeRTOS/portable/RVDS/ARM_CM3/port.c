@@ -263,7 +263,7 @@ void xPortSysTickHandler( void )
 		reply_done--;
 		
 		if(reply_done == 0)
-		{ 
+		{
 			serial_restart();
 		}
 	}

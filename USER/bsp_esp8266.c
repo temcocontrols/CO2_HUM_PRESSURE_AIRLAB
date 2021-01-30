@@ -12,6 +12,8 @@
 //#include "eepdefine.h"
 #include "store.h"
 
+
+#if WIFITEST
 //WIFI_STR AQ;
 extern STR_MODBUS modbus;
 //STR_SCAN_CMD Infor[20];
@@ -1510,3 +1512,6 @@ bool ESP8266_CWDHCP_DEF (void)
 	return ESP8266_Cmd (cCmd, "OK",0, 4000 );
 	
 }
+
+#endif
+

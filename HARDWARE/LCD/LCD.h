@@ -181,10 +181,10 @@ void LCDtest(void);
 extern uint8 const chlib[];
 extern uint8 const chlibsmall[];
 extern uint8 const chlibmiddle[];
-extern uint16 const athome[];
-extern uint16 const offhome[];
-extern uint16 const sunicon[];
-extern uint16 const moonicon[];
+extern uint16 const co2Icon[];
+extern uint16 const pm25icon[];
+extern uint16 const TempIcon[];
+extern uint16 const HumIcon[];
 //extern uint16 const heaticon[]; 
 //extern uint16 const coolicon[];
 extern uint16 const aqiicon[];
@@ -313,10 +313,9 @@ extern void display_pm25( int16 value);
 #define BTN_OFFSET												CH_HEIGHT+7
 
 
-#define TOP_AREA_DISP_ITEM_TEMPERATURE   	0
-#define TOP_AREA_DISP_ITEM_HUM					 	1
-#define TOP_AREA_DISP_ITEM_CO2				   	2
-#define TOP_AREA_DISP_ITEM_PM25						3
+#define TOP_AREA_DISP_ITEM_LINE1					0//TEMPERATURE   	0
+#define TOP_AREA_DISP_ITEM_LINE2					1//HUM					 	1
+#define TOP_AREA_DISP_ITEM_LINE3					2//CO2				   	2
 
 #define TOP_AREA_DISP_UNIT_C   					 	0
 #define TOP_AREA_DISP_UNIT_F					 	 	1
@@ -332,6 +331,7 @@ extern void display_pm25( int16 value);
 #define SCREEN_AREA_PM25	4
 #define SCREEN_AREA_PRESSURE	5
 #define SCREEN_AREA_PM10	6
+#define SCREEN_AREA_AQI   7
 
 //extern uint8 const   AQI_LEVEL[6][15];
 //extern struct _CURSOR_ cursor;

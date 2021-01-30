@@ -199,13 +199,19 @@ static void reset_to_factory(void)
 		write_eeprom(EEP_EXT_TEMPERATURE_FILTER,DEFAULT_FILTER);   
 		write_eeprom(EEP_INT_TEMPERATURE_FILTER,DEFAULT_FILTER);  
 		 
-		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
 			sprintf((char *)panelname,"%s", (char *)"CO2_NET");
 		else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
 			sprintf((char *)panelname,"%s", (char *)"Pressure");
-		else //((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+		else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 			sprintf((char *)panelname,"%s", (char *)"Humdity");
-					 
+		else if((PRODUCT_ID == STM32_PM25))
+			sprintf((char *)panelname,"%s", (char *)"PM2.5");
+		else if((PRODUCT_ID == STM32_CO2_NODE_NEW))
+			sprintf((char *)panelname,"%s", (char *)"CO2_NODE");
+		else 
+			sprintf((char *)panelname,"%s", (char *)"other");
+		
 		for(i=0;i<20;i++)			 
 		{
 			write_eeprom((EEP_TSTAT_NAME1 + i),panelname[i]); 
@@ -666,10 +672,10 @@ int16 Get_Average_Humdity(int16 para_h)
 			HumSensor.pre_temperature_c = HumSensor.ad[1];
 		}
 		else if(hum_exists == 2)
-		{
-		if(Run_Timer > FIRST_TIME)
-			HumSensor.pre_temperature_c = Sys_Filter(tem_org,HumSensor.pre_temperature_c,HumSensor.T_Filter);
-		else
+		{// HTX3 sensor
+//		if(Run_Timer > FIRST_TIME)
+//			HumSensor.pre_temperature_c = Sys_Filter(tem_org,HumSensor.pre_temperature_c,HumSensor.T_Filter);
+//		else
 			HumSensor.pre_temperature_c = tem_org;
 		}		
 	
@@ -691,7 +697,7 @@ int16 Get_Average_Humdity(int16 para_h)
 		
  	//	temp = temp + internal_temperature_offset;
  		pre_int_temperature = Sys_Filter(temp, pre_int_temperature, Temperature_Filter);
-		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
 			internal_temperature_c =   pre_int_temperature  + internal_temperature_offset; 
 		else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 			internal_temperature_c = 0;
@@ -861,7 +867,7 @@ int16 Get_Average_Humdity(int16 para_h)
 			
 			
 		}
-	    else if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
+	    else if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ||(PRODUCT_ID == STM32_CO2_NODE_NEW))
 		{
 			if((display_state >= PIC_WAITING1)&&(hum_exists))
 				display_state++;

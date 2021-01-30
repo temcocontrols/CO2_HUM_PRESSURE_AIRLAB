@@ -20,7 +20,7 @@ void Idle_init(void)
 //#endif
 	Lcd_Full_Screen(0);
 	exit_request_password();
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ||(PRODUCT_ID == STM32_CO2_NODE_NEW))
 	{
 //		#if defined (COLOR_SCREEN)
 //		
