@@ -1198,10 +1198,17 @@ void Misc_keycope(uint16 key_value)
 					}
 					else
 					{
-#if OLD_CO2
 						if(modbus.address != set_value)	
-							modify_master_id_in_database(modbus.address, set_value);
-#endif
+						{
+							if((set_value != 0) && (set_value != 255))
+							{
+								modbus.address = set_value;
+								AT24CXX_WriteOneByte(EEP_ADDRESS, modbus.address);
+
+								Station_NUM = modbus.address;
+								dlmstp_init(NULL);
+							}
+						}
 						sprintf((char *)text, "%s%u", item_name[item_index], set_value);
 						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
 						in_sub_menu = FALSE;
@@ -1651,7 +1658,12 @@ void Misc_keycope(uint16 key_value)
 						break;
 					case 6: // modbus id setting, check in the database
 						if((key_value & KEY_FUNCTION_MASK) == KEY_SPEED_1)
-							set_value += SPEED_1;
+						{
+							if(set_value < 254)
+								set_value += SPEED_1;
+							else 
+								set_value = 1;
+						}							
 						else
 							set_value = (((set_value + SPEED_10) < 255) ? (set_value + SPEED_10) : 1);
 
@@ -1825,7 +1837,7 @@ void Misc_keycope(uint16 key_value)
 					case 6: // modbus id setting, check in the database
 						if((key_value & KEY_FUNCTION_MASK) == KEY_SPEED_1)
 						{
-							if(set_value)
+							if(set_value > 1)
 								set_value -= SPEED_1;
 							else
 								set_value = 254;

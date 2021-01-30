@@ -62,7 +62,7 @@ extern uint8_t flag_wifi;
 
 #endif
 
-u16 far Test[50];
+u16  Test[50];
 /* NAMING CONSTANT DECLARATIONS */
 #define BIP_MAX_CONNS			4
 #define BIP_NO_NEW_CONN			0xFF
@@ -390,14 +390,17 @@ int bip_send_pdu(
     mtu_len += pdu_len;
 	if(protocal == BAC_IP)
 	{
+#if WIFITEST
 		if(flag_wifi == 0)
+#endif
 			uip_send((char *)mtu, mtu_len);
+#if WIFITEST
 		else
-		{
-			// for wifi	
+		{	// for wifi	
 			memcpy(bacnet_wifi_buf,mtu,mtu_len);
 			bacnet_wifi_len = mtu_len;
 		}
+#endif
 	}
 
 	
@@ -641,7 +644,6 @@ uint16_t bip_receive(
 //							 pdu_len = 0;
 //							 break;
 //						}	
-//						Test[40]++;
 //            (void) decode_unsigned16(&pdu[4], &time_to_live);
 //						
 //            if (bvlc_register_foreign_device(&sin, time_to_live)) {

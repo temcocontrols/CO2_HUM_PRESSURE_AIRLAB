@@ -1016,6 +1016,7 @@ uint16 aqi_table_customer[5] = {12, 35, 55, 150, 250};
 void get_aqi_value(uint16 PM_val, uint16 *AQI_val,uint8 *AQI_level)
 {
 	PM_val /=10;
+	
 	if(PM_val < AQI_INDEX_RNG) 
 	{
 		if(pm25_sensor.AQI_area == 1)

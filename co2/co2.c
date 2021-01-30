@@ -317,9 +317,9 @@ static void request_internal_co2(void)
 			{
 				if(co2_data_temp > int_co2_str.pre_co2_int)
 				{
-					if(co2_data_temp - int_co2_str.pre_co2_int > 1000)
-						int_co2_str.pre_co2_int += 10;
-          else
+//					if(co2_data_temp - int_co2_str.pre_co2_int > 1000)
+//						int_co2_str.pre_co2_int += 10;
+//          else
 						int_co2_str.pre_co2_int = Sys_Filter(co2_data_temp,int_co2_str.pre_co2_int,int_co2_filter);
 				}
 				else	
@@ -332,7 +332,7 @@ static void request_internal_co2(void)
 		}
 		if((int_co2_str.pre_co2_int > 10000) || (int_co2_str.pre_co2_int < 0))
 		{
-			ctest[1] = co2_data_temp;
+			//Test[1] = co2_data_temp;
 		}
 		if((int_co2_str.pre_co2_int + int_co2_str.co2_offset > 10000) || (int_co2_str.pre_co2_int + int_co2_str.co2_offset < 0))
 		{  // if co2 value is wrong, reboot co2 moudle
@@ -343,8 +343,8 @@ static void request_internal_co2(void)
 			int_co2_str.co2_int = int_co2_str.pre_co2_int + int_co2_str.co2_offset;
 		if((int_co2_str.co2_int > 10000) || (int_co2_str.co2_int < 0))
 		{
-			ctest[2] = int_co2_str.pre_co2_int;
-			ctest[3] = int_co2_str.co2_offset;
+			//Test[2] = int_co2_str.pre_co2_int;
+			//Test[3] = int_co2_str.co2_offset;
 		}		
 	}
 // automatic read the co2 sensor	
@@ -807,7 +807,6 @@ void co2_alarm(void)
 #endif
 		alarm_state = int_co2_str.alarm_state;
 	}
-
 	switch(alarm_state & (~ALARM_MANUAL))
 	{
 		case NO_SENSOR_ALARM:
@@ -898,7 +897,7 @@ void Co2_task(void *pvParameters )
 	}
 }
 
-
+uint8 alarm_status1;
 void co2_self_control(void)
 {
 //	if(self_control_timer)
@@ -907,11 +906,11 @@ void co2_self_control(void)
 	{
 		
 		if(co2_asc >= int_co2_str.alarm_setpoint)
-			alarm_status = (alarm_status & 0x01) | 0x08;
+			alarm_status1 = (alarm_status1 & 0x01) | 0x08;
 		else if(co2_asc >= int_co2_str.pre_alarm_setpoint)
-			alarm_status = (alarm_status & 0x01) | 0x04;
+			alarm_status1 = (alarm_status1 & 0x01) | 0x04;
 		else
-			alarm_status = (alarm_status & 0x01) | 0x02;
+			alarm_status1 = (alarm_status1 & 0x01) | 0x02;
 	}
 }
 
@@ -928,20 +927,20 @@ void refresh_led_alarm(void)
 			{
 				comm_ctr = 4; 
 				if(comm_good == TRUE)
-					alarm_status |= 0x01;
+					alarm_status1 |= 0x01;
 				else
-					alarm_status &= ~0x01;
+					alarm_status1 &= ~0x01;
 
 				comm_good = FALSE;
 			}
 		}
 
-		if(pre_alarm_status != alarm_status)
+		if(pre_alarm_status != alarm_status1)
 		{			
-			refresh_alarm_status_led(alarm_status);
-			pre_alarm_status = alarm_status;
+			refresh_alarm_status_led(alarm_status1);
+			pre_alarm_status = alarm_status1;
 		}
-		refresh_net_status_led(alarm_status); 
+		refresh_net_status_led(alarm_status1); 
 }
 
 void Alarm_task(void *pvParameters )
@@ -951,7 +950,7 @@ void Alarm_task(void *pvParameters )
 	delay_ms(100);
 	LED_Init();
 	while(1)
-	{ 
+	{
  		co2_alarm();
 		refresh_led_alarm();
 //		taskYIELD();

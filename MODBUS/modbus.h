@@ -43,8 +43,8 @@
 #define INVALID_PACKET				1
 #define VALID_PACKET				2
 
-#define USART_REC_LEN  			200  	//定义最大接收字节数 200
-#define USART_SEND_LEN			490//255
+#define USART_REC_LEN  			500  	//定义最大接收字节数 200
+#define USART_SEND_LEN			600//MAX_APDU//490//255
 
 #define RESPONSERANDVALUE	1
 
@@ -56,7 +56,7 @@
 
 extern u8  USART_RX_BUF[USART_REC_LEN]; //接收缓冲,最大USART_REC_LEN个字节.末字节为换行符 
 extern u16 USART_RX_STA;         		//接收状态标记	
-extern vu8 revce_count ;
+extern u16 revce_count ;
 extern u8 dealwithTag ;
 
 void serial_restart(void);
@@ -158,8 +158,10 @@ typedef struct
 	u8 tx_count;
 }STR_UART;
 extern STR_UART uart;
-extern signed int short ctest[20];
+extern u16 Test[50];//signed int short Test[20];
 extern STR_MODBUS modbus ;
+extern u8 pm25_rand_offset;
+extern u8 pm25_rand_sign;
 extern vu8 serial_receive_timeout_count ;
  void dealwithData(void) ;
 //extern u8 i2c_test[10] ; 

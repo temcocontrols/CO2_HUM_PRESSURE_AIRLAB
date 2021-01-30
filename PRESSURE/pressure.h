@@ -54,9 +54,9 @@
 
 		enum
 		{
-			inWC = 0,
+			inWC = 0, // 英寸水柱  UNITS_INCHES_OF_WATER
 			KPa1 = 1,
-			Psi = 2,
+			Psi = 2, // 磅每平方英尺  UNITS_POUNDS_FORCE_PER_SQUARE_INCH
 			mmHg = 3,
 			inHg = 4,
 			Kg_cm2 = 5,

@@ -213,7 +213,6 @@ void vStartPIDTask(void *pvParameters)
 	
 	while(1)
 	{
-	
 		if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) ) 
 			PID[0].EEP_Input_Value = (int32)Pressure.org_val;	
 		else

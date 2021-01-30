@@ -68,6 +68,6 @@
 #define STM32_HUM_RS485				213
 #define STM32_PRESSURE_NET			214
 #define STM32_PRESSURE_RS485		215
-
+#define STM32_CO2_NODE_NEW    217
 
 #endif

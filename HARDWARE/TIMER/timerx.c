@@ -40,7 +40,7 @@ void TIM3_Int_Init(u16 arr, u16 psc)
 	
 	//Timer3 NVIC 配置
     NVIC_InitStructure.NVIC_IRQChannel = TIM3_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;	//抢占优先级0
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;	//抢占优先级0
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 2;			//子优先级2
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;				//IRQ通道使能
 	NVIC_Init(&NVIC_InitStructure);								//根据指定的参数初始化NVIC寄存器

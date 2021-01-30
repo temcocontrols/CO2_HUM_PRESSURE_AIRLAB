@@ -1091,7 +1091,7 @@ uint8 Lcd_Show_Data(uint8 pos_row, uint8 pos_line, uint16 number, uint8 dot, uin
 void update_cursor(void)
 {
 	static bit flag = FALSE;
-	if(isColorScreen == false)
+	//if(isColorScreen == false)
 	{
 		if(cursor.status == CURSOR_ON)
 		{
@@ -1111,7 +1111,7 @@ void update_cursor(void)
 
 void cursor_on(uint8 row, uint8 line, uint8 onByte, uint8 offByte)
 {
-	if(isColorScreen == false)
+	//if(isColorScreen == false)
 	{
 		cursor.row = row;
 		cursor.line = line;
@@ -1123,7 +1123,7 @@ void cursor_on(uint8 row, uint8 line, uint8 onByte, uint8 offByte)
 
 void cursor_off(void)
 {
-	if(isColorScreen == false)
+	//if(isColorScreen == false)
 		cursor.status = CURSOR_OFF;
 }
 
@@ -1208,7 +1208,7 @@ void update_message_context(void)
 	if(isColorScreen == false)
 	{
 		scroll_message_length = 0;
-		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ) 
+		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW) ) 
 		{	
 		// Date & Time
 			length = strlen((char *)time);
