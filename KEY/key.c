@@ -54,7 +54,6 @@ void vKEYTask( void *pvParameters )
 	{
 		if ((PRODUCT_ID != STM32_CO2_NET)&&(PRODUCT_ID != STM32_HUM_NET)&&(PRODUCT_ID != STM32_PRESSURE_NET)&&(PRODUCT_ID != STM32_PM25)) 
 		 watchdog();
-
 		if((key_temp = KEY_Scan()) != pre_key)
 		{
 			xQueueSend(qKey, &key_temp, 0);

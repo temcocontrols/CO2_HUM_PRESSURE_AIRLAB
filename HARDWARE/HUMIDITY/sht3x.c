@@ -490,7 +490,7 @@ etError SHT3X_Read2BytesAndCrc(uint16 *data, etI2cAck finaleAckNack, uint8 timeo
   // read two data bytes and one checksum byte
 	                      error = I2c_ReadByte(&bytes[0], ACK, timeout);
 	if(error == NO_ERROR) error = I2c_ReadByte(&bytes[1], ACK, 0);
-  if(error == NO_ERROR) error = I2c_ReadByte(&checksum, finaleAckNack, 0);
+  if(error == NO_ERROR) error = I2c_ReadByte(&checksum, finaleAckNack,0);
   
   // verify checksum
   if(error == NO_ERROR) error = SHT3X_CheckCrc(bytes, 2, checksum);

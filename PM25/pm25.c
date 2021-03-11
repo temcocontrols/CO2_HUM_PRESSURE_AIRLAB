@@ -189,6 +189,8 @@ u8 Process_Rece_Data(u8 *p)
 	u8 i;
 	uint16 pm25_org, pm100_org;
 	int32 itemp; 	
+	uint16 pm25_weight_25_tmp;
+	uint16 pm25_weight_100_tmp;
 	
 	if(pm25_sensor_type == NOVA)
 	{
@@ -277,43 +279,44 @@ u8 Process_Rece_Data(u8 *p)
 			check_sum = ~check_sum;
 			if(check_sum == p[sensirion_rev_cnt-1])
 			{
+				
 				if(pm25_org != 0 && pm100_org != 0)
-				{					
+				{			
+				
 					if((pm25_sensor.auto_manual&0x01)==0)
 					{
-						itemp = pm25_org;//(p[CMD_DATA2] << 8) + p[CMD_DATA1]; 
-						pm25_org_value = itemp;
-						itemp *= (100 + pm25_sensor.pm25_offset);
-						itemp /= 100;
-						pm25_sensor.pre_pm25 = Sys_Filter(itemp,pm25_sensor.pre_pm25,pm25_sensor.PM25_filter);
+//						itemp = pm25_org;//(p[CMD_DATA2] << 8) + p[CMD_DATA1]; 
+//						pm25_org_value = itemp;
+//						itemp *= (100 + pm25_sensor.pm25_offset);
+//						itemp /= 100;
+//						pm25_sensor.pre_pm25 = Sys_Filter(itemp,pm25_sensor.pre_pm25,pm25_sensor.PM25_filter);
+//						
+//						pm25_sensor.pm25 = pm25_sensor.pre_pm25;
+						pm25_sensor.pm25 = pm25_org;
+						if(pm25_sensor.pm25 < 0) {pm25_sensor.pm25 = 9999;}
 						
-						pm25_sensor.pm25 = pm25_sensor.pre_pm25;
-						
-						if(pm25_sensor.pm25 < 0) pm25_sensor.pm25 = 0;
 					}					
 
 				if(((pm25_sensor.auto_manual>>1)&0x01)==0)
 				{
-					itemp = pm100_org;//(p[CMD_DATA4] << 8) + p[CMD_DATA3]; 
-					pm10_org_value = itemp;
-					itemp *= (100 + pm25_sensor.pm10_offset);
-					itemp /= 100;
+//					itemp = pm100_org;//(p[CMD_DATA4] << 8) + p[CMD_DATA3]; 
+//					pm10_org_value = itemp;
+//					itemp *= (100 + pm25_sensor.pm10_offset);
+//					itemp /= 100;
 
-					pm25_sensor.pre_pm10 = Sys_Filter(itemp,pm25_sensor.pre_pm10,pm25_sensor.PM10_filter);
+//					pm25_sensor.pre_pm10 = Sys_Filter(itemp,pm25_sensor.pre_pm10,pm25_sensor.PM10_filter);
+//					
+//					pm25_sensor.pm10 = pm25_sensor.pre_pm10;
+					pm25_sensor.pm10 = pm100_org;
+					if(pm25_sensor.pm10 < 0) {pm25_sensor.pm10 = 9999;}
 					
-					pm25_sensor.pm10 = pm25_sensor.pre_pm10;
-
-					if(pm25_sensor.pm10 < 0) pm25_sensor.pm10 = 0;
 				}					
-					
-					
-					//pm25_sensor.pm25 = pm25_org;
-					//pm25_sensor.pm10 = pm100_org;
+				
 					
 					pm25_weight_10 = (uint16)Datasum(p[DATA_OFFSET + 0],p[DATA_OFFSET + 1],p[DATA_OFFSET + 2],p[DATA_OFFSET + 3]);
-					pm25_weight_25 = (uint16)Datasum(p[DATA_OFFSET + 4],p[DATA_OFFSET + 5],p[DATA_OFFSET + 6],p[DATA_OFFSET + 7]);
+					pm25_weight_25_tmp = (uint16)Datasum(p[DATA_OFFSET + 4],p[DATA_OFFSET + 5],p[DATA_OFFSET + 6],p[DATA_OFFSET + 7]);
 					pm25_weight_40 = (uint16)Datasum(p[DATA_OFFSET + 8],p[DATA_OFFSET + 9],p[DATA_OFFSET + 10],p[DATA_OFFSET + 11]);
-					pm25_weight_100 = (uint16)Datasum(p[DATA_OFFSET + 12],p[DATA_OFFSET + 13],p[DATA_OFFSET + 14],p[DATA_OFFSET + 15]);
+					pm25_weight_100_tmp = (uint16)Datasum(p[DATA_OFFSET + 12],p[DATA_OFFSET + 13],p[DATA_OFFSET + 14],p[DATA_OFFSET + 15]);
 					
 					pm25_number_05 = (uint16)Datasum(p[DATA_OFFSET + 16],p[DATA_OFFSET + 17],p[DATA_OFFSET + 18],p[DATA_OFFSET + 19]);
 					pm25_number_10 = (uint16)Datasum(p[DATA_OFFSET + 20],p[DATA_OFFSET + 21],p[DATA_OFFSET + 22],p[DATA_OFFSET + 23]);
@@ -321,11 +324,56 @@ u8 Process_Rece_Data(u8 *p)
 					pm25_number_40 = (uint16)Datasum(p[DATA_OFFSET + 28],p[DATA_OFFSET + 29],p[DATA_OFFSET + 30],p[DATA_OFFSET + 31]);
 					pm25_number_100 = (uint16)Datasum(p[DATA_OFFSET + 32],p[DATA_OFFSET + 33],p[DATA_OFFSET + 34],p[DATA_OFFSET + 35]);					
 					
-					
-					// pm25_weight_25;
+//					pm25_weight_25_tmp = Test[5];
+//					pm25_weight_100_tmp = Test[5];
+								// if pm2.5 == pm10
+					if(pm25_rand_sign == 0)
+					{ // 给一般用户，如果两个值相等，PM10不变，把PM25值减少0-2
+						pm25_weight_100 = pm25_weight_100_tmp;
+						if(pm25_weight_25_tmp == pm25_weight_100)			
+						{
+							if(pm25_weight_25_tmp > 3)
+							{
+								u8 temprand;
+								temprand = rand() % 3;
+								if(temprand == 0)
+								{
+									pm25_weight_25 = pm25_weight_25_tmp - 1;
+								}
+								else
+								{
+									pm25_weight_25 = pm25_weight_25_tmp - temprand;										
+								}
+							}
+						}	
+						else
+							pm25_weight_25 = pm25_weight_25_tmp;
+					}
+					else
+					{	// 香港客户，如果差值小于5,PM25不变 PM10增加便宜
+						pm25_weight_25 = pm25_weight_25_tmp;
+						if(pm25_weight_100_tmp > pm25_weight_25 + pm25_rand_offset)
+						{
+							pm25_weight_100 = pm25_weight_100_tmp;
+						}
+						else
+						{
+							u8 temprand;
+							temprand = rand() % 3;
+							if((temprand == 0) && (pm25_rand_offset == 0))
+							{
+								pm25_weight_100 = pm25_weight_100_tmp + 1;
+							}
+							else
+							{
+								pm25_weight_100 = pm25_weight_100_tmp + temprand + pm25_rand_offset;
+							}								
+						}
+					}
 				}
 			}
 
+			
 			return 1;
 		
 		}
@@ -360,8 +408,8 @@ void pm25_initial(void)
 	pm25_sensor.menu.seconds = read_eeprom(EEP_MENU_SWITCH_SECONDS);
 	pm25_sensor.pm25_offset = read_eeprom(EEP_PM25_OFFSET) |(int16)(read_eeprom(EEP_PM25_OFFSET+1)<<8);
 	pm25_sensor.pm10_offset = read_eeprom(EEP_PM10_OFFSET) |(int16)(read_eeprom(EEP_PM10_OFFSET+1)<<8);
-	pm25_sensor.PM25_filter = read_eeprom(EEP_PM25_FILTER);
-	pm25_sensor.PM10_filter = read_eeprom(EEP_PM10_FILTER);
+	pm25_sensor.PM25_filter = 0;//read_eeprom(EEP_PM25_FILTER);
+	pm25_sensor.PM10_filter = 0;//read_eeprom(EEP_PM10_FILTER);
 	pm25_sensor.pm25_range = read_eeprom(EEP_PM25_RANGE);
 	pm25_sensor.AQI_area = read_eeprom(EEP_PM25_AREA);
 	
@@ -398,9 +446,9 @@ void pm25_initial(void)
 		pm25_sensor.pm25_offset = 0;
 	
 	if(pm25_sensor.PM25_filter == 0xff)
-		pm25_sensor.PM25_filter = 5;
+		pm25_sensor.PM25_filter = 0;
 	if(pm25_sensor.PM10_filter == 0xff)
-		pm25_sensor.PM10_filter = 5;
+		pm25_sensor.PM10_filter = 0;
 	
 	if(pm25_sensor.pm25_range > PM25_0_1000)
 		pm25_sensor.pm25_range = PM25_0_100;
@@ -476,8 +524,8 @@ int8 pm25_request(void)
 		pm25_current_cmd = SENSIRION_READ_MEASUREMENT;
 		pm25_send_cmd(SENSIRION_READ_MEASUREMENT);
 		
-		serial1_restart(); 
-		
+		//serial1_restart(); 
+		sensirion_rev_cnt = 0;
 		delay_ms(100);
 		
 		if(sensirion_rev_end == PACKAGE_END)//one pacage received
@@ -508,15 +556,16 @@ void PM25_task(void *pvParameters)
 	delay_ms(1000);
 	
 	while(1)
-	{ 
-		if((timer_counter % 5) == 0)
-		{	
-			timer_counter = 0;
+	{
+//		if((timer_counter % 5) == 0)
+//		{	
+//			timer_counter = 0;
 			if(pm25_request())
 			{
 				PM25_read_ctr = 0;
 				pm25_sensor.status = 1;  
 				get_aqi_value(pm25_sensor.pm25, &pm25_sensor.AQI,&pm25_sensor.level); 
+				
 			}
 			else
 			{
@@ -524,29 +573,29 @@ void PM25_task(void *pvParameters)
 				else
 					pm25_sensor.status = 0; 
 			}
-		}
+//		}
 		
-		if((timer_counter % pm25_sensor.menu.seconds) == 0)
-		{
-			static u8 i = 0;
-			u8 j =0; 
-			
-			for(;;)
-			{
-				pm25_sensor.menu.display = pm25_sensor.menu.menu_set & (0x01<<(i++%5));
-				
-				if(pm25_sensor.menu.display != 0) break;
-				
-				j++;
-				if(j == 5)
-				{
-					pm25_sensor.menu.display = 1; //the default display
-					break;
-				}
-			}
-		}
-		 
-		timer_counter++;
+//		if((timer_counter % pm25_sensor.menu.seconds) == 0)
+//		{
+//			static u8 i = 0;
+//			u8 j =0; 
+//			
+//			for(;;)
+//			{
+//				pm25_sensor.menu.display = pm25_sensor.menu.menu_set & (0x01<<(i++%5));
+//				
+//				if(pm25_sensor.menu.display != 0) break;
+//				
+//				j++;
+//				if(j == 5)
+//				{
+//					pm25_sensor.menu.display = 1; //the default display
+//					break;
+//				}
+//			}
+//		}
+//		 
+//		timer_counter++;
 		update_message_context();
 		vTaskDelay(xDelayPeriod);
 	}

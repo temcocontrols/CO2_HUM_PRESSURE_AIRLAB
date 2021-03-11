@@ -1091,7 +1091,7 @@ uint8 Lcd_Show_Data(uint8 pos_row, uint8 pos_line, uint16 number, uint8 dot, uin
 void update_cursor(void)
 {
 	static bit flag = FALSE;
-	if(isColorScreen == false)
+	//if(isColorScreen == false)
 	{
 		if(cursor.status == CURSOR_ON)
 		{
@@ -1111,7 +1111,7 @@ void update_cursor(void)
 
 void cursor_on(uint8 row, uint8 line, uint8 onByte, uint8 offByte)
 {
-	if(isColorScreen == false)
+	//if(isColorScreen == false)
 	{
 		cursor.row = row;
 		cursor.line = line;
@@ -1123,7 +1123,7 @@ void cursor_on(uint8 row, uint8 line, uint8 onByte, uint8 offByte)
 
 void cursor_off(void)
 {
-	if(isColorScreen == false)
+	//if(isColorScreen == false)
 		cursor.status = CURSOR_OFF;
 }
 
@@ -1208,7 +1208,7 @@ void update_message_context(void)
 	if(isColorScreen == false)
 	{
 		scroll_message_length = 0;
-		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ) 
+		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW) ) 
 		{	
 		// Date & Time
 			length = strlen((char *)time);
@@ -1495,31 +1495,37 @@ void scrolling_message(void)
 U8_T bl_timer = 0;
 void start_back_light(U8_T timer)
 {
-	if(isColorScreen == false)
+	//if(isColorScreen == false)
 	{
 		if(timer == 0) BL_OFF();
 		else BL_ON();
 		bl_timer = timer;
 		bl_timer_start = xTaskGetTickCount();
 	}
-	else
-		BL_OFF();
+//	else
+//	{Test[17]++;
+//		BL_OFF();
+//	}
 }
 
 
 void poll_back_light(void)
 {
-	if(isColorScreen == false)
+	//if(isColorScreen == false)
 	{
-		if((bl_timer!=0)&&(bl_timer!=0xff))
+		if((bl_timer != 0)&&(bl_timer != 0xff))
 		{
 			bl_timer_end = xTaskGetTickCount();
 			if((bl_timer_end - bl_timer_start) >= (bl_timer * SWTIMER_COUNT_SECOND))
 			{
-				BL_OFF();
+				//BL_OFF();
 				bl_timer = 0;
 			}
 		}
+		if(bl_timer == 0)
+			BL_OFF();
+		if(bl_timer == 0xff)
+			BL_ON();
 	}
 }
 

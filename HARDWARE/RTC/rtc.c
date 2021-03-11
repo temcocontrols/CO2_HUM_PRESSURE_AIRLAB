@@ -365,7 +365,7 @@ u8 Time_Adjust(void)
 					calendar.hour,	calendar.min,		calendar.sec);
 		else
 		{
-			if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+			if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
 				return RTC_Set(calendar.w_year,	calendar.w_month,	calendar.w_date,\
 					calendar.hour,	calendar.min,		calendar.sec);
 			else
@@ -389,7 +389,7 @@ extern u16 tcnt;
 void RTC_IRQHandler(void)
 {		 
 	if(RTC_GetITStatus(RTC_IT_SEC) != RESET)	//秒钟中断
-	{							
+	{		
 		RTC_Get();//更新时间  
 		if(Rtc_Sec_It == 0)
 			Rtc_Sec_It = 1;

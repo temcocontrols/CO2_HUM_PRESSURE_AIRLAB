@@ -47,28 +47,48 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 				{
 				  if((buf == 0x7E)&&(sensirion_rev_cnt == 0))//rcv first byte
 					{
-						subnet_response_buf[sensirion_rev_cnt++] = buf;				
+						if(sensirion_rev_cnt < 57)
+							subnet_response_buf[sensirion_rev_cnt++] = buf;		
+						else
+						{sensirion_rev_cnt = 0;
+						}
 					}
 					else if((sensirion_rev_cnt) && (buf != 0x7E))
 					{
 						if(shift_flag == 1)
 						{
-							if(buf == 0x5e)
-								subnet_response_buf[sensirion_rev_cnt++] = 0x7e;
-							else if(buf == 0x5d)
-								subnet_response_buf[sensirion_rev_cnt++] = 0x7d;
-							else if(buf == 0x31)
-								subnet_response_buf[sensirion_rev_cnt++] = 0x11;
-							else if(buf == 0x33)
-								subnet_response_buf[sensirion_rev_cnt++] = 0x13;
-							shift_flag = 0;
+							if(sensirion_rev_cnt < 57)
+							{
+								if(buf == 0x5e)
+									subnet_response_buf[sensirion_rev_cnt++] = 0x7e;
+								else if(buf == 0x5d)
+									subnet_response_buf[sensirion_rev_cnt++] = 0x7d;
+								else if(buf == 0x31)
+									subnet_response_buf[sensirion_rev_cnt++] = 0x11;
+								else if(buf == 0x33)
+									subnet_response_buf[sensirion_rev_cnt++] = 0x13;
+								shift_flag = 0;	
+							}
+							else
+							{sensirion_rev_cnt = 0;
+							}
+							
 						}
 						else
 						{
 							if(buf == 0x7D)
 								shift_flag = 1;
 							else
-								subnet_response_buf[sensirion_rev_cnt++] = buf;
+							{
+								if(sensirion_rev_cnt < 57)
+								{
+									subnet_response_buf[sensirion_rev_cnt++] = buf;
+								}
+								else
+								{
+									sensirion_rev_cnt = 0;
+								}
+							}
 						}
 						
 						
@@ -99,7 +119,7 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 				taskYIELD(); 	
 		}
 		else
-		{
+		{//  CO2 sensor 
 			if(rece_count1 < SUB_BUF_LEN)
 			{	
 				subnet_response_buf[rece_count1++] =buf; 

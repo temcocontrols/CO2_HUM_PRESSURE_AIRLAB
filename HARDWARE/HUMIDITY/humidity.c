@@ -82,14 +82,35 @@ void i2c_pic_write(u8 ch)
  // 	SDA = 1;
 }
 
-#define READ_BITS	16
+#define READ_BITS	8//16
 u16 i2c_pic_read(void)
 {
 	uint8 i;
 	uint16 data1 = 0;
 	SDA_IN();			//SDA设置为输入 
 	 
-	for(i = 0; i < READ_BITS; i++)
+	for(i = 0; i < 16; i++)
+	{
+		delay_us(30);
+		SCL = 1;
+		delay_us(30);
+		
+		if(READ_SDA)
+			data1 = (data1 << 1) | 0x01;
+		else
+			data1 = (data1 << 1) ;
+		SCL = 0;
+	}
+	return data1;
+}
+
+u8 i2c_read_light(void)
+{
+	uint8 i;
+	uint8 data1 = 0;
+	SDA_IN();			//SDA设置为输入 
+	 
+	for(i = 0; i < 8; i++)
 	{
 		delay_us(30);
 		SCL = 1;
@@ -170,10 +191,10 @@ void GIVE_PIC_NACK(void)
   delay_us(30);
   SDA = 0;
 }
-
+uint16 temp_version;
 void start_light_sensor_mearsure(void)
 {
-	uint16 temp_version;
+	
  
 	i2c_pic_start();
 	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
@@ -222,7 +243,12 @@ uint8 read_light_sensors_time(void)
 	delay_us(100);
 	i2c_pic_start();
 	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
-	time = i2c_pic_read();
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	time = i2c_read_light();
 	GIVE_PIC_NACK();
 	delay_us(30);
 	i2c_pic_stop(); 
@@ -252,11 +278,21 @@ uint8 read_light_sensors_gain(void)
 	delay_us(100);
 	i2c_pic_start();
 	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
-	time = i2c_pic_read();
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	time = i2c_read_light();
 	GIVE_PIC_NACK();
 	delay_us(30);
 	i2c_pic_stop(); 
-	return time;
+	if(time == 0) return 1;
+	else if(time == 1) return 2;
+	else if(time == 2) return 64;
+	else if(time == 3) return 128;
+	else
+		return 1;
 }
 
 uint16 read_light_sensors_data0(void)
@@ -283,17 +319,21 @@ uint16 read_light_sensors_data0(void)
 	delay_us(100);
 	i2c_pic_start();
 	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
-	time[0] = i2c_pic_read();
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	time[0] = i2c_read_light();
 	GIVE_PIC_ACK();
 	delay_us(30);
-	time[1] = i2c_pic_read();
+	time[1] = i2c_read_light();
 	GIVE_PIC_NACK();
 	delay_us(30);
 	i2c_pic_stop(); 
 	data = (uint16)time[1]<<8 | time[0];
 	return data;
 }
-
 uint16 read_light_sensors_data1(void)
 {
 	uint16 data;
@@ -307,7 +347,7 @@ uint16 read_light_sensors_data1(void)
 		return 0;
 	}
 	delay_us(100);
-	i2c_pic_write(0x95);
+	i2c_pic_write(0x96);
 	delay_us(30);
 	if(GET_ACK())
 	{
@@ -318,10 +358,15 @@ uint16 read_light_sensors_data1(void)
 	delay_us(100);
 	i2c_pic_start();
 	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
-	time[0] = i2c_pic_read();
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	time[0] = i2c_read_light();
 	GIVE_PIC_ACK();
 	delay_us(30);
-	time[1] = i2c_pic_read();
+	time[1] = i2c_read_light();
 	GIVE_PIC_NACK();
 	delay_us(30);
 	i2c_pic_stop(); 
@@ -329,10 +374,11 @@ uint16 read_light_sensors_data1(void)
 	return data;
 }
 
+uint8 light_sensor;
 bit read_light_sensor_version(void)
 {
-	uint16 temp_version;
- 
+	uint16 temp_version = 0;
+	light_sensor = 0;
 	i2c_pic_start();
 	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
 	delay_us(30);
@@ -354,13 +400,20 @@ bit read_light_sensor_version(void)
 	delay_us(100);
 	i2c_pic_start();
 	i2c_pic_write(LIGHT_SENSOR_ADDR_R);
-	temp_version = i2c_pic_read();
+	if(GET_ACK())
+	{
+		i2c_pic_stop();
+		return 0;
+	}
+	temp_version = i2c_read_light();
 	GIVE_PIC_NACK();
 	delay_us(30);
 	i2c_pic_stop(); 
+	Test[12] = temp_version;
 	
 	if((temp_version & 0x70)!= 0)
-		return 1;
+	{light_sensor = 1;
+		return 1;}
 	else 
 		return 0;
 }

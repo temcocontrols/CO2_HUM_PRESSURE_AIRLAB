@@ -176,7 +176,6 @@ void MenuTask(void *pvParameters)
 				if(CurrentState.BlockTime)
 					menu_block_timer_start = xTaskGetTickCount();
 				CurrentState.DisplayPeriod();
-				 
 			}
 			
 			if(menu_system_start == TRUE)
@@ -220,7 +219,6 @@ void ScrollingTask(void *pvParameters)
 	
 	while(1)
 	{
-
 		if(dis_hum_info == 1)
 		{  
 			sprintf((char *)text,"pts:%u sn:%u", HumSensor.counter,HumSensor.sn);
@@ -262,7 +260,7 @@ void vStartMenuTask(unsigned char uxPriority)
 	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE+256 , NULL, uxPriority, NULL);
 		
   xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE, NULL, uxPriority, NULL);
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_PM25) )
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_PM25)||(PRODUCT_ID == STM32_CO2_NODE_NEW) )
 		xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE+128 , NULL, uxPriority, NULL);
 	 
 }

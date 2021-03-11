@@ -152,7 +152,7 @@ void Co2_Main_keycope(uint16 key_value)
 			case KEY_RIGHT_MASK:
 				// enter sub menu
 //				update_menu_state(item[item_index]);
-				if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
+				if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW) )
 				{
 					if(item[item_index] != MenuPresConf)
 						update_menu_state(item[item_index]);

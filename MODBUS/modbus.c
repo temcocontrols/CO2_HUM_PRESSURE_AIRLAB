@@ -24,9 +24,11 @@
 #include "sht3x.h"
 #include "bsp_esp8266.h"
 #include "store.h"
+#include "define.h"
 
 extern uint8_t flag_set_wifi;
 extern uint8 isWagnerProduct;
+extern U8_T MAX_MASTER;
 
 extern uint8 update_flag;
 uint8 mhz19_cal_h = 0;
@@ -44,15 +46,15 @@ static u8 randval = 0 ;
 u8 USART_RX_BUF[USART_REC_LEN];     //接收缓冲,最大USART_REC_LEN个字节.
 u8 uart_send[USART_SEND_LEN] ;
 vu8 transmit_finished = 0 ; 
-vu8 revce_count = 0 ;
-vu8 rece_size = 0 ;
+u16 revce_count = 0 ;
+u16 rece_size = 0 ;
 vu8 serial_receive_timeout_count ;
 u8 SERIAL_RECEIVE_TIMEOUT ;
 u8 dealwithTag ;
 STR_MODBUS modbus ;
 u8 DealwithTag ;
 u16 sendbyte_num = 0 ;
-u16 uart_num = 0 ;
+//u16 uart_num = 0 ;
  u8  	Station_NUM= 12;
 //extern uint8_t Receive_Buffer_Data0[512];
 extern FIFO_BUFFER Receive_Buffer0;
@@ -65,6 +67,9 @@ u8 reply_done;
 u8 uart1_parity;
 STR_UART uart;
 
+u8 pm25_rand_offset;
+u8 pm25_rand_sign;
+
 //extern uint16 lastCO2;
 //extern int16 lastTemp, lastHumi;
 bool isFirstLineChange = false; 
@@ -74,8 +79,10 @@ uint16_t co2_frc = 0;
 
 extern uint8 sensirion_co2_cmd_ForcedCalibration[8];
 
+#if WIFITEST
 void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type) ;
 U16_T read_wifi_data_by_block(U16_T addr);
+#endif
 
 extern void watchdog(void);
 void USART1_IRQHandler(void)                	//串口1中断服务程序
@@ -86,7 +93,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 	
 	static u16 send_count = 0;
 	
-	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+//	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
 
 	
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) == SET)	//接收中断
@@ -94,7 +101,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 		  rx_icon = 2;
 			if(modbus.protocal == MODBUS)	
 			{
-					if(revce_count < USART_REC_LEN)
+					if(revce_count < 80)
 						USART_RX_BUF[revce_count++] = USART_ReceiveData(USART1);//(USART1->DR);		//读取接收到的数据
 						else
 							 serial_restart();
@@ -103,7 +110,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 							// This starts a timer that will reset communication.  If you do not
 							// receive the full packet, it insures that the next receive will be fresh.
 							// The timeout is roughly 7.5ms.  (3 ticks of the hearbeat)
-							rece_size = 250;
+							rece_size = 80;
 							serial_receive_timeout_count = SERIAL_RECEIVE_TIMEOUT;
 						}
 						else if(revce_count == 3 )
@@ -132,41 +139,29 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 								rece_size = USART_RX_BUF[6] + 9;
 								serial_receive_timeout_count = USART_RX_BUF[6] + 8;
 							}
-							else
-							{
-								rece_size = 250;
-							}
 						}
-//						else if(USART_RX_BUF[0] == 0x55 && USART_RX_BUF[1] == 0xff && USART_RX_BUF[2] == 0x01 && USART_RX_BUF[5] == 0x00 && USART_RX_BUF[6] == 0x00)
-//						{//bacnet protocal detected
-//								
-//							
-////								if(modbus.protocal != BAC_MSTP)
-////									modbus.protocal_timer_enable  = 1;
-//								
-////								iap_load_app(FLASH_APP1_ADDR);
-////								iap_load_app(STM32_FLASH_BASE);
-////								Recievebuf_Initialize(0);							
-//						}
+
 						else if(revce_count == rece_size)		
 						{
 							// full packet received - turn off serial timeout
 							if((USART_RX_BUF[0] == 0xff) || (USART_RX_BUF[0] == modbus.address))
 							{
-							serial_receive_timeout_count = 0;
-							dealwithTag = 2;		// making this number big to increase delay
-							//rx_count = 2 ;
-							uart.rx_count++;
-							
-//							for(i=0;i<rece_size;i++)
-//							{
-//								ctest[10+i] = USART_RX_BUF[i];
-//							}								
+								serial_receive_timeout_count = 20;//SERIAL_RECEIVE_TIMEOUT;
+								dealwithTag = 2;		// making this number big to increase delay
+								//rx_count = 2 ;
+								uart.rx_count++;
 								
-							if(uart.rx_count > 99) uart.rx_count = 0;
+	//							for(i=0;i<rece_size;i++)
+	//							{
+	//								ctest[10+i] = USART_RX_BUF[i];
+	//							}								
+									
+								if(uart.rx_count > 99) uart.rx_count = 0;
 							}
 							else
+							{
 								serial_restart();
+							}
 						}
 		
 			}
@@ -191,7 +186,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 //             USART_SendData(USART1, pDataByte[uart_num++]);
 //	}
 	else  if( USART_GetITStatus(USART1, USART_IT_TXE) == SET  )
-     {
+    {
         if((modbus.protocal == MODBUS )||(modbus.protocal == BAC_MSTP))
 				{
 					 USART_SendData(USART1, uart_send[send_count++] );  
@@ -209,25 +204,43 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 									if(reply_done == 0) serial_restart();
 								}
 								else
-									serial_restart(); 	
+									serial_restart(); 
 					 }  				
 		   }
-     }
+    }
 	 
-	 portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptStatus);
+//	 portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptStatus);
 }
+
+void check_TXEN(void)
+{
+	static u16 count = 0;
+	if(TXEN == SEND)
+		count++;
+	else
+		count = 0;
+	Test[19] = count;
+	if(count > 100)
+	{Test[18]++;
+		count = 0;
+		serial_restart();
+	}
+}
+
 
 void serial_restart(void)
 {
 	TXEN = RECEIVE;
 	revce_count = 0;
 	dealwithTag = 0;
+	serial_receive_timeout_count = 0;
 } 
 
 //it is ready to send data by serial port . 
 static void initSend_COM(void)
-{
+{//Test[18] = 2;
 	TXEN = SEND;
+	//serial_receive_timeout_count = 100;
 }
 
 void send_byte(u8 ch, u8 crc)
@@ -249,15 +262,15 @@ void send_byte(u8 ch, u8 crc)
 //     USART_SendData(USART1, pDataByte[uart_num++] ); 
 //	 tx_count = 20 ;
 // }
- void USART_SendDataString( u16 num )
- {
+void USART_SendDataString( u16 num )
+{
 //	 tx_count = 2 ;
-	 sendbyte_num = num;
-	 uart_num = 0 ;
-	 if(modbus.protocal == MODBUS)
-		delay_ms(reply_delay_time);
-	 USART_ITConfig(USART1, USART_IT_TXE, ENABLE);//
- }
+	sendbyte_num = num;
+//	 uart_num = 0 ;
+//	 if(modbus.protocal == MODBUS)
+//		delay_ms(reply_delay_time);
+	USART_ITConfig(USART1, USART_IT_TXE, ENABLE);//
+}
 void modbus_init(void)
 {
 	//uart1_init(19200);
@@ -470,16 +483,19 @@ void internalDeal(u8 type,  u8 *pData)
 				IP_Change = 1 ;
 				modbus.mac_enable = 0 ;
 			}
-		} 	
+		} 
+		
 		else if(StartAdd  >= MODBUS_USER_BLOCK_FIRST && StartAdd  <= MODBUS_USER_BLOCK_LAST)
 		{  
 			write_user_data_by_block(StartAdd,HeadLen,pData);
 		}
+#if WIFITEST
 		else if(StartAdd >= MODBUS_WIFI_START && StartAdd <= MODBUS_WIFI_END)
 		{
 			write_wifi_data_by_block(StartAdd,HeadLen,pData,0);
 		}	
-		if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485) || (PRODUCT_ID == STM32_PM25) || (PRODUCT_ID == STM32_CO2_NET) || (PRODUCT_ID == STM32_CO2_RS485))
+#endif
+		if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485) || (PRODUCT_ID == STM32_PM25) || (PRODUCT_ID == STM32_CO2_NET) || (PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
 		{
 			if(StartAdd  >= TSTAT_NAME1 && StartAdd <= TSTAT_NAME8)
 			{
@@ -511,11 +527,13 @@ void internalDeal(u8 type,  u8 *pData)
 	}
  	else if(pData[HeadLen + 1] == WRITE_VARIABLES)
 	{
+#if WIFITEST
 		if(StartAdd >= MODBUS_WIFI_START && StartAdd <= MODBUS_WIFI_END)
 		{			
 			write_wifi_data_by_block(StartAdd,HeadLen,pData,0);
 		}
 		else
+#endif
 		 Data_Deal(StartAdd,pData[HeadLen+4],pData[HeadLen+5]);
 	}
  		
@@ -587,11 +605,32 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		}
 		else if(StartAdd == MODBUS_PRODUCT_MODEL )
 		{
-			AT24CXX_WriteOneByte((u16)EEP_PRODUCT_MODEL, Data_L);
-			modbus.product	= Data_L ;
-			PRODUCT_ID = Data_L;
-			modbus.SNWriteflag |= 0x08;
-			AT24CXX_WriteOneByte((u16)EEP_SERIALNUMBER_WRITE_FLAG, modbus.SNWriteflag);
+			if(Data_L != modbus.product)
+			{
+				AT24CXX_WriteOneByte((u16)EEP_PRODUCT_MODEL, Data_L);
+				modbus.product	= Data_L ;
+				PRODUCT_ID = Data_L;
+				modbus.SNWriteflag |= 0x08;
+				AT24CXX_WriteOneByte((u16)EEP_SERIALNUMBER_WRITE_FLAG, modbus.SNWriteflag);
+				
+				if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
+				sprintf((char *)panelname,"%s", (char *)"CO2_NET");
+				else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
+					sprintf((char *)panelname,"%s", (char *)"Pressure");
+				else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+					sprintf((char *)panelname,"%s", (char *)"Humdity");
+				else if((PRODUCT_ID == STM32_PM25))
+					sprintf((char *)panelname,"%s", (char *)"PM2.5");
+				else if((PRODUCT_ID == STM32_CO2_NODE_NEW))
+					sprintf((char *)panelname,"%s", (char *)"CO2_NODE");
+				else 
+					sprintf((char *)panelname,"%s", (char *)"other");
+				
+				for(i=0;i<20;i++)			 
+				{
+					write_eeprom((EEP_TSTAT_NAME1 + i),panelname[i]); 
+				}
+			}
 		}
 		else if(StartAdd == MODBUS_HARDWARE_REV )
 		{
@@ -652,18 +691,21 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			modbus.update = Data_L ;
 			if (modbus.update == 0x7F)
 			{
-				Lcd_Full_Screen(0);
-				Lcd_Show_String(1, 6, 0, (uint8 *)"Updating...");
-				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
-				SoftReset();		
+//				Lcd_Full_Screen(0);
+//				delay_ms(10);
+//				Lcd_Show_String(1, 6, 0, (uint8 *)"Updating...");
+//				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+//				SoftReset();		
+				update = 1;
 			}
 			else if(Data_L == 99)
 			{
 				write_eeprom(EEP_CLEAR_EEP, 99);
-				Lcd_Full_Screen(0);
-				Lcd_Show_String(1, 6, 0, (uint8 *)"eeprom ini...");
-				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
-				SoftReset();
+//				Lcd_Full_Screen(0);
+//				Lcd_Show_String(1, 6, 0, (uint8 *)"eeprom ini...");
+//				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+//				SoftReset();
+				update = 2;
 				
 			}
 			else if((modbus.update == 0x8e)||(modbus.update == 0x8f))
@@ -739,7 +781,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					write_eeprom(EEP_EXT_TEMPERATURE_FILTER,DEFAULT_FILTER);   
 					write_eeprom(EEP_INT_TEMPERATURE_FILTER,DEFAULT_FILTER);
 
-					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
 						sprintf((char *)panelname,"%s", (char *)"CO2_NET");
 					else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) )
 						sprintf((char *)panelname,"%s", (char *)"Pressure");
@@ -819,10 +861,11 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					write_eeprom(EEP_LIGHT_K,	 light.k); 
 					write_eeprom(EEP_LIGHT_K + 1,light.k>>8); 
 					
-					Lcd_Full_Screen(0);
-					Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
-					Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
-					SoftReset();
+					update = 2;
+//					Lcd_Full_Screen(0);
+//					Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
+//					Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+//					SoftReset();
 				}
 			}
 		}
@@ -846,6 +889,14 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					update_flag = 2;
 			}
 		}
+		else if(StartAdd == MODBUS_MSTP_MAX_MASTER)
+		{
+			if(Data_L > 1)
+			{
+				MAX_MASTER = Data_L;
+				AT24CXX_WriteOneByte(EEP_MAX_MASTER,MAX_MASTER);
+			}
+		} 
 		else if(StartAdd == MODBUS_INSTANCE_LOWORD)
 		{
 			Instance &= 0xffff0000;
@@ -958,6 +1009,153 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			modbus.mac_enable = Data_L ;	
 		} 
 	}
+#if 1//defined (COLOR_SCREEN)
+	 else if(StartAdd == MODBUS_SCREEN_AREA_1)
+	 {
+		 if(Data_L<6)
+		 {
+			 screenArea1 = Data_L;
+			 switch(screenArea1)
+			 {
+				 case SCREEN_AREA_TEMP:
+					disp_icon(55, 55, TempIcon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				break;
+				
+				case SCREEN_AREA_HUMI:
+					disp_icon(55, 55, HumIcon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				break;
+				
+				case SCREEN_AREA_CO2:
+					disp_icon(55, 55, co2Icon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				break;
+				
+//				case SCREEN_AREA_NONE:
+//					
+//				break;
+			 }
+			 write_eeprom(EEP_SCREEN_AREA_1,screenArea1);
+			 isFirstLineChange = true;
+//			lastCO2 = 0;
+//			lastTemp = -100;
+//			lastHumi = -1;			 
+		 }
+	 }
+	 else if(StartAdd == MODBUS_SCREEN_AREA_2)
+	 {
+		 if(Data_L<6)
+		 {
+			 screenArea2 = Data_L;
+			 switch(screenArea2)
+			{
+				case SCREEN_AREA_TEMP:
+					disp_icon(55, 55, TempIcon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				break;
+				
+				case SCREEN_AREA_HUMI:
+					disp_icon(55, 55, HumIcon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				break;
+				
+				case SCREEN_AREA_CO2:
+					disp_icon(55, 55, co2Icon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+				break;
+			}
+			 write_eeprom(EEP_SCREEN_AREA_2,screenArea2); 
+			isSecondLineChange = true;
+//			lastCO2 = 0;
+//			lastTemp = -100;
+//			lastHumi = -1;
+		 }
+	 }
+	 else if(StartAdd == MODBUS_ENABLE_SCROLL)
+	 {
+		 if(Data_L<2)
+		 {
+			 enableScroll = Data_L;
+			 write_eeprom(EEP_ENABLE_SCROLL, enableScroll);
+			 LCDtest();
+		 }
+	 }
+	 else if(StartAdd == MODBUS_SCREEN_AREA_3)
+	 {
+		 if(Data_L<6)
+		 {
+			 screenArea3 = Data_L;
+			 write_eeprom(EEP_SCREEN_AREA_3,screenArea3); 
+			 isThirdLineChange = true;
+//			 lastCO2 = 0;
+//			lastTemp = -100;
+//			lastHumi = -1;
+		 }
+	 }
+	 
+	 else if(StartAdd == MODBUS_SCREEN_MANUAL_RESET)
+	 {
+		 if(Data_L == 1)
+			 LCDtest();
+	 }
+#endif
+	 
+// -----RTC--------------
+		else if(StartAdd == MODBUS_RTC_YEAR)
+		{
+			uint16 itemp;
+//				rtc_set_time(RTC_YEAR, TOBCD(main_data_buffer[5]));
+			itemp = ((uint16)Data_H << 8) | Data_L;
+			if((itemp > 2000)&&(itemp < 2099))
+			{
+				calendar.w_year = itemp; 
+				Time_Adjust();
+			}
+		}
+		else if(StartAdd == MODBUS_RTC_MONTH)
+		{
+//				if(Modbus.Time.Clk.century == 19)
+//				{
+//					rtc_set_time(RTC_MONTH, TOBCD(main_data_buffer[5]) | 0x80);
+//				}
+//				else if(Modbus.Time.Clk.century == 20)
+//				{
+//					rtc_set_time(RTC_MONTH, TOBCD(main_data_buffer[5]) & 0x7f);
+//				}
+			calendar.w_month = Data_L;
+			Time_Adjust();
+		}
+		else if(StartAdd == MODBUS_RTC_DAY)
+		{
+//				rtc_set_time(RTC_DATE, TOBCD(main_data_buffer[5]));
+			calendar.w_date =Data_L;
+			Time_Adjust();
+		}
+		else if(StartAdd == MODBUS_RTC_WEEK)
+		{
+//				rtc_set_time(RTC_WEEKDAY, TOBCD(main_data_buffer[5]));
+			calendar.week = Data_L;
+			Time_Adjust();
+		}
+		else if(StartAdd == MODBUS_RTC_HOUR)
+		{
+//				rtc_set_time(RTC_HOUR, TOBCD(main_data_buffer[5]));
+			calendar.hour = Data_L;
+			Time_Adjust();
+		}
+		else if(StartAdd == MODBUS_RTC_MINUTE)
+		{
+//				rtc_set_time(RTC_MINUTE, TOBCD(main_data_buffer[5]));
+			calendar.min = Data_L;
+			Time_Adjust();
+		}
+		else if(StartAdd == MODBUS_RTC_SECOND)
+		{
+//				rtc_set_time(RTC_SECOND, TOBCD(main_data_buffer[5]));
+			calendar.sec = Data_L;
+			Time_Adjust();
+		}
+		else if(StartAdd == MODBUS_IS_WAGNER_PRODUCT)
+	 {
+		 isWagnerProduct = Data_L;
+		 write_eeprom(EEP_IS_WAGNER_PRODUCT, isWagnerProduct);
+	 }
+// -----RTC--------------
 	else if((StartAdd < MODBUS_HUM_END)&&((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485)))
 	{
 		 
@@ -1267,8 +1465,8 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //						 new_write_eeprom(EEP_USER_RH1 + i*4,hum_org);			  
 //						 new_write_eeprom(EEP_USER_RH1 + i*4+1, (uint16)hum_org >> 8); 
 						
-						 new_write_eeprom(EEP_USER_RH1 + i*4,ctest[4]);			  
-  					 new_write_eeprom(EEP_USER_RH1 + i*4+1, (uint16)ctest[4] >> 8); 
+						 new_write_eeprom(EEP_USER_RH1 + i*4,Test[4]);			  
+  					 new_write_eeprom(EEP_USER_RH1 + i*4+1, (uint16)Test[4] >> 8); 
 						
 						 new_write_eeprom(EEP_USER_RH1 + i*4+2 ,Data_L);
 						 new_write_eeprom(EEP_USER_RH1 + i*4 +3,Data_H);
@@ -1365,10 +1563,10 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					default:
 					break ;				
 				}
-				Lcd_Full_Screen(0);
-				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
-				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
-				SoftReset();
+//				Lcd_Full_Screen(0);
+//				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
+//				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+//				SoftReset();
 			}
 		}
 		else if(StartAdd == MODBUS_HUM_AUTO_HEAT_CONTROL)
@@ -1733,10 +1931,11 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					default:
 					break ;				
 				}
-				Lcd_Full_Screen(0);
-				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
-				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
-				SoftReset();
+//				Lcd_Full_Screen(0);
+//				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
+//				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+//				SoftReset();
+				update = 2;
 			}
 		}
 		 
@@ -1995,6 +2194,82 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				write_eeprom(EEP_PM25_AREA,Data_L);
 			}
 		}
+		else if(StartAdd == MODBUS_PM25_RAND_OFFSET)
+		{
+			if(Data_L <= 10)
+			{
+				pm25_rand_offset = Data_L;
+				write_eeprom(EEP_PM25_RAND_OFFSET,Data_L);
+			}
+		}
+		else if(StartAdd == MODBUS_PM25_RAND_SIGN)
+		{
+			if(Data_L <= 1)
+			{
+				pm25_rand_sign = Data_L;
+				write_eeprom(EEP_PM25_RAND_SIGN,Data_L);
+			}
+		}
+//	 else if(StartAdd == MODBUS_PM25_PARITY)
+//	 {
+//		 if(Data_L<3)
+//		 {
+//				uart1_parity = Data_L;
+//				write_eeprom(EEP_UART1_PARITY, uart1_parity);
+//			 uart1_init(modbus.baudrate);
+//		 }
+//	 }
+	 	 
+//		else if(StartAdd == MODBUS_PM25_PARITY)
+//		{
+//			if((Data_L == NONE_PARITY)||( Data_L == ODD_PARITY)||( Data_L == EVEN_PARITY))
+//			{
+//				uart1_parity = Data_L; 
+//				write_eeprom(EEP_UART1_PARITY,uart1_parity);
+//				switch(modbus.baud)
+//				{
+//					case 0:
+//						modbus.baudrate = BAUDRATE_9600 ;
+//						uart1_init(BAUDRATE_9600);
+//				
+//						SERIAL_RECEIVE_TIMEOUT = 6;
+//					break ;
+//					case 1:
+//						modbus.baudrate = BAUDRATE_19200 ;
+//						uart1_init(BAUDRATE_19200);	
+//						SERIAL_RECEIVE_TIMEOUT = 3;
+//					break;
+//					case 2:
+//						modbus.baudrate = BAUDRATE_38400 ;
+//						uart1_init(BAUDRATE_38400);
+//						SERIAL_RECEIVE_TIMEOUT = 2;
+//					break;
+//					case 3:
+//						modbus.baudrate = BAUDRATE_57600 ;
+//						uart1_init(BAUDRATE_57600);	
+//						SERIAL_RECEIVE_TIMEOUT = 1;
+//					break;
+//					
+//					case 5:
+//						modbus.baudrate = BAUDRATE_76800 ;
+//						uart1_init(BAUDRATE_76800);	
+//						SERIAL_RECEIVE_TIMEOUT = 1;
+//					break;
+//					
+//					case 4:
+//						modbus.baudrate = BAUDRATE_115200 ;
+//						uart1_init(BAUDRATE_115200);	
+//						SERIAL_RECEIVE_TIMEOUT = 1;
+//					break;
+//					default:
+//					break ;				
+//				}
+//				Lcd_Full_Screen(0);
+//				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
+//				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+//				SoftReset();
+//			}
+//		}
 		else if((StartAdd >= MODBUS_AQI_FIRST_LINE)&&(StartAdd <= MODBUS_AQI_FIFTH_LINE))
 		{
 			if((((uint16)(Data_H)<<8) + Data_L)<500)
@@ -2239,71 +2514,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //					flash_write_int(FLASH_USER_PASSWORD0 + start_address - MODBUS_USER_PASSWORD0, main_data_buffer[5]);
 			}
 		}
-		else if(StartAdd == MODBUS_RTC_CENTURY)
-		{
-//				if(main_data_buffer[5] == 19)
-//				{
-//					rtc_set_time(RTC_MONTH, TOBCD(Modbus.Time.Clk.mon) | 0x80);
-//				}
-//				else if(main_data_buffer[5] == 20)
-//				{
-//					rtc_set_time(RTC_MONTH, TOBCD(Modbus.Time.Clk.mon) & 0x7f);
-//				}
-		}
-		else if(StartAdd == MODBUS_RTC_YEAR)
-		{
-			uint16 itemp;
-//				rtc_set_time(RTC_YEAR, TOBCD(main_data_buffer[5]));
-			itemp = ((uint16)Data_H << 8) | Data_L;
-			if((itemp > 2000)&&(itemp < 2099))
-			{
-				calendar.w_year = itemp; 
-				Time_Adjust();
-			}
-		}
-		else if(StartAdd == MODBUS_RTC_MONTH)
-		{
-//				if(Modbus.Time.Clk.century == 19)
-//				{
-//					rtc_set_time(RTC_MONTH, TOBCD(main_data_buffer[5]) | 0x80);
-//				}
-//				else if(Modbus.Time.Clk.century == 20)
-//				{
-//					rtc_set_time(RTC_MONTH, TOBCD(main_data_buffer[5]) & 0x7f);
-//				}
-			calendar.w_month = Data_L;
-			Time_Adjust();
-		}
-		else if(StartAdd == MODBUS_RTC_DAY)
-		{
-//				rtc_set_time(RTC_DATE, TOBCD(main_data_buffer[5]));
-			calendar.w_date =Data_L;
-			Time_Adjust();
-		}
-		else if(StartAdd == MODBUS_RTC_WEEK)
-		{
-//				rtc_set_time(RTC_WEEKDAY, TOBCD(main_data_buffer[5]));
-			calendar.week = Data_L;
-			Time_Adjust();
-		}
-		else if(StartAdd == MODBUS_RTC_HOUR)
-		{
-//				rtc_set_time(RTC_HOUR, TOBCD(main_data_buffer[5]));
-			calendar.hour = Data_L;
-			Time_Adjust();
-		}
-		else if(StartAdd == MODBUS_RTC_MINUTE)
-		{
-//				rtc_set_time(RTC_MINUTE, TOBCD(main_data_buffer[5]));
-			calendar.min = Data_L;
-			Time_Adjust();
-		}
-		else if(StartAdd == MODBUS_RTC_SECOND)
-		{
-//				rtc_set_time(RTC_SECOND, TOBCD(main_data_buffer[5]));
-			calendar.sec = Data_L;
-			Time_Adjust();
-		}
+
 		else if(StartAdd == MODBUS_ALARM_AUTO_MANUAL)
 		{
 			if(!(Data_L & ALARM_MANUAL)) // auto alarm
@@ -2422,7 +2633,6 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,backlight_keep_seconds);
 			start_back_light(backlight_keep_seconds);
 			
-			
 //				start_data_save_timer();
 //				flash_write_int(FLASH_BACKLIGHT_KEEP_SECONDS, backlight_keep_seconds);
 			
@@ -2459,15 +2669,13 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		
 		else if((StartAdd >= MODBUS_TEST1) && (StartAdd <= MODBUS_TEST20))
 		{ 				
-			ctest[StartAdd - MODBUS_TEST1] = Data_L + Data_H * 256;
+			Test[StartAdd - MODBUS_TEST1] = Data_L + Data_H * 256;
 			
 			if(StartAdd == MODBUS_TEST1)//re-initial uart1
 			{
 				write_eeprom(EEP_RESTART_NUM, Data_L);
 			}
-		} 
-		
-		
+		} 		
 		else if(StartAdd == MODBUS_INT_TEMPRATURE_FILTER) 
 		{
 			Temperature_Filter =Data_L;
@@ -2642,10 +2850,11 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					default:
 					break ;				
 				}
-				Lcd_Full_Screen(0);
-				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
-				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
-				SoftReset();
+//				Lcd_Full_Screen(0);
+//				Lcd_Show_String(1, 6, 0, (uint8 *)"Restarting...");
+//				Lcd_Show_String(2, 3, 0, (uint8 *)"Don't power off!");
+//				SoftReset();
+				update = 2;
 			}
 		}
 		else if(StartAdd == MODBUS_AUTO_HEAT_CONTROL)
@@ -2799,90 +3008,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 	 {
 	   update_flag = 6;
 	 }
-	 #if 1//defined (COLOR_SCREEN)
-	 else if(StartAdd == MODBUS_SCREEN_AREA_1)
-	 {
-		 if(Data_L<6)
-		 {
-			 screenArea1 = Data_L;
-			 switch(screenArea1)
-			 {
-				 case SCREEN_AREA_TEMP:
-					disp_icon(55, 55, sunicon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-				break;
-				
-				case SCREEN_AREA_HUMI:
-					disp_icon(55, 55, moonicon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-				break;
-				
-				case SCREEN_AREA_CO2:
-					disp_icon(55, 55, athome, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-				break;
-				
-//				case SCREEN_AREA_NONE:
-//					
-//				break;
-			 }
-			 write_eeprom(EEP_SCREEN_AREA_1,screenArea1);
-			 isFirstLineChange = true;
-//			lastCO2 = 0;
-//			lastTemp = -100;
-//			lastHumi = -1;			 
-		 }
-	 }
-	 else if(StartAdd == MODBUS_SCREEN_AREA_2)
-	 {
-		 if(Data_L<6)
-		 {
-			 screenArea2 = Data_L;
-			 switch(screenArea2)
-			{
-				case SCREEN_AREA_TEMP:
-					disp_icon(55, 55, sunicon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-				break;
-				
-				case SCREEN_AREA_HUMI:
-					disp_icon(55, 55, moonicon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-				break;
-				
-				case SCREEN_AREA_CO2:
-					disp_icon(55, 55, athome, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-				break;
-			}
-			 write_eeprom(EEP_SCREEN_AREA_2,screenArea2); 
-			isSecondLineChange = true;
-//			lastCO2 = 0;
-//			lastTemp = -100;
-//			lastHumi = -1;
-		 }
-	 }
-	 else if(StartAdd == MODBUS_ENABLE_SCROLL)
-	 {
-		 if(Data_L<2)
-		 {
-			 enableScroll = Data_L;
-			 write_eeprom(EEP_ENABLE_SCROLL, enableScroll);
-			 LCDtest();
-		 }
-	 }
-	 else if(StartAdd == MODBUS_SCREEN_AREA_3)
-	 {
-		 if(Data_L<6)
-		 {
-			 screenArea3 = Data_L;
-			 write_eeprom(EEP_SCREEN_AREA_3,screenArea3); 
-			 isThirdLineChange = true;
-//			 lastCO2 = 0;
-//			lastTemp = -100;
-//			lastHumi = -1;
-		 }
-	 }
-	 else if(StartAdd == MODBUS_SCREEN_MANUAL_RESET)
-	 {
-		 if(Data_L == 1)
-			 LCDtest();
-	 }
-	 #endif
+
 	 else if(StartAdd == CO2_FRC_VALUE)
 	 {
 		 sensirion_co2_cmd_ForcedCalibration[4] = Data_H;	
@@ -2890,20 +3016,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			scd30_co2_cmd_status = SCD30_SET_FRC; 
 		 co2_frc = (uint16)(sensirion_co2_cmd_ForcedCalibration[4]<<8 )|sensirion_co2_cmd_ForcedCalibration[5];
 	 }
-	  else if(StartAdd == MODBUS_IS_WAGNER_PRODUCT)
-	 {
-		 isWagnerProduct = Data_L;
-		 write_eeprom(EEP_IS_WAGNER_PRODUCT, isWagnerProduct);
-	 }
-	 else if(StartAdd == MODBUS_WAGNER_EVEN)
-	 {
-		 if(Data_L<3)
-		 {
-				uart1_parity = Data_L;
-				write_eeprom(EEP_UART1_PARITY, uart1_parity);
-			 uart1_init(modbus.baudrate);
-		 }
-	 }
+	 
 			
 			
 		
@@ -2947,10 +3060,10 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			write_eeprom(EEP_OUTPUT_CO2_CUR_OFFSET + 1,Data_H);	
 		} 
 		
-		else if(StartAdd == MODBUS_TEST4)
-		{
-		  ctest[4] = ((uint16)Data_H << 8) | Data_L; 
-		}
+//		else if(StartAdd == MODBUS_TEST4)
+//		{
+//		  Test[4] = ((uint16)Data_H << 8) | Data_L; 
+//		}
 		
 
 	} 
@@ -3005,6 +3118,7 @@ void responseCmd(u8 type, u8* pData)
 				
 
 			}
+//			uart1_init(modbus.baudrate);
 			memcpy(uart_send, sendbuf, send_cout);
 			USART_SendDataString(send_cout);		
 		}
@@ -3022,13 +3136,14 @@ void responseCmd(u8 type, u8* pData)
 			{
 				sendbuf[HeadLen + i] = pData[HeadLen + i];	
 			}
-			
+#if WIFITEST			
 			if(type == WIFI)
 			{
 				memcpy(modbus_wifi_buf, sendbuf, 6+ HeadLen);
 				modbus_wifi_len = 6 + HeadLen;
 			}
 			else
+#endif
 			{
 				memcpy(tcp_server_sendbuf,sendbuf,6+ HeadLen);
 				tcp_server_sendlen = 6 + HeadLen;
@@ -3057,6 +3172,7 @@ void responseCmd(u8 type, u8* pData)
 			sendbuf[HeadLen+i] = CRChi ;
 			sendbuf[HeadLen+i+1] = CRClo ;
 			memcpy(uart_send, sendbuf, 8);
+//			uart1_init(modbus.baudrate);
 			USART_SendDataString(8);
 		}
 		else
@@ -3071,12 +3187,14 @@ void responseCmd(u8 type, u8* pData)
 				{
 					sendbuf[HeadLen + i] = pData[HeadLen + i];	
 				}
+#if WIFITEST
 				if(type == WIFI)
 				{
 					memcpy(modbus_wifi_buf, sendbuf, 6+ HeadLen);
 					modbus_wifi_len = 6 + HeadLen;
 				}
 				else
+#endif
 				{
 					memcpy(tcp_server_sendbuf,sendbuf,	6 + HeadLen);
 					tcp_server_sendlen = 6 + HeadLen;
@@ -3176,7 +3294,7 @@ void responseCmd(u8 type, u8* pData)
 				else if(address == MODBUS_SENSOR_TYPE)
 				{ 
 					temp1 = 0 ;
-					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)) 
+					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW)) 
 						temp2 =  SENSOR_TYPE1;
 					else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) ) 
 						temp2 =  SENSOR_TYPE2;
@@ -3236,6 +3354,15 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
+				else if(address == MODBUS_MSTP_MAX_MASTER)
+				{
+					temp1 = 0 ;
+					temp2 =  MAX_MASTER;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				} 
 				else if(address == MODBUS_INSTANCE_LOWORD)
 				{   
 					temp1 = Instance>>8 ;
@@ -3425,11 +3552,139 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp2);
 				}
 			} 
+			
+			
+	//			else if(i + address == MODBUS_RTC_CENTURY)
+	//			{
+	//				main_send_byte(0, TRUE);
+	//				main_send_byte(Modbus.Time.Clk.century, TRUE);
+	//			}
+#if 1//defined (COLOR_SCREEN)
+				else if(address == MODBUS_SCREEN_AREA_1)
+				{
+					temp1 = 0;
+					temp2 = screenArea1;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SCREEN_AREA_2)
+				{
+					temp1 = 0;
+					temp2 = screenArea2;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_SCREEN_AREA_3)
+				{
+					temp1 = 0;
+					temp2 = screenArea3;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_ENABLE_SCROLL)
+				{
+					temp1 = 0;
+					temp2 = enableScroll;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_ALARM_ENABLE)
+				{
+					temp1 = 0;
+					temp2 = alarmEnable;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+#endif
+#if 1 // rtc
+				else if(address == MODBUS_RTC_YEAR)
+				{
+					temp1= HIGH_BYTE(calendar.w_year);
+					temp2= LOW_BYTE(calendar.w_year);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address== MODBUS_RTC_MONTH)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.w_month);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address== MODBUS_RTC_DAY)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.w_date);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RTC_WEEK)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.week);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RTC_HOUR)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.hour);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RTC_MINUTE)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.min);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_RTC_SECOND)
+				{
+					temp1= 0;
+					temp2= LOW_BYTE(calendar.sec);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+#endif
 			else if((address >= MODBUS_TEST1)&&(address <= MODBUS_TEST20))
 			{ 				
-				temp1 = ((int16)ctest[address - MODBUS_TEST1]) >> 8 ;
-				temp2 = ((int16)ctest[address - MODBUS_TEST1]) & 0xff;
+				temp1 = ((int16)Test[address - MODBUS_TEST1]) >> 8 ;
+				temp2 = ((int16)Test[address - MODBUS_TEST1]) & 0xff;
 				
+				sendbuf[send_cout++] = temp1 ;
+				sendbuf[send_cout++] = temp2 ;
+				crc16_byte(temp1);
+				crc16_byte(temp2);
+			}
+			else if(address == MODBUS_IS_WAGNER_PRODUCT)
+			{
+				temp1 = 0;
+				temp2 = isWagnerProduct;
 				sendbuf[send_cout++] = temp1 ;
 				sendbuf[send_cout++] = temp2 ;
 				crc16_byte(temp1);
@@ -3450,12 +3705,13 @@ void responseCmd(u8 type, u8* pData)
 				crc16_byte(temp1);
 				crc16_byte(temp2);
 			} 
-			//--------------------wifi start -----------------
+
+#if WIFITEST
+//--------------------wifi start -----------------
 				else if(address >= MODBUS_WIFI_START && address <= MODBUS_WIFI_END)
 				{
 					U16_T  temp;
 					temp = read_wifi_data_by_block(address);
-					ctest[3]++;
 					temp1 = (temp >> 8) & 0xFF;
 					temp2 = temp & 0xFF;
 					sendbuf[send_cout++] = temp1 ;
@@ -3463,7 +3719,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
-				
+#endif				
 // ------------------wifi end --------------------
 /*******************************after register 100****************************************************/				
 			else if((address < MODBUS_HUM_END )&&((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485)))
@@ -4931,8 +5187,7 @@ void responseCmd(u8 type, u8* pData)
 					sendbuf[send_cout++] = temp2 ;
 					crc16_byte(temp1);
 					crc16_byte(temp2);
-				}
-				
+				}				
 				else if(address == MODBUS_PM25_WEIGHT_1_0)
 				{
 					temp1 = pm25_weight_10 >> 8 ;
@@ -4951,7 +5206,6 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);				
 				}
-
 				else if(address == MODBUS_PM25_WEIGHT_4_0)
 				{
 					temp1 = pm25_weight_40 >> 8 ;
@@ -5038,6 +5292,24 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
+				else if(address == MODBUS_PM25_RAND_OFFSET)
+				{
+					temp1 = 0;
+					temp2 = pm25_rand_offset;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_PM25_RAND_SIGN)
+				{
+					temp1 = 0;
+					temp2 = pm25_rand_sign;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
 				
 				else if((address >= TSTAT_NAME1) && (address <= TSTAT_NAME10))  
 				{
@@ -5048,8 +5320,18 @@ void responseCmd(u8 type, u8* pData)
 					sendbuf[send_cout++] = temp2 ;
 					crc16_byte(temp1);
 					crc16_byte(temp2);
-				}
-				else
+				}				
+				
+//				else if(address == MODBUS_PM25_PARITY)
+//				{
+//					temp1 = 0;
+//					temp2 = uart1_parity;
+//					sendbuf[send_cout++] = temp1 ;
+//					sendbuf[send_cout++] = temp2 ;
+//					crc16_byte(temp1);
+//					crc16_byte(temp2);
+//				}
+				else					
 				{
 					temp1 =0 ;
 					temp2 = 0;
@@ -5199,42 +5481,6 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
-//				else if((address >= MODBUS_CO2_EXTERNAL_START) && ( address < MODBUS_CO2_EXTERANL_END))
-//				{ 
-//					temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_START].co2_int) ;
-//					temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_START].co2_int) ;
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if((address >= MODBUS_CO2_EXTERNAL_OFFSET_START) && (address < MODBUS_CO2_EXTERNAL_OFFSET_END))
-//				{ 
-//					temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_OFFSET_START].co2_offset);
-//					temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_OFFSET_START].co2_offset);
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if((address >= MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START) && (address < MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_END))
-//				{ 
-//					temp1= HIGH_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START].pre_alarm_setpoint) ;
-//					temp2= LOW_BYTE(ext_co2_str[address - MODBUS_CO2_EXTERNAL_PREALARM_SETPOINT_START].pre_alarm_setpoint);
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if((address >= MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START) && (i + address < MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_END))
-//				{ 
-//					temp1= HIGH_BYTE(ext_co2_str[i + address - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START].alarm_setpoint);
-//					temp2= LOW_BYTE(ext_co2_str[i + address - MODBUS_CO2_EXTERNAL_ALARM_SETPOINT_START].alarm_setpoint);
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
 				else if(address == MODBUS_CO2_SLOPE_DETECT_VALUE)
 				{ 
 					temp1= HIGH_BYTE(co2_slope_detect_value);
@@ -5266,74 +5512,6 @@ void responseCmd(u8 type, u8* pData)
 				{
 					temp1= 0;
 					temp2= user_password[address - MODBUS_USER_PASSWORD0];
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-	//			else if(i + address == MODBUS_RTC_CENTURY)
-	//			{
-	//				main_send_byte(0, TRUE);
-	//				main_send_byte(Modbus.Time.Clk.century, TRUE);
-	//			}
-				else if(address == MODBUS_RTC_YEAR)
-				{
-					temp1= HIGH_BYTE(calendar.w_year);
-					temp2= LOW_BYTE(calendar.w_year);
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address== MODBUS_RTC_MONTH)
-				{
-					temp1= 0;
-					temp2= LOW_BYTE(calendar.w_month);
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address== MODBUS_RTC_DAY)
-				{
-					temp1= 0;
-					temp2= LOW_BYTE(calendar.w_date);
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_RTC_WEEK)
-				{
-					temp1= 0;
-					temp2= LOW_BYTE(calendar.week);
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_RTC_HOUR)
-				{
-					temp1= 0;
-					temp2= LOW_BYTE(calendar.hour);
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_RTC_MINUTE)
-				{
-					temp1= 0;
-					temp2= LOW_BYTE(calendar.min);
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_RTC_SECOND)
-				{
-					temp1= 0;
-					temp2= LOW_BYTE(calendar.sec);
 					sendbuf[send_cout++] = temp1 ;
 					sendbuf[send_cout++] = temp2 ;
 					crc16_byte(temp1);
@@ -5488,91 +5666,6 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
-//				else if(address == MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY)
-//				{ 
-//					temp1= 0 ;
-//					temp2= external_nodes_plug_and_play ;
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if(address == MODBUS_SCAN_DB_CTR)
-//				{ 
-//					temp1= 0 ;
-//					temp2= db_ctr;
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if(address == MODBUS_RESET_SCAN_DB)
-//				{ 
-//					temp1= 0;
-//					temp2= reset_scan_db_flag;
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if((address >= MODBUS_SCAN_START) && (address < MODBUS_SCAN_END))
-//				{
-//					uint8 A, B;
-//					A = (i + address - MODBUS_SCAN_START) / SCAN_DB_SIZE;
-//					B = (i + address - MODBUS_SCAN_START) % SCAN_DB_SIZE;
-//					temp1 = 0;
-//					switch(B)
-//					{
-//						case 0:
-//							temp2 = scan_db[A].id ;  
-//							break;
-//						case 1:
-//							temp2 = (uint8)(scan_db[A].sn >> 0) ;
-//							break;
-//						case 2:
-//							temp2 = (uint8)(scan_db[A].sn >> 8) ;
-//							break;
-//						case 3:
-//							temp2 = (uint8)(scan_db[A].sn >> 16);
-//							break;
-//						case 4:
-//							temp2 = (uint8)(scan_db[A].sn >> 24);
-//							break;
-//					} 
-//					
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if((address >= MODBUS_GET_NODES_PARA_START) && (address < MODBUS_GET_NODES_PARA_END))
-//				{ 
-//					temp1= 0;
-//					temp2= get_para[i + address - MODBUS_GET_NODES_PARA_START] ;
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if((address >= MODBUS_SCAN_OCCUPY_START) && (address < MODBUS_SCAN_OCCUPY_END))
-//				{ 
-//					temp1= 0;
-//					temp2= db_occupy[i + address - MODBUS_SCAN_OCCUPY_START] ;
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-//				else if((address >= MODBUS_SCAN_ONLINE_START) && (address < MODBUS_SCAN_ONLINE_END))
-//				{ 
-//					temp1= 0;
-//					temp2= db_online[i + address - MODBUS_SCAN_ONLINE_START];
-//					sendbuf[send_cout++] = temp1 ;
-//					sendbuf[send_cout++] = temp2 ;
-//					crc16_byte(temp1);
-//					crc16_byte(temp2);
-//				}
-				
 				else if(address == MODBUS_INT_TEMPRATURE_FILTER) 
 				{
 					temp1= 0;
@@ -6077,53 +6170,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
-				#if 1//defined (COLOR_SCREEN)
-				else if(address == MODBUS_SCREEN_AREA_1)
-				{
-					temp1 = 0;
-					temp2 = screenArea1;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_SCREEN_AREA_2)
-				{
-					temp1 = 0;
-					temp2 = screenArea2;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_SCREEN_AREA_3)
-				{
-					temp1 = 0;
-					temp2 = screenArea3;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_ENABLE_SCROLL)
-				{
-					temp1 = 0;
-					temp2 = enableScroll;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_ALARM_ENABLE)
-				{
-					temp1 = 0;
-					temp2 = alarmEnable;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				#endif
+				
 				else if(address == CO2_FRC_GET)
 				{
 					temp1 = co2_asc>>8;
@@ -6142,24 +6189,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
-				else if(address == MODBUS_IS_WAGNER_PRODUCT)
-				{
-					temp1 = 0;
-					temp2 = isWagnerProduct;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
-				else if(address == MODBUS_WAGNER_EVEN)
-				{
-					temp1 = 0;
-					temp2 = uart1_parity;
-					sendbuf[send_cout++] = temp1 ;
-					sendbuf[send_cout++] = temp2 ;
-					crc16_byte(temp1);
-					crc16_byte(temp2);
-				}
+				
 				
 	//---------------------end pid ------------------------			
 				
@@ -6238,7 +6268,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp2);
 				}
 				else if(address == MODBUS_OUTPUT_HUM_VOL_OFFSET)
-				{ 	
+				{ 
 					temp1= output_offset[0][CHANNEL_HUM] >> 8;
 					temp2= output_offset[0][CHANNEL_HUM];
 					sendbuf[send_cout++] = temp1 ;
@@ -6326,6 +6356,7 @@ void responseCmd(u8 type, u8* pData)
 		}
 		else	if(type == 0)
 		{
+//			uart1_init(modbus.baudrate);
 			memcpy(uart_send, sendbuf, send_cout);
 			USART_SendDataString(send_cout);
 		}
@@ -6337,12 +6368,14 @@ void responseCmd(u8 type, u8* pData)
 				sendbuf[3] = 0 ;
 				sendbuf[4] = (3 + RegNum * 2) >> 8; 
 				sendbuf[5] =(u8)(3 + RegNum * 2) ;
+#if WIFITEST
 			  if(type == WIFI)
 				{
 					memcpy(modbus_wifi_buf,sendbuf,RegNum * 2 + 3 + HeadLen);
 					modbus_wifi_len = RegNum * 2 + 3 + HeadLen;
 				}
 				else
+#endif
 				{
 					memcpy(tcp_server_sendbuf,sendbuf,RegNum * 2 + 3 + HeadLen);
 					tcp_server_sendlen = RegNum * 2 + 3 + HeadLen;
@@ -6392,6 +6425,7 @@ void responseCmd(u8 type, u8* pData)
 			uart_send[send_cout++] = temp2 ;
 			temp2 =  CRClo; 
 			uart_send[send_cout++] = temp2 ;
+//			uart1_init(modbus.baudrate);
 			USART_SendDataString(send_cout);
 	}
 }
@@ -6567,7 +6601,7 @@ void stack_detect(u16 *p)
 	*p = uxTaskGetStackHighWaterMark(NULL); 
 }
 
-
+#if WIFITEST
 void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type) 
 {
 	U8_T far i,j;
@@ -6748,4 +6782,5 @@ U16_T read_wifi_data_by_block(U16_T addr)
 		return 0;
 	
 }
+#endif
 

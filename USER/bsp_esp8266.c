@@ -12,6 +12,8 @@
 //#include "eepdefine.h"
 #include "store.h"
 
+
+#if WIFITEST
 //WIFI_STR AQ;
 extern STR_MODBUS modbus;
 //STR_SCAN_CMD Infor[20];
@@ -865,8 +867,14 @@ char Get_SSID_RSSI(void)
 	
 	if ( pCh )
 		pCh += 12;
-	else
-		return 0;
+	else	{
+		// 因为发送错导致无法收到“busy s...“ 要排除这种错位
+		pCh = strstr ( strEsp8266_Fram_Record .Data_RX_BUF, "busy" );
+		if( pCh ) 
+			return 2;
+		else 
+			return 0;
+	}
 	
 	for ( uc = 0; uc < 60; uc ++ )
 	{
@@ -1510,3 +1518,6 @@ bool ESP8266_CWDHCP_DEF (void)
 	return ESP8266_Cmd (cCmd, "OK",0, 4000 );
 	
 }
+
+#endif
+

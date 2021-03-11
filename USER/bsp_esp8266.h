@@ -97,7 +97,13 @@ typedef enum
 
 #define UCID_BACNET 0
 #define UCID_SCAN 1
+
+#define SERIAL  0
+#define TCP		1
+#define BAC_TO_MODBUS 4
 #define WIFI  5
+
+
 #define UIP_HEAD 6
 
 #define HTONS(n) (uint16_t)((((uint16_t) (n)) << 8) | (((uint16_t) (n)) >> 8))
