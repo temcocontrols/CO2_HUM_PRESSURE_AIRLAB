@@ -34,7 +34,7 @@ extern bool isSecondLineChange ;
 extern bool isThirdLineChange ;
 
 extern void get_data_format(u8 loc,float num,char *s);
-extern uint8 light_sensor;
+
 //u8 global_key = KEY_NON;
 
 static void debug_config(void)
@@ -43,7 +43,7 @@ static void debug_config(void)
 	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);
 }
 U8_T MAX_MASTER;
-U8_T data_backup_rev;
+
 int main(void)
 {
 	uint8 rtc_state = 0, rtc_state1 = 1;
@@ -124,10 +124,9 @@ int main(void)
 //		AT24CXX_WriteOneByte(i, 0xff);
 //	
 //	EEP_Dat_Init();
-	//if(isColorScreen == false)
+	if(isColorScreen == false)
 		start_back_light(backlight_keep_seconds);
-	
-	
+
 //	print("EEP Init Done!\r\n");
    	
  	mass_flash_init();
@@ -225,7 +224,7 @@ int main(void)
 		xTaskCreate( vNETTask, ( signed portCHAR * ) "NET",  configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 1 , NULL );
   
   xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE + 512  , NULL, tskIDLE_PRIORITY + 6, NULL );
- 	xTaskCreate( vCOMMTask, ( signed portCHAR * ) "COMM", configMINIMAL_STACK_SIZE + 512, NULL, tskIDLE_PRIORITY + 7, NULL );
+ 	xTaskCreate( vCOMMTask, ( signed portCHAR * ) "COMM", configMINIMAL_STACK_SIZE + 128, NULL, tskIDLE_PRIORITY + 7, NULL );
 
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW) )
 	{
@@ -247,12 +246,12 @@ int main(void)
  
  	xTaskCreate( vFlashTask, ( signed portCHAR * ) "FLASH", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, NULL );
   
-  xTaskCreate( vOutPutTask	,( signed portCHAR * ) "OutPut" , configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
+   xTaskCreate( vOutPutTask	,( signed portCHAR * ) "OutPut" , configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
  
-  xTaskCreate( vKEYTask, ( signed portCHAR * ) "KEY", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
+   xTaskCreate( vKEYTask, ( signed portCHAR * ) "KEY", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 4, NULL );
 	//#if defined (COLOR_SCREEN)
 	if(isColorScreen == true)
-		xTaskCreate( vLCDtask, ( signed portCHAR * ) "LCD", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, NULL );
+   xTaskCreate( vLCDtask, ( signed portCHAR * ) "LCD", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, NULL );
 	//#endif
 #if WIFITEST
 	xTaskCreate( vWifitask, ( signed portCHAR * ) "Wifitask", configMINIMAL_STACK_SIZE+1024, NULL, tskIDLE_PRIORITY + 5, NULL );
@@ -303,14 +302,6 @@ void vLCDtask(void *pvParameters)
 				Lcd_Full_Screen(0);
 			}
 			
-			if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
-			{
-				if(light_sensor == 1)
-				{
-					screenArea3 = SCREEN_AREA_LIGHT;
-					isThirdLineChange = 1;
-				}
-			}
 			switch(screenArea1)
 			{
 				case SCREEN_AREA_TEMP:					
@@ -383,7 +374,7 @@ void vLCDtask(void *pvParameters)
 							if(Run_Timer>FIRST_TIME)
 								lastCO2 = var[CHANNEL_CO2].value;
 						}
-					}					
+					}
 					break;
 				case SCREEN_AREA_PM25:
 					if(PRODUCT_ID == STM32_PM25)
@@ -584,23 +575,6 @@ void vLCDtask(void *pvParameters)
 				case SCREEN_AREA_PM10:
 					Top_area_display(TOP_AREA_DISP_ITEM_LINE3, pm25_weight_100, TOP_AREA_DISP_UNIT_C);
 					break;
-				case SCREEN_AREA_LIGHT:
-					if(isThirdLineChange)
-					{						
-//						for(i=0;i<12;i++)
-//						{
-//							disp_ch(FORM15X30, 33+CO2_POS,0+20*i,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-//						}
-//						if(!enableScroll)
-							disp_icon(55, 55, LightIcon, 170, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-						Top_area_display(TOP_AREA_DISP_ITEM_LINE3, light.val, TOP_AREA_DISP_UNIT_C);
-						
-						isThirdLineChange = false;
-					}
-					
-					//Top_area_display(TOP_AREA_DISP_ITEM_LINE3,  light.val, TOP_AREA_DISP_UNIT_C);
-
-					break;
 				default:
 					break;
 			}				
@@ -632,7 +606,6 @@ void vCOMMTask(void *pvParameters )
 	
 	for( ;; )
 	{		
-
 		if(dealwithTag)
 		{  
 		  dealwithTag--;
@@ -1440,12 +1413,7 @@ void EEP_Dat_Init(void)
 //	if((menu_block_seconds == 0) || (menu_block_seconds == 0xff))
 //		menu_block_seconds = MENU_BLOCK_SECONDS_DEFAULT;
 //	refresh_menu_block_timer();
-	data_backup_rev = read_eeprom(EEP_DATA_BACKUP);
-	if(data_backup_rev == 255 || data_backup_rev == 0)
-	{
-		write_eeprom(EEP_DATA_BACKUP,1);
-		write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,255);
-	}
+
 	backlight_keep_seconds = read_eeprom(EEP_BACKLIGHT_KEEP_SECONDS);
 //	if(backlight_keep_seconds == 0xff)
 //		backlight_keep_seconds = BACKLIGHT_KEEP_SECONDS_DEFAULT;
@@ -1568,9 +1536,7 @@ void EEP_Dat_Init(void)
 		else if((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
 				screenArea3 = SCREEN_AREA_PRESSURE;
 		else if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
-		{
 			screenArea3 = SCREEN_AREA_NONE;
-		}
 				
 		
 		enableScroll = read_eeprom(EEP_ENABLE_SCROLL);
@@ -1600,7 +1566,6 @@ void EEP_Dat_Init(void)
 			write_eeprom(EEP_ENABLE_ALARM, alarmEnable);
 		}
 	}
-	
 //	pm25_sensor.pm25_range = read_eeprom(EEP_PM25_RANGE);
 //	if(pm25_sensor.pm25_range > PM25_0_1000)
 //	{

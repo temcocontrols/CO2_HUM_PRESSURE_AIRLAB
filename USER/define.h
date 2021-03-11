@@ -69,9 +69,9 @@ typedef enum{
 #define READ_WRITE_PROPERTY 1
 
 
-#define SOFTREV    66
+#define SOFTREV    64
  
-#define WIFITEST 1
+#define WIFITEST 0
 
 #define DEFAULT_FILTER  5 
 #define T38AI8AO6DO   	44
