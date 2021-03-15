@@ -29,8 +29,8 @@ extern bool isColorScreen;
 
 
 #define LCD_BL		PEout(10)
-#define BL_ON()		(LCD_BL = 0)
-#define BL_OFF()	(LCD_BL = 1)
+#define BL_ON()		(LCD_BL = 1)
+#define BL_OFF()	(LCD_BL = 0)
 
 #define LCD_SCL		PEout(14)
 #define LCD_SDA		PEout(15)

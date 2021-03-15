@@ -1258,7 +1258,7 @@ signed portBASE_TYPE xAlreadyYielded = pdFALSE;
 
 portTickType xTaskGetTickCount( void )
 {
-portTickType xTicks;
+	portTickType xTicks;
 
 	/* Critical section required if running on a 16 bit processor. */
 	taskENTER_CRITICAL();
