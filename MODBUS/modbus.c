@@ -38,6 +38,7 @@ uint8 mhz19_cal_l = 0;
 uint8 rx_icon = 0;
 uint8 tx_icon = 0;
 
+extern U8_T cpu_type;
 void co2_reset(void);
 
 void Timer_Silence_Reset(void);
@@ -776,7 +777,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					write_eeprom(EEP_USER_PASSWORD3, user_password[3]);	
 					
 					
-//					write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,BACKLIGHT_KEEP_SECONDS_DEFAULT);  
+					write_eeprom(EEP_BACKLIGHT_KEEP_SECONDS,BACKLIGHT_KEEP_SECONDS_DEFAULT);  
 					write_eeprom(EEP_HUMIDITY_FILTER,DEFAULT_FILTER);   
 					write_eeprom(EEP_EXT_TEMPERATURE_FILTER,DEFAULT_FILTER);   
 					write_eeprom(EEP_INT_TEMPERATURE_FILTER,DEFAULT_FILTER);
@@ -3685,6 +3686,15 @@ void responseCmd(u8 type, u8* pData)
 			{
 				temp1 = 0;
 				temp2 = isWagnerProduct;
+				sendbuf[send_cout++] = temp1 ;
+				sendbuf[send_cout++] = temp2 ;
+				crc16_byte(temp1);
+				crc16_byte(temp2);
+			}
+			else if(address == MODBUS_CPU_TYPE)
+			{
+				temp1 = 0;
+				temp2 = cpu_type;
 				sendbuf[send_cout++] = temp1 ;
 				sendbuf[send_cout++] = temp2 ;
 				crc16_byte(temp1);

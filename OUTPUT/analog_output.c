@@ -296,16 +296,14 @@ void refresh_output(void)
 	else if(PRODUCT_ID == STM32_PM25) 
 	{
 		if(pm25_sensor.auto_manual&0x01)
-		{Test[1]++;
-			Test[2] = pm25_sensor.pm25;
+		{
 			if(pm25_sensor.pm25_range == PM25_0_100)
 				Set_analog_output(output_mode, CHANNEL_HUM,	pm25_sensor.pm25);
 			else if(pm25_sensor.pm25_range == PM25_0_1000)
 				Set_analog_output(output_mode, CHANNEL_HUM,	pm25_sensor.pm25 / 10);
 		}
 		else
-		{Test[3]++;
-			Test[4] = pm25_weight_25;
+		{
 			if(pm25_sensor.pm25_range == PM25_0_100)
 				Set_analog_output(output_mode, CHANNEL_HUM,	pm25_weight_25 * 10);
 			else if(pm25_sensor.pm25_range == PM25_0_1000)

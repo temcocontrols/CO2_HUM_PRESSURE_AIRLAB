@@ -29,8 +29,8 @@ extern bool isColorScreen;
 
 
 #define LCD_BL		PEout(10)
-#define BL_ON()		(LCD_BL = 0)
-#define BL_OFF()	(LCD_BL = 1)
+#define BL_ON()		(LCD_BL = 1)
+#define BL_OFF()	(LCD_BL = 0)
 
 #define LCD_SCL		PEout(14)
 #define LCD_SDA		PEout(15)
@@ -185,6 +185,7 @@ extern uint16 const co2Icon[];
 extern uint16 const pm25icon[];
 extern uint16 const TempIcon[];
 extern uint16 const HumIcon[];
+extern uint16 const LightIcon[];
 //extern uint16 const heaticon[]; 
 //extern uint16 const coolicon[];
 extern uint16 const aqiicon[];
@@ -332,6 +333,7 @@ extern void display_pm25( int16 value);
 #define SCREEN_AREA_PRESSURE	5
 #define SCREEN_AREA_PM10	6
 #define SCREEN_AREA_AQI   7
+#define SCREEN_AREA_LIGHT 8
 
 //extern uint8 const   AQI_LEVEL[6][15];
 //extern struct _CURSOR_ cursor;
