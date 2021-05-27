@@ -33,7 +33,7 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 	U8_T buf;
 	
 	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
-	
+
 	cTaskWokenByPost = FALSE;
 	if(USART_GetITStatus(USART2, USART_IT_RXNE) == SET)	//接收中断
 	{ 
@@ -158,10 +158,11 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 		 }
 		 else
 		 { 
-//			 
- 			 while(USART_GetFlagStatus(USART2, USART_FLAG_TC) != SET){;}//等待所有数据发送完成
-//			 USART_ClearFlag(USART2, USART_FLAG_TC);
-  			 USART_ITConfig(USART2, USART_IT_TXE, DISABLE); 
+				uint16 count;
+			 count = 0;
+ 			 while((USART_GetFlagStatus(USART2, USART_FLAG_TC) != SET) && (count++ < 100)){delay_us(1);}//等待所有数据发送完成
+			 USART_ClearFlag(USART2, USART_FLAG_TC);
+  		 USART_ITConfig(USART2, USART_IT_TXE, DISABLE); 
  			 co2_uart_send_count = 0 ;   
  		 }
 	}

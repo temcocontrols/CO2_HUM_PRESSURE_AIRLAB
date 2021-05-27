@@ -596,7 +596,7 @@ void PM25_task(void *pvParameters)
 //		}
 //		 
 //		timer_counter++;
-		update_message_context();
+		//update_message_context();
 		vTaskDelay(xDelayPeriod);
 	}
 }

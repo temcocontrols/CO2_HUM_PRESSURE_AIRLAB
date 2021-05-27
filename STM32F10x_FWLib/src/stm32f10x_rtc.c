@@ -206,18 +206,20 @@ uint32_t RTC_GetDivider(void)
   * @param  None
   * @retval None
   */
+extern u16  Test[50];
 u8 RTC_WaitForLastTask(void)
 {
 	u16 temp=0;
   /* Loop until RTOFF flag is set */
+	temp=0;
   while ((RTC->CRL & RTC_FLAG_RTOFF) == (uint16_t)RESET)
   {
 		temp++;
 		//delay_ms(100);
-		//watchdog();
 		if(temp>=300)
 			return 1;
   }
+	Test[5] = temp+5;
 	return 0;
 }
 

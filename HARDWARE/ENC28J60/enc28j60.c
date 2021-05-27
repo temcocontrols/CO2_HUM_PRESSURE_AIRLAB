@@ -6,7 +6,7 @@
 
 static u8 ENC28J60BANK;
 static u32 NextPacketPtr;
-
+u8 tapdev_init(void);
 //复位ENC28J60
 //包括SPI初始化/IO初始化等
 void ENC28J60_Reset(void)
@@ -403,7 +403,12 @@ void ENC28J60_Packet_Send(u32 len, u8* packet)
 	ENC28J60_Write_Op(ENC28J60_BIT_FIELD_SET, ECON1, ECON1_TXRTS);
 	//复位发送逻辑的问题。参见Rev. B4 Silicon Errata point 12.
 	if((ENC28J60_Read(EIR) & EIR_TXERIF))
+	{
 		ENC28J60_Write_Op(ENC28J60_BIT_FIELD_CLR, ECON1, ECON1_TXRTS);
+		// added by chelsea
+	  // hardware error		
+		tapdev_init();
+	}
 }
 
 //从网络获取一个数据包内容
@@ -433,12 +438,21 @@ u32 ENC28J60_Packet_Receive(u32 maxlen, u8* packet)
 	rxstat |= ENC28J60_Read_Op(ENC28J60_READ_BUF_MEM, 0) << 8;
 	//限制接收长度	
 	if (len > maxlen - 1)
+	{	
+		// hardware error		
+		tapdev_init();
 		len = maxlen - 1;
-	
+		return 0;
+	}
 	//检查CRC和符号错误
 	// ERXFCON.CRCEN为默认设置,一般我们不需要检查.
 	if((rxstat & 0x80) == 0)
+	{	
+		// hardware error		
+		tapdev_init();
 		len = 0;	//无效
+		return 0;
+	}
 	else
 		ENC28J60_Read_Buf(len, packet);//从接收缓冲器中复制数据包	    
 	

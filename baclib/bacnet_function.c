@@ -590,6 +590,24 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 					case STM32_PM25:
 						if(i == 0)		ftemp = (float)pm25_weight_25;//pm25_sensor.pm25/10;
 						else if(i == 1)	ftemp =(float)pm25_weight_100;//pm25_sensor.pm10/10;
+					
+// spring add START 
+				if(i == 2)	
+						{
+							
+					ftemp = (float)HumSensor.temperature_c/10;
+				
+						}	
+						else if(i == 3)	
+							ftemp = (float)HumSensor.temperature_f/10;
+						else if(i == 4)	
+							ftemp = (float)HumSensor.humidity/10;	
+
+// spring add END
+
+
+						
+						
 						break;
 					case STM32_CO2_NET:		
 					case STM32_CO2_RS485:
@@ -617,6 +635,7 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 						}	
 						else if(i == 1)	
 							ftemp = (float)HumSensor.humidity/10;
+						break;
 					case STM32_PRESSURE_NET: //			214
 					case STM32_PRESSURE_RS485://		215
 						if(i == 0)	
@@ -1064,10 +1083,22 @@ char* get_label(uint8_t type,uint8_t num)
 				 }
 				 else if(PRODUCT_ID == STM32_PM25) 
 				 {
-					 if(num == 0)
+					
+					 	if(num == 0)
 						 return "PM2.5";
 					 else if(num == 1)
 						 return "PM10";
+					 else if(num == 2)
+						 
+						 // spring add start 
+						 return "Temperature_C";
+					 else if(num == 3)
+						 return "Temperature_F";
+					  else if(num == 4)
+						 return "Humidity";
+						// spring add end
+						
+						
 				 }
 				 else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 				 {
@@ -1163,7 +1194,21 @@ char get_range(uint8_t type,uint8_t num)
 		case AI:
 			if(PRODUCT_ID == STM32_PM25)
 			{
-				return 	UNITS_NO_UNITS; 
+				 if((num == 0)||(num == 1) )
+					return 	UNITS_NO_UNITS; 
+					
+// spring add START
+			   if(num == 2)
+			{
+					return 	UNITS_DEGREES_CELSIUS ;		
+			}
+			 if(num == 3)	
+			 return 	UNITS_DEGREES_FAHRENHEIT ;
+			
+			else if(num == 4)
+				return 	UNITS_PERCENT_RELATIVE_HUMIDITY ;  
+			
+// spring add END
 			}
 			else if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW) \
 				|| (PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))

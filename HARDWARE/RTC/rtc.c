@@ -296,7 +296,7 @@ u8 RTC_Init(void)
 	u8 i = 0;
 	uint8 rtc_state = 0;
 	RTC_NVIC_Config();							//RCT中断分组设置	
-	print( "\r\n This is a RTC demo...... \r\n" );
+	//print( "\r\n This is a RTC demo...... \r\n" );
 	
 	if (BKP_ReadBackupRegister(BKP_DR1) != 0xA5A5)
 	{
@@ -400,7 +400,7 @@ void RTC_IRQHandler(void)
 	if(RTC_GetITStatus(RTC_IT_ALR)!= RESET)		//闹钟中断
 	{
 		RTC_ClearITPendingBit(RTC_IT_ALR);		//清闹钟中断	  	   
-  	}
+  }
 	
 	RTC_ClearITPendingBit(RTC_IT_SEC|RTC_IT_OW);//清闹钟中断
 	RTC_WaitForLastTask();	

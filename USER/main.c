@@ -57,15 +57,15 @@ int main(void)
  	delay_init(72);	
   
 	watchdog_init();
-	
 	qSubSerial = xQueueCreate(SUB_BUF_LEN, 1);
 	
 	xMutex = xQueueCreateMutex();
 	IicMutex = xQueueCreateMutex();
 	qKey = xQueueCreate(5, 2);
+	watchdog();
 	if(( qSubSerial == NULL )  ||( xMutex == NULL )||( IicMutex == NULL ))    
 	{
-		while(1);
+		while(1) ;
 	}
 	if(read_eeprom(EEP_CLEAR_EEP) == 99)
 	{
@@ -156,6 +156,7 @@ int main(void)
 	}
 	rtc_state = 1;
 	i = 0;
+	watchdog();
 	if(isColorScreen == true)
 	{
 		//if( (PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PM25))
@@ -203,7 +204,7 @@ int main(void)
 //	watchdog();  
 	
 	Lcd_Show_String(3, 0, DISP_NOR, (uint8 *)"Net is Done");
-	print("CO2_NET\n\r");
+//	print("CO2_NET\n\r");
  	Lcd_Show_String(4, 0, DISP_NOR, (uint8 *)"Done");
 	delay_ms(100);
 	watchdog(); 
@@ -226,7 +227,7 @@ int main(void)
   
   xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE + 512  , NULL, tskIDLE_PRIORITY + 6, NULL );
  	xTaskCreate( vCOMMTask, ( signed portCHAR * ) "COMM", configMINIMAL_STACK_SIZE + 512, NULL, tskIDLE_PRIORITY + 7, NULL );
-
+//	TXEN = 0;
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW) )
 	{
 		xTaskCreate( Co2_task,   ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE+128, NULL, tskIDLE_PRIORITY + 6, NULL);
@@ -235,13 +236,13 @@ int main(void)
 	}
 	if(PRODUCT_ID == STM32_PM25)
 	{
-		xTaskCreate( PM25_task, ( signed portCHAR * ) "PM25Task", configMINIMAL_STACK_SIZE+25, NULL, tskIDLE_PRIORITY + 6, NULL);
+		xTaskCreate( PM25_task, ( signed portCHAR * ) "PM25Task", configMINIMAL_STACK_SIZE+250, NULL, tskIDLE_PRIORITY + 6, NULL);
 	}
-	
+	watchdog(); 
 	if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) )
 		xTaskCreate(vUpdate_Pressure_Task, (signed portCHAR *)"Update_Pressure_Task", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 4, NULL);
-	else
-		xTaskCreate(vUpdate_Temperature_Task, (signed portCHAR *)"Update_Temperature_Task", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 3, NULL);
+	else //if(PRODUCT_ID != STM32_PM25)
+		xTaskCreate(vUpdate_Temperature_Task, (signed portCHAR *)"Update_Temperature_Task", configMINIMAL_STACK_SIZE + 512, NULL,  tskIDLE_PRIORITY + 3, NULL);
 	 
 	xTaskCreate(vStartPIDTask, (signed portCHAR *)"vStartPIDTask", configMINIMAL_STACK_SIZE, NULL,  tskIDLE_PRIORITY + 3, NULL);
  
@@ -256,9 +257,10 @@ int main(void)
 	//#endif
 #if WIFITEST
 	xTaskCreate( vWifitask, ( signed portCHAR * ) "Wifitask", configMINIMAL_STACK_SIZE+1024, NULL, tskIDLE_PRIORITY + 5, NULL );
-#endif   
-	vStartMenuTask(tskIDLE_PRIORITY + 3);
-  	
+#endif  
+
+	vStartMenuTask(tskIDLE_PRIORITY + 2);
+	
 	vTaskStartScheduler();
 }
 
@@ -592,13 +594,11 @@ void vLCDtask(void *pvParameters)
 //							disp_ch(FORM15X30, 33+CO2_POS,0+20*i,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 //						}
 //						if(!enableScroll)
-							disp_icon(55, 55, LightIcon, 170, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-						Top_area_display(TOP_AREA_DISP_ITEM_LINE3, light.val, TOP_AREA_DISP_UNIT_C);
-						
+						disp_icon(55, 55, LightIcon, 170, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+						Top_area_display(TOP_AREA_DISP_ITEM_LINE3, light.val, TOP_AREA_DISP_UNIT_C);						
 						isThirdLineChange = false;
 					}
 					
-					//Top_area_display(TOP_AREA_DISP_ITEM_LINE3,  light.val, TOP_AREA_DISP_UNIT_C);
 
 					break;
 				default:
@@ -627,7 +627,7 @@ void vCOMMTask(void *pvParameters )
 {
 	modbus_init(); 
 	reply_done =receive_delay_time;
-	print("COMM Task\r\n");
+//	print("COMM Task\r\n");
 	delay_ms(100);
 	
 	for( ;; )
@@ -676,7 +676,7 @@ void vFlashTask( void *pvParameters )
 { 
 	uint8 i;
 	modbus.write_ghost_system = 0;
-	print("Flash Task\r\n");
+//	print("Flash Task\r\n");
 	delay_ms(100);
 	
 	for( ;; )
@@ -745,7 +745,7 @@ void Inital_Bacnet_Server(void)
  
 	if(PRODUCT_ID == STM32_PM25)
 	{
-		AIS = 2;
+		AIS = 5; // Sprng change from 2 to 5 
 		AOS = 2;
 		BOS = 0;
 	}
@@ -787,7 +787,7 @@ void vMSTP_TASK(void *pvParameters )
 	Inital_Bacnet_Server();
 	dlmstp_init(NULL);
 	Recievebuf_Initialize(0);
-	print("MSTP Task\r\n");
+//	print("MSTP Task\r\n");
 	delay_ms(100);
 	
 	for (;;)

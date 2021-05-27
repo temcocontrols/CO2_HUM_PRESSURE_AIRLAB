@@ -70,6 +70,7 @@ extern int16 xdata humidity_back;
 extern float  xdata k_line;
 extern float  xdata b_line;
 void vUpdate_Temperature_Task( void *pvParameters );
+void vGet_Hum_Para_Task( void *pvParameters );
 
 typedef struct
 {

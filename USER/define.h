@@ -69,7 +69,7 @@ typedef enum{
 #define READ_WRITE_PROPERTY 1
 
 
-#define SOFTREV    66
+#define SOFTREV    73
  
 #define WIFITEST 1
 

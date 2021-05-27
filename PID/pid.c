@@ -208,8 +208,8 @@ void vStartPIDTask(void *pvParameters)
 	portTickType xDelayPeriod = (portTickType)1000 / portTICK_RATE_MS;
 	EEP_pid_intial();
 	pid_intial();
-	print("PID Task\r\n");
-	delay_ms(100);
+//	print("PID Task\r\n");
+//	delay_ms(100);
 	
 	while(1)
 	{

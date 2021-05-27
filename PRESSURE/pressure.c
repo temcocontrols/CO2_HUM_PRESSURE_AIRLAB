@@ -441,7 +441,7 @@ void Pressure_initial(void)
 void vUpdate_Pressure_Task( void *pvParameters )
 { 
 	 Pressure_initial();
-	 print("UPDATE Pressure Task\r\n");
+//	 print("UPDATE Pressure Task\r\n");
 	 delay_ms(100); 
 	 for(;;)
 	 {  

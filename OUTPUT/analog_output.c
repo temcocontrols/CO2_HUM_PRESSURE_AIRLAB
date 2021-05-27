@@ -336,9 +336,9 @@ void vOutPutTask(void *pvParameters)
 {
 	analog_outputs_init();
 	
-	print("Output Task\r\n");
+//	print("Output Task\r\n");
 	 
- 	delay_ms(100);
+// 	delay_ms(100);
 	
 	for( ;; )
 	{    

@@ -72,15 +72,6 @@ static u8 co2_sensor_status = 0;
 
 extern float Datasum(uint8 FloatByte1, uint8 FloatByte2, uint8 FloatByte3, uint8 FloatByte4);
 
-int Uart2_putc(int ch )
-{ 
-	USART_ClearFlag(USART2, USART_FLAG_TC);
-	USART_SendData(USART2, (uint8_t) ch);
-
-	while (USART_GetFlagStatus(USART2, USART_FLAG_TC) == RESET) {;}	
-     
-    return ch;
-}
 
 extern void watchdog(void);
 extern uint8 co2_check_status;
@@ -219,39 +210,7 @@ static void request_internal_co2(void)
 			receive_internal_co2_ppm(subnet_response_buf); 
 		}
 	}
-	
-//	else if((internal_co2_module_type == MAYBE_TEMCO_CO2) || (internal_co2_module_type == TEMCO_CO2))
-//	{  
-//		set_sub_serial_baudrate(19200);
-// 		delay_ms(100);
-//      sub_send_string((U8_T *)get_co2_command_TEMCO, 4);
-	 
-// 		set_subnet_parameters(SEND, 23); 
-		
-		
-//		Uart2_putc(0xFF);
-//		Uart2_putc(0X03);
-//		Uart2_putc(0X00);
-//		Uart2_putc(0X6D);
-//		Uart2_putc(0X00);
-//		Uart2_putc(0X01);
-//		Uart2_putc(0X00);
-//		Uart2_putc(0X09);
-//		
-//   		read_from_slave(REG_CO2_VALUE);
-//  		length = DEAL_TEMCO_SENSOR();
-//		set_subnet_parameters(SEND, 0);
-//	}
 
-//	if(length = wait_subnet_response(10))
-//	{
-//		U8_T i;
-//		for(i = 0; i < length; i++)
-//			xQueueReceive(qSubSerial, subnet_response_buf+i, 0);
-//			
-//		receive_internal_co2_ppm(subnet_response_buf);
-//	}
-//	else
 #if 1
 	if((length == 0)||(old_sensor_check == 0))
 	{
@@ -313,21 +272,28 @@ static void request_internal_co2(void)
 #endif
 		if((co2_data_temp >0) && (co2_data_temp < 10000))
 		{
-			if(Run_Timer > FIRST_TIME)
-			{
-				if(co2_data_temp > int_co2_str.pre_co2_int)
-				{
-//					if(co2_data_temp - int_co2_str.pre_co2_int > 1000)
-//						int_co2_str.pre_co2_int += 10;
-//          else
-						int_co2_str.pre_co2_int = Sys_Filter(co2_data_temp,int_co2_str.pre_co2_int,int_co2_filter);
-				}
-				else	
-					int_co2_str.pre_co2_int = Sys_Filter(co2_data_temp,int_co2_str.pre_co2_int,int_co2_filter);
+			if( internal_co2_module_type == SCD30)
+			{// SCD30 ²»ÐèÒªfilter
+				int_co2_str.pre_co2_int = co2_data_temp;
 			}
 			else
 			{
-					int_co2_str.pre_co2_int = co2_data_temp;
+				if(Run_Timer > FIRST_TIME)
+				{
+					if(co2_data_temp > int_co2_str.pre_co2_int)
+					{
+	//					if(co2_data_temp - int_co2_str.pre_co2_int > 1000)
+	//						int_co2_str.pre_co2_int += 10;
+	//          else
+							int_co2_str.pre_co2_int = Sys_Filter(co2_data_temp,int_co2_str.pre_co2_int,int_co2_filter);
+					}
+					else	
+						int_co2_str.pre_co2_int = Sys_Filter(co2_data_temp,int_co2_str.pre_co2_int,int_co2_filter);
+				}
+				else
+				{
+						int_co2_str.pre_co2_int = co2_data_temp;
+				}
 			}
 		}
 		if((int_co2_str.pre_co2_int > 10000) || (int_co2_str.pre_co2_int < 0))

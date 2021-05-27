@@ -94,9 +94,10 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 	
 	static u16 send_count = 0;
 	
-//	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
 
-	
+	//if(Test[3]++ > 100)	while(1);
+
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) == SET)	//接收中断
 	{
 		  rx_icon = 2;
@@ -147,7 +148,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 							// full packet received - turn off serial timeout
 							if((USART_RX_BUF[0] == 0xff) || (USART_RX_BUF[0] == modbus.address))
 							{
-								serial_receive_timeout_count = 20;//SERIAL_RECEIVE_TIMEOUT;
+								serial_receive_timeout_count = 100 / (modbus.baudrate + 1);//SERIAL_RECEIVE_TIMEOUT;
 								dealwithTag = 2;		// making this number big to increase delay
 								//rx_count = 2 ;
 								uart.rx_count++;
@@ -194,23 +195,30 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 					 Timer_Silence_Reset();
 					 if( send_count >= sendbyte_num)
 					 {
-								tx_icon = 2;
-								while(USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
-								USART_ClearFlag(USART1, USART_FLAG_TC); 
-								USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
-								send_count = 0 ; 
-								if(modbus.protocal == MODBUS)
-								{
-									reply_done = receive_delay_time;
-									if(reply_done == 0) serial_restart();
-								}
-								else
-									serial_restart(); 
+							uint16 count;
+							tx_icon = 2;
+							count = 0;
+							
+							while((USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET) && (count++ < 1000))
+							{ delay_us(1);
+							}
+							if(count >= 1000) Test[11]++;
+							
+							USART_ClearFlag(USART1, USART_FLAG_TC); 
+							USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
+							send_count = 0 ; 
+							if(modbus.protocal == MODBUS)
+							{
+								reply_done = receive_delay_time;
+								if(reply_done == 0) serial_restart();
+							}
+							else
+								serial_restart(); 
 					 }  				
 		   }
     }
 	 
-//	 portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptStatus);
+	 portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptStatus);
 }
 
 void check_TXEN(void)
@@ -220,9 +228,8 @@ void check_TXEN(void)
 		count++;
 	else
 		count = 0;
-	Test[19] = count;
 	if(count > 100)
-	{Test[18]++;
+	{
 		count = 0;
 		serial_restart();
 	}
@@ -805,6 +812,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 	
 					
 					//intial variable
+					__disable_irq();
 					STMFLASH_Unlock();	
 //					STMFLASH_ErasePage(AV_PAGE_FLAG);
 //					STMFLASH_WriteHalfWord(AV_PAGE_FLAG, 0xffff) ;
@@ -818,6 +826,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					STMFLASH_ErasePage(WIFI_PAGE_FLAG);
 					STMFLASH_WriteHalfWord(WIFI_PAGE_FLAG, 0xffff) ;
 					STMFLASH_Lock();
+					__enable_irq();
 					
 //-----------------IP Mode-----------------------					
 					AT24CXX_WriteOneByte(EEP_IP_MODE,0);
@@ -2211,6 +2220,45 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				write_eeprom(EEP_PM25_RAND_SIGN,Data_L);
 			}
 		}
+		// spring add code , START 
+		
+		else if(StartAdd == MODBUS_PM25_EXTERNAL_TEMPERATURE_FAHRENHEIT)
+		{
+			external_operation_value = ((int16)(((uint16)Data_H << 8) | Data_L) - 320) * 5 / 9;
+			if((output_auto_manual & 0x01) == 0x01)
+			{
+				output_manual_value_temp = external_operation_value;
+			}
+			else
+				external_operation_flag = TEMP_CALIBRATION;
+		} 
+		
+		
+		else if(StartAdd == MODBUS_PM25_EXTERNAL_TEMPERATURE_CELSIUS)	
+		{
+			external_operation_value = (int16)(((uint16)Data_H << 8) | Data_L);
+			if((output_auto_manual & 0x01) == 0x01)
+			{
+				output_manual_value_temp = external_operation_value;
+			}
+			else
+				external_operation_flag = TEMP_CALIBRATION; 
+		}
+		
+  else if(StartAdd == MODBUS_PM25_HUMIDITY)
+		{
+			external_operation_value =  (int16)(((uint16)Data_H << 8) | Data_L);
+			
+			if(output_auto_manual & 0x02)
+				output_manual_value_humidity = external_operation_value;
+			else if(external_operation_value < 950)  //< 95%
+			{
+				external_operation_flag = HUM_CALIBRATION;
+				//Run_Timer = 0;
+			}
+		}
+		// spring add code , END
+		
 //	 else if(StartAdd == MODBUS_PM25_PARITY)
 //	 {
 //		 if(Data_L<3)
@@ -5321,6 +5369,39 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp2);
 				}
 				
+				// spring add code ，START 	
+				
+				else if(address == MODBUS_PM25_EXTERNAL_TEMPERATURE_FAHRENHEIT)
+				{ 
+					temp1 = HumSensor.temperature_f >> 8 ;
+					temp2 = HumSensor.temperature_f  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+			
+				else if(address == MODBUS_PM25_EXTERNAL_TEMPERATURE_CELSIUS) 	
+				{  
+					temp1 = HumSensor.temperature_c >> 8 ;
+					temp2 = HumSensor.temperature_c  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				
+				else if(address == MODBUS_PM25_HUMIDITY)
+				{  
+					temp1 = HumSensor.humidity >> 8 ;
+					temp2 = HumSensor.humidity  ;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				// spring add code ，END
+			
 				else if((address >= TSTAT_NAME1) && (address <= TSTAT_NAME10))  
 				{
 					u16 temp = address - TSTAT_NAME1;  

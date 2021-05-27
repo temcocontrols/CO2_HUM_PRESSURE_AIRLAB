@@ -544,7 +544,8 @@ void LCDtest(void)
 //			PDout(2) = 0;
 	PEout(13) = 0;
 	ILI9341_Initial();
-	start_back_light(100);
+	start_back_light(backlight_keep_seconds);
+	
 		ClearScreen(TSTAT8_BACK_COLOR);  //CLEAR DISPLAY
 //    showzifustr(30,6,"TEMCO CONTROLS ",0xf800,0xffff);	
 //    showzifustr(30,20,"   LCD TEST   ",0xf800,0xffff);
@@ -1712,7 +1713,8 @@ switch(item)
 				disp_icon(26, 26, wifi_1, 0,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 		}
 		else	if((SSID_Info.IP_Wifi_Status == WIFI_NO_CONNECT)
-			|| (SSID_Info.IP_Wifi_Status == WIFI_SSID_FAIL))
+			|| (SSID_Info.IP_Wifi_Status == WIFI_SSID_FAIL)
+		/*|| (SSID_Info.IP_Wifi_Status == WIFI_NO_WIFI)*/) // nowifi
 				disp_icon(26, 26, wifi_0, 0,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 		else
 			disp_icon(26, 26, wifi_none, 0,	0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);

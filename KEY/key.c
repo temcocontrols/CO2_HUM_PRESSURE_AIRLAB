@@ -47,7 +47,7 @@ void vKEYTask( void *pvParameters )
 	static U8_T long_press_key_start = 0;
 	
  	KEY_Init();
-	print("Key Task\r\n");
+	//print("Key Task\r\n");
 	delay_ms(100);
 	
 	for( ;; )

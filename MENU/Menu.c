@@ -161,9 +161,9 @@ void MenuTask(void *pvParameters)
 //	update_message_context();
 	menu_init();
 	dis_hum_info = 0;
-	print("Menu Task\r\n");
+//	print("Menu Task\r\n");
 //	xMutex = xQueueCreateMutex();
-	delay_ms(100);
+//	delay_ms(100);
 	
 	while(1)
 	{
@@ -214,8 +214,8 @@ void ScrollingTask(void *pvParameters)
 {
 	portTickType xDelayPeriod = (portTickType)100 / portTICK_RATE_MS; 
  	update_message_context();
-	print("Scrolling Task\r\n");
-	delay_ms(100);
+//	print("Scrolling Task\r\n");
+//	delay_ms(100);
 	
 	while(1)
 	{
@@ -260,7 +260,7 @@ void vStartMenuTask(unsigned char uxPriority)
 	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE+256 , NULL, uxPriority, NULL);
 		
   xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE, NULL, uxPriority, NULL);
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_PM25)||(PRODUCT_ID == STM32_CO2_NODE_NEW) )
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)/*||(PRODUCT_ID == STM32_PM25)*/||(PRODUCT_ID == STM32_CO2_NODE_NEW) )
 		xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE+128 , NULL, uxPriority, NULL);
 	 
 }

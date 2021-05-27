@@ -1099,7 +1099,24 @@ int16 Get_Average_Humdity(int16 para_h)
 	}
  }
  
+ 
+void vGet_Hum_Para_Task( void *pvParameters )
+{
+	Test[3] = 12;
+	for(;;)
+	{
+		delay_ms(5000);	Test[3] = 13;
+		Test[10] = hum_exists;
+		if(hum_exists != 0)
+		{Test[3]++;
+//			Get_Hum_Para( HumSensor.temperature_c, HumSensor.humidity,&HumSensor.dew_pt,\
+//				&HumSensor.Pws,&HumSensor.Mix_Ratio,&HumSensor.Enthalpy); 
+		}
+	}
+}
+ 
 extern uint8 light_sensor;
+extern uint8 read_light;
 uint16 get_light_value(uint16 ad);
 void vUpdate_Temperature_Task( void *pvParameters )
 { 
@@ -1113,34 +1130,39 @@ void vUpdate_Temperature_Task( void *pvParameters )
 	float light_gain;
 	float light_data0,light_data1;
 	
-	 print("UPDATE TEMPERATURE Task\r\n");
+//	 print("UPDATE TEMPERATURE Task\r\n");
 	 delay_ms(100);
 	
 //	 SHT3X_Init(0x45); 
   update_flag = 9;
   delay_ms(50);  
   light_sensor = 0;
+	start_light_sensor_mearsure();
+	read_light_sensor_version();
 	 for(;;)
 	 {			 
-		static uint8 ctr = 0;	
-		 Test[1]++;
-		 //if(Test[1] < 1000) 
-		 {
+		static uint8 ctr = 0;			
+
 		if(xQueueTakeMutexRecursive( IicMutex, portMAX_DELAY )==pdPASS)
 		{
+//			SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50);
+//			HumSensor.temperature_c = tem_org;
+//			HumSensor.humidity = hum_org;
 			hum_read_delay = 1;
 			if(display_state != PIC_NORMAL)
 			{
 				if( SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50) == 0)
 				{
-					hum_exists = 2;
+					HumSensor.temperature_c = tem_org;
+					HumSensor.humidity = hum_org;
+					hum_exists = 2; // new SHT3X
 					ctr = 0;				
 				}
 				else
 				{
 					if(read_humidity_sensor_version())
 					{ 
-						hum_exists = 1;
+						hum_exists = 1;  // old hum
 						if(display_state == PIC_WAIT_OFF_TO_ON)
 						{
 							display_state = PIC_OFF_TO_ON; 
@@ -1157,9 +1179,7 @@ void vUpdate_Temperature_Task( void *pvParameters )
 							hum_exists = 0; 
 						}
 					}
-				}
-				
-				
+				}				
 			}
 			else
 			{
@@ -1209,52 +1229,61 @@ void vUpdate_Temperature_Task( void *pvParameters )
 				else 
 					ctr = 0;
 			} 
+		
 			hum_read_delay = 1;			
-			  
-			delay_ms(100);
-			start_light_sensor_mearsure();
-			if(read_light_sensor_version())
-			{Test[10]++;
-				light_itime = (float)read_light_sensors_time();
-				light_gain = (float)read_light_sensors_gain();
-				light_data0 = (float)read_light_sensors_data0();
-				light_data1 = (float)read_light_sensors_data1();
-				Test[14] = light_data0;
-				Test[15] = light_data1;
-				Test[16] = light_gain;
-				Test[17] = light_itime;
-				if((light_data1/light_data0)<0.26){
-					light.val = ((1.290*light_data0-2.733*light_data1)/light_gain*102.6/light_itime);}
-				else if((light_data1/light_data0)<0.55){
-					light.val = ((0.795*light_data0-0.859*light_data1)/light_gain*102.6/light_itime);}
-				else if((light_data1/light_data0)<1.09){
-					light.val = ((0.510*light_data0-0.345*light_data1)/light_gain*102.6/light_itime);}
-				else if((light_data1/light_data0)<2.13){
-					light.val = ((0.276*light_data0-0.130*light_data1)/light_gain*102.6/light_itime);}
-				else
+			 read_light++;
+				delay_ms(100);
+				if (PRODUCT_ID == STM32_HUM_NET)
 				{
-					light.val = 0;
+					if(light_sensor == 1)//(read_light_sensor_version())
+					{
+						if(read_light % 2 == 0)
+						{Test[3] = 6;
+							light_itime = (float)read_light_sensors_time();
+							light_gain = (float)read_light_sensors_gain();
+							light_data0 = (float)read_light_sensors_data0();
+							light_data1 = (float)read_light_sensors_data1();
+							if((light_data1/light_data0)<0.26){
+								light.val = ((1.290*light_data0-2.733*light_data1)/light_gain*102.6/light_itime);}
+							else if((light_data1/light_data0)<0.55){
+								light.val = ((0.795*light_data0-0.859*light_data1)/light_gain*102.6/light_itime);}
+							else if((light_data1/light_data0)<1.09){
+								light.val = ((0.510*light_data0-0.345*light_data1)/light_gain*102.6/light_itime);}
+							else if((light_data1/light_data0)<2.13){
+								light.val = ((0.276*light_data0-0.130*light_data1)/light_gain*102.6/light_itime);}
+							else
+							{
+								light.val = 0;
+							}
+						}
+					}
+					else
+					{
+						pic_read_light_val(&light.ad); 
+						itemp = get_light_value(light.ad);
+						light.pre_val = Sys_Filter(itemp,light.pre_val,light.filter);
+						light.val = light.pre_val;
+					}
 				}
-					Test[6] = light.val;
-			}
-			else
-			{Test[11]++;
-				pic_read_light_val(&light.ad); 
-				itemp = get_light_value(light.ad);
-				light.pre_val = Sys_Filter(itemp,light.pre_val,light.filter);
-				light.val = light.pre_val;
-			}
 			xQueueGiveMutexRecursive( IicMutex );
 		}
-		
+
 		external_operation();
-		update_temperature();
+		Test[10] = hum_exists + 5;
+		if(hum_exists != 0)
+		{
+			if((light_sensor == 0) || (read_light % 2 == 1))
+			{//
+				update_temperature();
+			}
+		}
 		if(auto_heat_enable)
 			auto_heating();
-	}
-//		stack_detect(&test[5]);
+		
 		if(display_state == PIC_NORMAL)
-			vTaskDelay(5000 / portTICK_RATE_MS);
+		{
+			vTaskDelay(3000 / portTICK_RATE_MS);
+		}
 		else
 			vTaskDelay(1000 / portTICK_RATE_MS);
 	 }

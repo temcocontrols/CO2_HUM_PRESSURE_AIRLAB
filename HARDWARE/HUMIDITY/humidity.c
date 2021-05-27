@@ -194,7 +194,6 @@ void GIVE_PIC_NACK(void)
 uint16 temp_version;
 void start_light_sensor_mearsure(void)
 {
-	
  
 	i2c_pic_start();
 	i2c_pic_write(LIGHT_SENSOR_ADDR_W);
@@ -375,6 +374,7 @@ uint16 read_light_sensors_data1(void)
 }
 
 uint8 light_sensor;
+uint8 read_light;  // light and tempeartarue
 bit read_light_sensor_version(void)
 {
 	uint16 temp_version = 0;

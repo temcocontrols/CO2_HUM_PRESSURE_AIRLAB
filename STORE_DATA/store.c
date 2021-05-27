@@ -65,6 +65,7 @@ void Flash_Write_Mass(void)
 	if(write_page_en[OUT_TYPE] == 1)
 	{
 		write_page_en[OUT_TYPE] = 0 ;	
+		__disable_irq();
 		STMFLASH_Unlock();  //½âËø	
 		STMFLASH_ErasePage(OUT_PAGE_FLAG);				
 //		for(loop1 = 0;loop1 < MAX_OUTS;loop1++)
@@ -80,11 +81,13 @@ void Flash_Write_Mass(void)
 		
 		STMFLASH_WriteHalfWord(OUT_PAGE_FLAG, 10000) ;
 		STMFLASH_Lock();	
+		__enable_irq();
  	} 
 	
 	if(write_page_en[IN_TYPE] == 1)
 	{
 		write_page_en[IN_TYPE] = 0 ;
+		__disable_irq();
 		STMFLASH_Unlock();	
 		STMFLASH_ErasePage(IN_PAGE_FLAG);
 //		for(loop1 = 0;loop1 < MAX_INS;loop1++)
@@ -97,7 +100,8 @@ void Flash_Write_Mass(void)
 		iap_write_appbin(IN_PAGE,(uint8_t*)tempbuf, len); 
 		
 		STMFLASH_WriteHalfWord(IN_PAGE_FLAG, 10000) ;
-		STMFLASH_Lock();	
+		STMFLASH_Lock();
+		__enable_irq();		
 	} 
 	
 //	if(write_page_en[VAR_TYPE] == 1)
@@ -118,11 +122,13 @@ void Flash_Write_Mass(void)
 #if WIFITEST
 	if(write_page_en[WIFI_TYPE] == 1)
 	{ 			
+		__disable_irq();
 		STMFLASH_Unlock();
 		STMFLASH_ErasePage(WIFI_PAGE_FLAG);
 		iap_write_appbin(WIFI_PAGE,(u8 *)(&SSID_Info),sizeof(STR_SSID));
 		STMFLASH_WriteHalfWord(WIFI_PAGE_FLAG, 10000) ;	
 		STMFLASH_Lock();
+		__enable_irq();
 		write_page_en[WIFI_TYPE] = 0 ; 
 	}	
 #endif
@@ -300,6 +306,7 @@ void mass_flash_init(void)
 //	printf("temp=%x, %x\n\r", temp2, temp);
 	if(temp == 0xffff)
 	{
+		__disable_irq();
 		STMFLASH_Unlock();
 		STMFLASH_ErasePage(OUT_PAGE_FLAG);
 		for(loop=0; loop<MAX_OUTS; loop++ )
@@ -329,6 +336,7 @@ void mass_flash_init(void)
 		iap_write_appbin(OUT_PAGE,(uint8_t*)tempbuf, len);	 
 		STMFLASH_WriteHalfWord(OUT_PAGE_FLAG, 10000) ;
 		STMFLASH_Lock();	
+		__enable_irq();
 	}
 	else
 	{
@@ -406,11 +414,13 @@ void mass_flash_init(void)
 	if(temp != 10000)
 	{
 		memset(&SSID_Info,0,sizeof(STR_SSID));
+		__disable_irq();
 		STMFLASH_Unlock();
 		STMFLASH_ErasePage(WIFI_PAGE_FLAG);
 		iap_write_appbin(WIFI_PAGE,(void *)(&SSID_Info), sizeof(STR_SSID));	
 		STMFLASH_WriteHalfWord(WIFI_PAGE_FLAG, 1000);
 		STMFLASH_Lock();
+		__enable_irq();
 	}
 	else//
 	{

@@ -120,6 +120,8 @@ void connect_AP(void)
 	get_ip = 0;
 	if(SSID_Info.IP_Wifi_Status == WIFI_NO_WIFI)		
 		return;
+	if(SSID_Info.MANUEL_EN == 2)  // disable wifi
+		return;
 	if(SSID_Info.MANUEL_EN != 0)
 	{
 		flag_start_smart = 0;
@@ -160,7 +162,7 @@ void connect_AP(void)
 
 }
 	
-
+uint8 count_reboot_wifi = 0;
 void vWifitask( void *pvParameters )
 {
 	uint8 i;
@@ -275,7 +277,7 @@ void vWifitask( void *pvParameters )
 		delay_ms(5) ;
 		IWDG_ReloadCounter();
 		
-		
+		Test[6]++;
 		//if(isWifiExist)
 		
 		if(ATret == 2)
@@ -289,6 +291,11 @@ void vWifitask( void *pvParameters )
 		}
 		if(ATret != 2)  // not response OK
 			continue;
+		if(count_reboot_wifi > 20)
+		{
+			count_reboot_wifi = 0;
+			ESP8266_Rst();
+		}
 		if((SSID_Info.IP_Wifi_Status != WIFI_NORMAL) && (SSID_Info.IP_Wifi_Status != WIFI_NO_WIFI ))//go into smart config mode
 			//go into smart config mode
 		{
@@ -318,6 +325,7 @@ void vWifitask( void *pvParameters )
 					if(count>= 200)
 					{
 						connect_AP();						
+						count_reboot_wifi++;
 						continue;
 					}
 					
@@ -331,12 +339,14 @@ void vWifitask( void *pvParameters )
 					Flash_Write_Mass();
 					ESP8266_Cmd( "AT+CWSTOPSMART", "OK", 0, 500 );
 					delay_ms(100);				
+					connect_AP();
 					
 			}
 			delay_ms(200) ;
 		}
 		else
 		{
+			count_reboot_wifi = 0;
 			if(!get_ip)
 			{
 				if(ESP8266_Inquire_ApIp(SSID_Info.mac_addr,SSID_Info.ip_addr,60))
@@ -481,8 +491,12 @@ void vWifitask( void *pvParameters )
 						count_abnormal = 0;
 					}
 					
-					if(count_abnormal == 3)
+					if(count_abnormal >= 3)
+					{
 						SSID_Info.IP_Wifi_Status = WIFI_NO_WIFI;
+						count_abnormal = 0;
+						get_ip = 0;
+					}
 				}
 				if(count_checkip++ > 300)
 				{
