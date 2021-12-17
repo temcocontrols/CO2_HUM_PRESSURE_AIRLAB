@@ -365,7 +365,7 @@ u8 Time_Adjust(void)
 					calendar.hour,	calendar.min,		calendar.sec);
 		else
 		{
-			if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
+			if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 				return RTC_Set(calendar.w_year,	calendar.w_month,	calendar.w_date,\
 					calendar.hour,	calendar.min,		calendar.sec);
 			else

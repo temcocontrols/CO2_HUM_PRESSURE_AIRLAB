@@ -69,16 +69,16 @@ typedef enum{
 #define READ_WRITE_PROPERTY 1
 
 
-#define SOFTREV    73
+#define SOFTREV    91
  
-#define WIFITEST 1
+#define WIFITEST  1
 
 #define DEFAULT_FILTER  5 
 #define T38AI8AO6DO   	44
 #define PM_CO2_NET   	32 
 
 
-#define	BAUDRATE_9600			9600			//0
+#define	BAUDRATE_9600				9600			//0
 #define	BAUDRATE_19200			19200			//1
 #define	BAUDRATE_38400			38400			//2
 #define	BAUDRATE_57600			57600			//3

@@ -178,7 +178,6 @@ void Count_VAR_Object_Number(void)
 				break;
 			case STM32_CO2_NET:
 			case STM32_CO2_RS485:
-			case STM32_CO2_NODE_NEW:
 				if(AV_TYPE[i] == AV_CO2)
 				{
 					AV_Index_To_Instance[count] = i;
@@ -243,7 +242,6 @@ int Get_Bacnet_Index_by_Number(U8_T number)
 				break;
 			case STM32_CO2_NET:
 			case STM32_CO2_RS485:
-			case STM32_CO2_NODE_NEW:
 				if(AV_TYPE[i] == AV_CO2 || AV_TYPE[i] == AV_HUM)
 				{
 					if(i == number)
@@ -302,7 +300,6 @@ int Get_Number_by_Bacnet_Index(U8_T index)
 				break;
 			case STM32_CO2_NET:
 			case STM32_CO2_RS485:
-			case STM32_CO2_NODE_NEW:
 				if(AV_TYPE[i] == AV_CO2 || AV_TYPE[i] == AV_HUM)
 				{
 					if(count == index)
@@ -548,8 +545,7 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 						break;  
 					case 28: //OutMode 
 						var[io_index].value = output_mode;
-						break; 
-					 
+						break; 					 
 					case 29: //MIN_RNG0 
 						var[io_index].value = (float)output_range_table[CHANNEL_HUM].min/10;
 						break; 
@@ -611,7 +607,6 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 						break;
 					case STM32_CO2_NET:		
 					case STM32_CO2_RS485:
-					case STM32_CO2_NODE_NEW:
 						if(i == 0)	
 						{
 							if(deg_c_or_f == DEGREE_C)
@@ -886,7 +881,6 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 						break;
 						case STM32_CO2_NET:
 						case STM32_CO2_RS485:	
-						case STM32_CO2_NODE_NEW:
 						if(i == 0) //temperature
 						{
 							inputs[i].value = value*10;
@@ -1067,7 +1061,7 @@ char* get_label(uint8_t type,uint8_t num)
        case AI:
 			 if(num < MAX_INS)
 			 {
-				 if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
+				 if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 				 {
 						if(num == 0)
 						 return "Temperature";
@@ -1112,7 +1106,7 @@ char* get_label(uint8_t type,uint8_t num)
          case AO: 
 			 {
 				 uint8 AOS_TEMP;
-				 if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
+				 if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 				 {
 					 	if(num == 0)
 							return "Temp_AO";
@@ -1210,7 +1204,7 @@ char get_range(uint8_t type,uint8_t num)
 			
 // spring add END
 			}
-			else if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW) \
+			else if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) \
 				|| (PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 			{
 			if(num == 0)
@@ -1355,8 +1349,6 @@ const char*  Get_Vendor_Product(void)
 		return "CO2_NET";
 	else if(PRODUCT_ID == STM32_CO2_RS485)
 		return "CO2_RS485";
-	else if(PRODUCT_ID == STM32_CO2_NODE_NEW)
-		return "CO2_NODE";
 	else if(PRODUCT_ID == STM32_HUM_NET)
 		return "HUM_NET";
 	else if(PRODUCT_ID == STM32_HUM_RS485)

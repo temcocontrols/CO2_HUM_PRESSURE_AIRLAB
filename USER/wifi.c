@@ -219,7 +219,7 @@ void vWifitask( void *pvParameters )
 
 	ESP8266_Rst();
 	delay_ms(2000);
-
+	task_test.enable[12] = 1;
 	ATret = ESP8266_AT_Test();	
 	if(ATret != 2)  // not response OK
 	{
@@ -276,8 +276,7 @@ void vWifitask( void *pvParameters )
 	{	
 		delay_ms(5) ;
 		IWDG_ReloadCounter();
-		
-		Test[6]++;
+		task_test.count[12]++;Test[40] = 12;
 		//if(isWifiExist)
 		
 		if(ATret == 2)

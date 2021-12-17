@@ -17,7 +17,7 @@
 #include "delay.h"
 #include "define.h"
 
-
+#if 1
 //-- Defines -------------------------------------------------------------------
 // CRC
 #define POLYNOMIAL  0x131 // P(x) = x^8 + x^5 + x^4 + 1 = 100110001
@@ -66,7 +66,7 @@ void SHT3X_SetI2cAdr(uint8 i2cAdr){
   _i2cWriteHeader = i2cAdr << 1;
   _i2cReadHeader = _i2cWriteHeader | 0x01;
 }
-
+extern u16  Test[50];
 //==============================================================================
 etError SHT3x_ReadSerialNumber(uint32 *serialNbr){
 //==============================================================================
@@ -74,9 +74,9 @@ etError SHT3x_ReadSerialNumber(uint32 *serialNbr){
   uint16 serialNumWords[2];
 
   error = SHT3X_StartWriteAccess();
-
+	
   // write "read serial number" command
-  error |= SHT3X_WriteCommand(CMD_READ_SERIALNBR);
+  error |= SHT3X_WriteCommand(CMD_READ_SERIALNBR); 
   // if no error, start read access
   if(error == NO_ERROR) error = SHT3X_StartReadAccess();
   // if no error, read first serial number word
@@ -88,7 +88,7 @@ etError SHT3x_ReadSerialNumber(uint32 *serialNbr){
   
   // if no error, calc serial number as 32-bit integer
   if(error == NO_ERROR)
-  {
+  {Test[20]++;
     *serialNbr = (serialNumWords[0] << 16) | serialNumWords[1];
   }
 
@@ -488,16 +488,22 @@ etError SHT3X_Read2BytesAndCrc(uint16 *data, etI2cAck finaleAckNack, uint8 timeo
   uint8     checksum; // checksum byte
  
   // read two data bytes and one checksum byte
-	                      error = I2c_ReadByte(&bytes[0], ACK, timeout);
+	 error = I2c_ReadByte(&bytes[0], ACK, timeout);	
 	if(error == NO_ERROR) error = I2c_ReadByte(&bytes[1], ACK, 0);
+	else Test[21]++;
   if(error == NO_ERROR) error = I2c_ReadByte(&checksum, finaleAckNack,0);
-  
+  else Test[22]++;
   // verify checksum
+	Test[47] = bytes[0];Test[48] = bytes[1]; Test[49] = checksum;
   if(error == NO_ERROR) error = SHT3X_CheckCrc(bytes, 2, checksum);
-  
+	else 
+		Test[23]++;
+	
+  if(error == NO_ERROR)
   // combine the two bytes to a 16-bit value
   *data = (bytes[0] << 8) | bytes[1];
-  
+  else
+		Test[24]++;
   return error;
 }
 
@@ -595,3 +601,4 @@ bt SHT3X_ReadAlert(void){
   // read alert pin
   return (ALERT_READ != 0) ? TRUE : FALSE;
 }
+#endif

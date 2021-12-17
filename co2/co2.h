@@ -53,6 +53,7 @@ typedef enum
   TEMCO_CO2				,
 	SCD30,  // 5 
 	MH_Z19B,  // 6
+	SCD40, // 7
   SENSOR_TYPE_ALL,
 }CO2_SENSOR_TYPE;
 
@@ -66,6 +67,7 @@ typedef enum
 	SCD30_CMD_ENABLE_ASC,
 	SCD30_CMD_DISABLE_ASC,
 	SCD30_SET_FRC,
+	SCD30_SOFT_RESET,
 }SCD30_CMD_LIST;
 
 typedef struct _CO2_STRUCT_

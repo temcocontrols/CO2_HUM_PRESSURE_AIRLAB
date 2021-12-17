@@ -115,10 +115,13 @@ void TIM3_Int_Init(u16 arr, u16 psc)
 /////////////////////////////////////////////////////////////////////////////////////////
 u32 uip_timer = 0;	//uip 计时器，每10ms增加1.
 //定时器6中断服务程序	 
+void refresh_net_status_led(char Led_Status);
+void check_Task_locked(void);
 void TIM6_IRQHandler(void)//1ms
 {
 //	if(TIM6->SR & 0X0001)	//溢出中断
-	static u8 led_count = 0;
+	static u16 led_count = 0;
+	
 	
 	unsigned portBASE_TYPE uxSavedInterruptStatus;
 	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
@@ -126,23 +129,38 @@ void TIM6_IRQHandler(void)//1ms
 	if(TIM_GetFlagStatus(TIM6, TIM_IT_Update) == SET)
 	{
 		uip_timer++;		//uip计时器增加1
-	}
-	if(SilenceTime < 5000)
-	{
-		//SilenceTime ++ ;
-		//miliseclast_cur = miliseclast_cur + SWTIMER_INTERVAL;
-		SilenceTime = SilenceTime + SWTIMER_INTERVAL;
-	}
-	else
-	{
-			SilenceTime = 0 ;
-	}
-//	if(dhcp_run_time >0) dhcp_run_time -- ;
-	led_count++ ;
-	if(led_count == 10)
-	{
-//		refresh_led();
-		led_count= 0 ;
+		
+		if(SilenceTime < 5000)
+		{
+			//SilenceTime ++ ;
+			//miliseclast_cur = miliseclast_cur + SWTIMER_INTERVAL;
+			SilenceTime = SilenceTime + SWTIMER_INTERVAL;
+		}
+		else
+		{
+				SilenceTime = 0 ;
+		}
+	//	if(dhcp_run_time >0) dhcp_run_time -- ;
+		if (PRODUCT_ID == STM32_HUM_RS485)  // for heart beat
+		{
+			if(led_count++ >= 100)
+			{			
+				refresh_net_status_led(led_count % 2);
+				check_Task_locked();
+				led_count= 0 ;
+			}
+		}
+		else
+		{
+			if(led_count++ >= 1000)
+			{			
+//				Test[39]++;
+//				if(Test[39] == 20)
+//					SoftReset();
+				check_Task_locked();
+				led_count= 0 ;
+			}
+		}
 	}
 //	TIM6->SR &= ~(1 << 0);	//清除中断标志位 
 	TIM_ClearFlag(TIM6, TIM_IT_Update);
@@ -160,7 +178,7 @@ void TIM6_Int_Init(u16 arr, u16 psc)
 	NVIC_InitTypeDef NVIC_InitStructure;
 	
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
-	
+		
 	TIM_TimeBaseStructure.TIM_Period = arr;
 	TIM_TimeBaseStructure.TIM_Prescaler = psc; 
 	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1; 

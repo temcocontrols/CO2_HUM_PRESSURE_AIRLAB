@@ -18,7 +18,7 @@
 #include "myiic.h"
 #include "temperature.h"
 
-
+extern uint16  Test[50];
 //-- Defines -------------------------------------------------------------------
 // I2C IO-Pins                         /* -- adapt the defines for your uC -- */
 
@@ -93,6 +93,8 @@ etError I2c_WriteByte(uint8 txByte){
     delay_us(1*hum_read_delay);               // data hold time(t_HD;DAT)
   }
 	error = IIC_Wait_Ack();
+	if(error == NO_ERROR) Test[17]++;
+	else Test[18]++;
 //  IIC_SDA = 1;                           // release SDA-line
 //	SDA_IN();
 //	delay_us(1);
@@ -110,7 +112,7 @@ etError I2c_ReadByte(uint8 *rxByte, etI2cAck ack, uint8 timeout){
 //==============================================================================
   etError error = NO_ERROR;
   uint8 mask;
-  *rxByte = 0x00;
+	*rxByte = 0x00;
 	//SDA_OUT();
   IIC_SDA = 1;
   SDA_IN();	// release SDA-line
@@ -119,8 +121,7 @@ etError I2c_ReadByte(uint8 *rxByte, etI2cAck ack, uint8 timeout){
     IIC_SCL = 1;                          // start clock on SCL-line
     delay_us(1*hum_read_delay);                // clock set-up time (t_SU;CLK)
 		error = I2c_WaitWhileClockStreching(timeout);// wait while clock streching
-    delay_us(3*hum_read_delay);                // SCL high time (t_HIGH)
-		
+    delay_us(3*hum_read_delay);                // SCL high time (t_HIGH)		
 		SCL_OUT();
     if(READ_SDA) *rxByte |= mask;        // read bit
     IIC_SCL = 0;
@@ -164,3 +165,5 @@ etError I2c_GeneralCallReset(void){
 	
 	return error;
 }
+
+

@@ -1208,7 +1208,7 @@ void update_message_context(void)
 	if(isColorScreen == false)
 	{
 		scroll_message_length = 0;
-		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW) ) 
+		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)) 
 		{	
 		// Date & Time
 			length = strlen((char *)time);

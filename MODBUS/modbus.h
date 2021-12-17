@@ -69,6 +69,14 @@ typedef union {
          unsigned char  quarter[4];
       }double_read;
 
+typedef	struct
+{
+	u16 count[16];
+	u16 old_count[16];
+	u8  enable[16];
+	u8  inactive_count[16];
+}STR_Task_Test;
+extern STR_Task_Test task_test;
 
 typedef struct 
 {

@@ -73,7 +73,7 @@ static uint8 OUT_VOLTMODE()  //PE0
 void analog_outputs_init(void)
 { 
 	Mode_Input_Initial();
-   	input_initial();
+ 	input_initial();
 	TIM_Config();
 }
 uint8 get_output_mode(void)
@@ -190,7 +190,9 @@ static void Set_analog_output(uint8 mode, uint8 channel, int16 value)
 	uint16 real_ad,target_ad, th_offset;
 	int16 real_ad_temp,target_ad_temp;
 	if(mode_select == TRANSMIT_MODE)
+	{
 		target_ad_temp = get_theory_ad(mode,channel,value);
+	}
 	else
 	{
 //		if(controllers[channel].action  == HEAT_MODE)
@@ -271,6 +273,7 @@ static void Set_analog_output(uint8 mode, uint8 channel, int16 value)
 
  		pwm_th_settings[channel] = ((pwm_th_settings[channel] > th_offset) ? (pwm_th_settings[channel] - th_offset) : 0);
 	} 
+
 	set_output(channel,pwm_th_settings[channel]);
 }
 
@@ -278,21 +281,25 @@ static void Set_analog_output(uint8 mode, uint8 channel, int16 value)
  
 void refresh_output(void)
 { 
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) ||(PRODUCT_ID == STM32_CO2_NODE_NEW)) 
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)) 
 	{
 		Set_analog_output(output_mode, CHANNEL_CO2, int_co2_str.co2_int); 
-		Set_analog_output(output_mode, CHANNEL_HUM,	HumSensor.humidity); 
+		if((output_auto_manual & 0x02) == 0)
+			Set_analog_output(output_mode, CHANNEL_HUM,	HumSensor.humidity); 
 	}
-	else if ((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485) )
+	else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 	{		
+		if((output_auto_manual & 0x02) == 0)
+		{
 		if(analog_output_sel)
-			Set_analog_output(output_mode, CHANNEL_HUM, HumSensor.dew_pt   );
+			Set_analog_output(output_mode, CHANNEL_HUM, HumSensor.dew_pt);
 		else		
 			Set_analog_output(output_mode, CHANNEL_HUM,	HumSensor.humidity);
+		}
 	}
-	else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) )
+	else if((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
 	
-		Set_analog_output(output_mode, CHANNEL_HUM, 	 Pressure.org_val);	
+		Set_analog_output(output_mode, CHANNEL_HUM, Pressure.org_val);	
 	else if(PRODUCT_ID == STM32_PM25) 
 	{
 		if(pm25_sensor.auto_manual&0x01)
@@ -327,27 +334,48 @@ void refresh_output(void)
 	}
 	else
 	{
-		Set_analog_output(output_mode, CHANNEL_TEMP,HumSensor.temperature_c);
+		if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
+		{
+			if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+			{
+				Set_analog_output(output_mode, CHANNEL_TEMP,internal_temperature_c);
+			}
+			else
+			{
+				Set_analog_output(output_mode, CHANNEL_TEMP,HumSensor.temperature_c);
+			}
+		}
+		else
+			Set_analog_output(output_mode, CHANNEL_TEMP,HumSensor.temperature_c);
 	} 
+	
+	if((output_auto_manual & 0x02))
+	{	
+		Set_analog_output(output_mode, CHANNEL_HUM,output_manual_value_humidity);
+	}
+	
 }
+
+ void Flash_task(void);
 
 //extern void watchdog(void);
 void vOutPutTask(void *pvParameters)
 {
 	analog_outputs_init();
-	
+	modbus.write_ghost_system = 0; // move from Flash task
 //	print("Output Task\r\n");
 	 
 // 	delay_ms(100);
-	
+	task_test.enable[9] = 1;
 	for( ;; )
-	{    
-
-		output_mode = get_output_mode();
-		refresh_output(); 
-
+	{   
+		Test[40] = 9;task_test.count[9]++;		
+		output_mode = get_output_mode();Test[40] = 20;
+		refresh_output();Test[40] = 21; 
+		Flash_task();// move from Flash task
+		Test[40] = 26;
 		vTaskDelay(500 / portTICK_RATE_MS);
-		
+		Test[40] = 29;
 //		 stack_detect(&test[7]);
 	}
 }

@@ -830,14 +830,18 @@ void scroll_warning(void)
 void display_dec(uint8 blink)
 {
 	//if(blink)//show dec
+	{
 	if((screenArea1 == SCREEN_AREA_TEMP)||(screenArea1 == SCREEN_AREA_HUMI))
 		disp_null_icon(8, 8,0,60, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
-	if((screenArea2 == SCREEN_AREA_TEMP)||(screenArea2 == SCREEN_AREA_HUMI))
+	if((screenArea2 == SCREEN_AREA_TEMP)/*||(screenArea2 == SCREEN_AREA_HUMI)*/)	
+	{
 		disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+	
+	}
 	if((screenArea3 == SCREEN_AREA_TEMP)||(screenArea3 == SCREEN_AREA_HUMI))
 		if(enableScroll==false)
 			disp_null_icon(8, 8,0,60+80+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
-
+	}
 }	
 
 //void display_pm25( int16 value)
@@ -1107,6 +1111,7 @@ switch(item)
 
 				if(value >= 1000)
 				{
+					disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
 					value_buf /= 10;
 					if((value_buf >= 100))
 						disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
@@ -1116,29 +1121,34 @@ switch(item)
 					disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 					disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
 				}
-				if(value<1000 )
-				{
-					if((value >= 100))
-						disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					else 
-						disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				}
-				else if(value <100)
-				{
-					disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-					disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-					disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
+				else	
+				{ // < 1000
+					disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+					if(value >= 100 )
+					{
+						//if((value >= 100))
+							disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						//else 
+						//	disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					}
+					else //if(value <100)
+					{
+						disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+						disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+						disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
+					}
 				}
 				disp_str(FORM15X30, 33+HUM_POS,UNIT_POS,"%  ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 			}
 		}
 		else if(screenArea2 == SCREEN_AREA_TEMP)
-		{
+		{Test[23]++;
 			disp_icon(55, 55, TempIcon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+			Test[25] = value;
 			if(value >=0)
-			{
+			{Test[24]++;
 				value_buf = value;
 //				disp_null_icon(3, 10, 0, 32,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
 //				disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
@@ -1664,23 +1674,30 @@ switch(item)
 				
 				{
 
-					if(value<1000 )
+					//if(value<1000 )
 					{
-						disp_ch(formCO2,xCO2,yCO2+oCO2*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						if(value >= 100)
+						
+						if(value >= 1000)
 						{
+							disp_ch(formCO2,xCO2,yCO2+oCO2*3,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(formCO2,xCO2,yCO2+oCO2*2,0x30+value_buf%1000 / 100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(formCO2,xCO2,yCO2+oCO2,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(formCO2,xCO2,yCO2,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						}
+						else if(value >= 100)
+						{disp_ch(formCO2,xCO2,yCO2+oCO2*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2+oCO2*2,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2+oCO2,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						}
 						else if(value >= 10)
-						{
+						{disp_ch(formCO2,xCO2,yCO2+oCO2*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2+oCO2*2,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2+oCO2,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						}
 						else
-						{
+						{disp_ch(formCO2,xCO2,yCO2+oCO2*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2+oCO2*2,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2+oCO2,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							disp_ch(formCO2,xCO2,yCO2,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
@@ -1694,7 +1711,7 @@ switch(item)
 		}
 	break; 
 	}
-	if(value>1000)
+	if(value>=1000)
 		display_dec(0);
 	else
 		display_dec(1);

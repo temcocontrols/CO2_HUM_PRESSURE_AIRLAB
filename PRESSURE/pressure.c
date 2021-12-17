@@ -442,9 +442,9 @@ void vUpdate_Pressure_Task( void *pvParameters )
 { 
 	 Pressure_initial();
 //	 print("UPDATE Pressure Task\r\n");
-	 delay_ms(100); 
+	 delay_ms(100);task_test.enable[6] = 1; 
 	 for(;;)
-	 {  
+	 {  Test[40] = 6;task_test.count[6]++;
 		Pressure_Task();
 //		stack_detect(&test[5]);
 		vTaskDelay(1000 / portTICK_RATE_MS);

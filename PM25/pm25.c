@@ -554,9 +554,9 @@ void PM25_task(void *pvParameters)
 		serial1_restart();
 	}
 	delay_ms(1000);
-	
+	task_test.enable[5] = 1;
 	while(1)
-	{
+	{Test[40] = 5;task_test.count[5]++;
 //		if((timer_counter % 5) == 0)
 //		{	
 //			timer_counter = 0;

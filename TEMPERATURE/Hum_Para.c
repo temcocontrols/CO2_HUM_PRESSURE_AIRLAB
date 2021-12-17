@@ -102,7 +102,6 @@ void Get_Hum_Para(signed short int Temperature,signed short int Humidity,signed 
 {
 	float   ftemp1,ftemp2,ftemp;
 //get dew point 	
-	Test[3] = 5;
 	ftemp1 = log((float)Humidity/1000);
 	ftemp2 = 17.625*Temperature;
 	ftemp2 = ftemp2/(2430.4+Temperature);
@@ -122,9 +121,7 @@ void Get_Hum_Para(signed short int Temperature,signed short int Humidity,signed 
 //get Enthalpy  
 	ftemp1 = 1.01+(0.00189*ftemp); 
 	ftemp=ftemp1*Temperature + ftemp * 25;	
-	*Enthalpy = ftemp; 
-	Test[1]++;
-	Test[2] = ftemp;
+	*Enthalpy = ftemp;
 }	
 
 float Sys_Filter(float new_value,float pre_value,unsigned char input_filter)

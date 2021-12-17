@@ -409,7 +409,6 @@ bit read_light_sensor_version(void)
 	GIVE_PIC_NACK();
 	delay_us(30);
 	i2c_pic_stop(); 
-	Test[12] = temp_version;
 	
 	if((temp_version & 0x70)!= 0)
 	{light_sensor = 1;
@@ -1261,7 +1260,7 @@ bit read_sensor_Rev25(uint8 Addr, uint8 CMD)
 }
 
 
-
+#if OLD_HUM
 //////// APP FUNCTIONS
 void update_humidity_display(uint8 ForceUpdate)
 {
@@ -1365,6 +1364,10 @@ bit write_sensor_humidity(uint16 hum)
 // 	else
 // 		return 0;
 // }
+
+
+
+#endif
 bit pic_heating_control(uint8 cmd) 
 {
 	if(humidity_version > 24)
@@ -1376,6 +1379,7 @@ bit pic_read_light_val(uint16 *val)
 {
 	return read_params_Rev24(IIC_ADDR, CMD_LIGHT_READ, val);
 }
+
 void external_operation(void)
 {  
 	switch(external_operation_flag)
@@ -1388,6 +1392,7 @@ void external_operation(void)
 				new_write_eeprom(EEP_TEMP_OFFSET+1,HumSensor.offset_t>>8);  
 			break;
 		case HUM_CALIBRATION: 
+#if OLD_HUM
 				if(hum_exists == 1)
 				{
 					if(table_sel== USER)
@@ -1403,12 +1408,15 @@ void external_operation(void)
 						new_write_eeprom(EEP_CAL_DEFAULT_HUM+1,HumSensor.offset_h_default>>8); 
 					}
 				}
-				else if(hum_exists == 2)
+				else 
+#endif
+				//if(hum_exists == 2 || ((hum_exists == 0) && (internal_co2_module_type == SCD40)))
 				{
-					HumSensor.offset_h = external_operation_value - hum_org;
+					HumSensor.offset_h += external_operation_value - HumSensor.humidity;
 					new_write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h); 
 					new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8);
 				}
+				//else 
 				external_operation_flag = 0; 
 			break;
 				
@@ -1423,6 +1431,7 @@ void external_operation(void)
 					hum_heat_status = external_operation_value;
 			
 				}
+#if OLD_HUM
 				else
 				{
 					if(pic_heating_control((uint8)external_operation_value))
@@ -1431,6 +1440,7 @@ void external_operation(void)
 						hum_heat_status = external_operation_value;
 					}
 				}
+#endif
 			break;
 		default:
 			break;
@@ -1459,6 +1469,7 @@ void auto_heating(void)
 							hum_heat_status = 1;
 						}					
 					}
+#if OLD_HUM
 					else
 					{
 						if(pic_heating_control(1)) 
@@ -1467,6 +1478,7 @@ void auto_heating(void)
 							hum_heat_status = 1;
 						}
 					}
+#endif
 				}
 			}
 			else
@@ -1486,6 +1498,7 @@ void auto_heating(void)
 						hum_heat_status = 0;
 					}					
 				}
+#if OLD_HUM
 				else
 				{
 					if(pic_heating_control(0)) 
@@ -1494,6 +1507,7 @@ void auto_heating(void)
 						hum_heat_status = 0;
 					}
 				}
+#endif
 			} 
 		} 	
 	}

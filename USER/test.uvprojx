@@ -617,6 +617,36 @@
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\LCD\ER-TFT024-3_4-Wire_SPI.c</FilePath>
             </File>
+            <File>
+              <FileName>sht4x.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HUMIDITY\sht4x.c</FilePath>
+            </File>
+            <File>
+              <FileName>sensirion_common.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HUMIDITY\sensirion_common.c</FilePath>
+            </File>
+            <File>
+              <FileName>sht_git_version.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HUMIDITY\sht_git_version.c</FilePath>
+            </File>
+            <File>
+              <FileName>sht4x_example_usage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HUMIDITY\sht4x_example_usage.c</FilePath>
+            </File>
+            <File>
+              <FileName>sensirion_sw_i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HUMIDITY\sensirion_sw_i2c.c</FilePath>
+            </File>
+            <File>
+              <FileName>sensirion_sw_i2c_implementation.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\HUMIDITY\sensirion_sw_i2c_implementation.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -991,6 +1021,26 @@
               <FileName>bsp_esp8266.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\bsp_esp8266.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>CO2_IIC</GroupName>
+          <Files>
+            <File>
+              <FileName>scd4x_i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\CO2_I2C\scd4x_i2c.c</FilePath>
+            </File>
+            <File>
+              <FileName>scd4x_i2c_example_usage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\CO2_I2C\scd4x_i2c_example_usage.c</FilePath>
+            </File>
+            <File>
+              <FileName>sensirion_i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\CO2_I2C\sensirion_i2c.c</FilePath>
             </File>
           </Files>
         </Group>

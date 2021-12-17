@@ -47,6 +47,7 @@
   */
 void NMI_Handler(void)
 {
+	AT24CXX_WriteOneByte(EEP_RESTART_NUM, Test[0]);
 	print("NMI fault");
 }
 
@@ -60,6 +61,7 @@ void HardFault_Handler(void)
   /* Go to infinite loop when Hard Fault exception occurs */
   while (1)
   {
+		AT24CXX_WriteOneByte(EEP_HARDFAULT1, Test[40]);		
 		print("hard fault");
   }
 }
@@ -74,6 +76,7 @@ void MemManage_Handler(void)
   /* Go to infinite loop when Memory Manage exception occurs */
   while (1)
   {
+		AT24CXX_WriteOneByte(EEP_HARDFAULT2, Test[40]);
 		print("Mem Fault ");
   }
 }
@@ -88,7 +91,8 @@ void BusFault_Handler(void)
   /* Go to infinite loop when Bus Fault exception occurs */
   while (1)
   {
-			print("Bus Fault ");
+		AT24CXX_WriteOneByte(EEP_HARDFAULT3, Test[40]);
+		print("Bus Fault ");
   }
 }
 
@@ -102,6 +106,7 @@ void UsageFault_Handler(void)
   /* Go to infinite loop when Usage Fault exception occurs */
   while (1)
   {
+		AT24CXX_WriteOneByte(EEP_HARDFAULT4, Test[40]);
 		print("Usage Fault ");
   }
 }
@@ -113,6 +118,7 @@ void UsageFault_Handler(void)
   */
 void SVC_Handler(void)
 {
+	AT24CXX_WriteOneByte(EEP_HARDFAULT5, Test[40]);
 		print("SVC ");
 }
 

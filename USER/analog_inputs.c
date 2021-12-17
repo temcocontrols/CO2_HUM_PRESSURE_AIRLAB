@@ -33,12 +33,12 @@ static void ADC_Config(void)
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
     
 	/* Configure ADC Channel 8,9  as analog input */
-    GPIO_InitStructure.GPIO_Pin =    GPIO_Pin_0 | GPIO_Pin_1 ;
+  GPIO_InitStructure.GPIO_Pin =    GPIO_Pin_0 | GPIO_Pin_1 ;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
   
 	/* Configure ADC Channel 14, 15  as analog input */
-    GPIO_InitStructure.GPIO_Pin =    GPIO_Pin_4 | GPIO_Pin_5 ;
+  GPIO_InitStructure.GPIO_Pin =    GPIO_Pin_4 | GPIO_Pin_5 ;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
 	GPIO_Init(GPIOC, &GPIO_InitStructure);
   
@@ -97,7 +97,9 @@ static void ADC_Config(void)
 	ADC_DMACmd(ADC1, ENABLE);
 	//使能ADC1
 	ADC_Cmd(ADC1, ENABLE);	
-	
+	// add delay
+	//delay_ms(0xFFFF);
+	delay_ms(20);
 	// 初始化ADC1校准寄存器
 	ADC_ResetCalibration(ADC1);
 	//检测ADC1校准寄存器初始化是否完成
@@ -163,20 +165,23 @@ uint16 get_ad_val(uint8 channel)
 			break;
 		
 		case TEMP_AD:
-			for(i=0;i<10;i++)
-				read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 7]; 
+			for(i = 0;i < 10;i++)
+			{
+					read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 7]; 
+			//	delay_ms(1);
+			}
 			break;
 		default:
 			break;
 	}
 	
-	min = read_buf[0];
+		min = read_buf[0];
     max = read_buf[0];
     for(i = 0; i < 10; i++)
     { 
-        datacore += read_buf[i];  
-		min = min < read_buf[i] ? min : read_buf[i];
-		max = max > read_buf[i] ? max : read_buf[i]; 
+      datacore += read_buf[i];  
+			min = min < read_buf[i] ? min : read_buf[i];
+			max = max > read_buf[i] ? max : read_buf[i]; 
     }
 	
     return(datacore - min - max) / 8;   

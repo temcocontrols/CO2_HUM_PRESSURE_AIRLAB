@@ -31,6 +31,7 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 	unsigned portBASE_TYPE uxSavedInterruptStatus;
 	U8_T cTaskWokenByPost;
 	U8_T buf;
+	static uint8 rcv_flag = 0;
 	
 	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
 
@@ -111,12 +112,176 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 //					serial1_restart();
 //			}
 		}
-		else if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200) || (internal_co2_module_type == MH_Z19B) || (internal_co2_module_type == SCD30))//add new co2 sensor 
+		else if((internal_co2_module_type == MAYBE_OGM200) || (internal_co2_module_type == OGM200) || (internal_co2_module_type == MH_Z19B) )//add new co2 sensor 
 		{
-			 
 			xQueueSendFromISR(qSubSerial, (void *)&buf, (void *)&cTaskWokenByPost);
 			if(cTaskWokenByPost != pdFALSE)
 				taskYIELD(); 	
+		}
+		else if(internal_co2_module_type == SCD30)
+		{
+				if(sensirion_rev_cnt >= 17)	{Test[1]++; return;}
+				
+				if(scd30_co2_cmd_status == SCD30_CMD_CONTINUE_MEASUREMENT)
+				{
+					 if((rcv_flag == 0) && (buf == 0x61))
+					 {
+							rcv_flag = 1;
+							subnet_response_buf[sensirion_rev_cnt++] = buf;
+					 }
+					 else if((rcv_flag == 1) && (buf == 0x06))
+					 {
+							rcv_flag = 2;
+							subnet_response_buf[sensirion_rev_cnt++] = buf;
+					 }
+					 else if(rcv_flag == 2)
+					 {
+						subnet_response_buf[sensirion_rev_cnt++] = buf;
+					 }
+					 else 
+					 {
+						 sensirion_rev_cnt = 0;
+						 rcv_flag=0;
+					 }
+						
+					 if(sensirion_rev_cnt >= 8)
+					 {
+						if((subnet_response_buf[0] == 0x61) && (subnet_response_buf[1] == 0x06) && (subnet_response_buf[6] == 0x60) && (subnet_response_buf[7] == 0x64))
+						{
+							scd30_co2_cmd_status =  SCD30_CMD_READ_ASC;//SCD30_CMD_GET_DATA_READY;	
+							//co2_present = 1;
+							internal_co2_module_type = SCD30;
+							rcv_flag=0;
+						}
+					 }
+					}
+			else if (SCD30_CMD_READ_ASC == scd30_co2_cmd_status)
+				{
+					if((rcv_flag == 0) && (buf == 0x61))
+					{
+						rcv_flag = 1;
+						subnet_response_buf[sensirion_rev_cnt++] = buf;
+					}
+					else if((rcv_flag == 1) && (buf == 0x03))
+					{
+						rcv_flag = 2;
+						subnet_response_buf[sensirion_rev_cnt++] = buf;
+					}
+					else if(rcv_flag == 2)
+					{
+					subnet_response_buf[sensirion_rev_cnt++] = buf;
+					}
+					else 
+					{
+					 sensirion_rev_cnt = 0;
+					 rcv_flag=0;
+					}
+					
+					if(sensirion_rev_cnt >= 7)
+					{
+						if((subnet_response_buf[0] == 0x61) && (subnet_response_buf[1] == 0x03) && (subnet_response_buf[2] == 0x02) )
+						{
+							//if(subnet_response_buf[4] == 0x01)
+							co2_asc = (uint16)(subnet_response_buf[3]<<8)|subnet_response_buf[4];
+							scd30_co2_cmd_status = SCD30_CMD_GET_DATA_READY;	
+							//co2_present = 1;
+							internal_co2_module_type = SCD30;
+							rcv_flag=0;
+						}
+					}
+				}
+	else if(scd30_co2_cmd_status == SCD30_SET_FRC)
+	{
+		subnet_response_buf[sensirion_rev_cnt++] = buf;
+		if(sensirion_rev_cnt >= 7)
+		{
+			scd30_co2_cmd_status = SCD30_CMD_READ_ASC;//SCD30_CMD_GET_DATA_READY;	
+			//co2_present = 1;
+			internal_co2_module_type = SCD30;
+			rcv_flag=0;
+		}
+	}
+	else if(scd30_co2_cmd_status == SCD30_CMD_GET_DATA_READY)
+		{
+			 if((rcv_flag == 0) && (buf == 0x61))
+			 {
+					rcv_flag = 1;
+					subnet_response_buf[sensirion_rev_cnt++] = buf;
+			 }
+			 else if((rcv_flag == 1) && (buf == 0x03))
+			 {
+					rcv_flag = 2;
+					subnet_response_buf[sensirion_rev_cnt++] = buf;
+			 }
+			 else if(rcv_flag == 2)
+			 {
+				subnet_response_buf[sensirion_rev_cnt++] = buf;
+			 }
+			 else 
+			 {
+				 sensirion_rev_cnt = 0;
+				 rcv_flag=0;
+			 }
+				
+			 if(sensirion_rev_cnt >= 7)
+			 {
+				if((subnet_response_buf[0] == 0x61) && (subnet_response_buf[1] == 0x03) && (subnet_response_buf[2] == 0x02) )
+				{
+					if(subnet_response_buf[4] == 0x01)
+						scd30_co2_cmd_status = SCD30_CMD_READ_MEASUREMENT;	
+					//co2_present = 1;
+					internal_co2_module_type = SCD30;
+					rcv_flag = 0;
+				}
+			 }
+			}	
+		
+	
+	  else if(scd30_co2_cmd_status == SCD30_CMD_READ_MEASUREMENT)
+		{
+			 if((rcv_flag == 0) && (buf == 0x61))
+			 {
+					rcv_flag = 1;
+					subnet_response_buf[sensirion_rev_cnt++] = buf;
+			 }
+			 else if((rcv_flag == 1) && (buf == 0x03))
+			 {
+					rcv_flag = 2;
+					subnet_response_buf[sensirion_rev_cnt++] = buf;
+			 }
+			 else if(rcv_flag == 2)
+			 {
+				subnet_response_buf[sensirion_rev_cnt++] = buf;
+			 }
+			 else 
+			 {
+				 sensirion_rev_cnt = 0;
+				 rcv_flag=0;
+			 }
+				
+			 if(sensirion_rev_cnt >= 17)
+			 {
+//				if((subnet_response_buf[0] == 0x61) && (subnet_response_buf[1] == 0x03) && (subnet_response_buf[2] == 0x0c) )
+//				{
+//					u16 crc_val;
+//					float temp_f;
+//					crc_val = crc16(subnet_response_buf,15);
+//					checksum = ((uint16)subnet_response_buf[15] << 8)	+ subnet_response_buf[16];
+//					if(crc_val == checksum)
+//					{
+//						temp_f = Datasum(subnet_response_buf[3],subnet_response_buf[4],subnet_response_buf[5],subnet_response_buf[6]);
+//						co2_data_org = (uint16)temp_f;
+//						if(co2_bkcal_onoff == CO2_BKCAL_ON) co2_data_org += co2_bkcal_value;
+//					  scd30_co2_cmd_status = SCD30_CMD_READ_ASC;//SCD30_CMD_GET_DATA_READY;
+//					}						
+					//co2_present = 1;
+					internal_co2_module_type = SCD30;
+					rcv_flag=0;
+//				}
+			 }
+			}		
+	
+	
 		}
 		else
 		{//  CO2 sensor 

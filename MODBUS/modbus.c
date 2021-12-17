@@ -26,6 +26,10 @@
 #include "store.h"
 #include "define.h"
 
+u8 float_w[4];
+int16_t scd4x_perform_forced_recalibration(uint16_t target_co2_concentration,
+                                          uint16_t* frc_correction);
+extern uint8_t scd4x_perform_forced;
 extern uint8_t flag_set_wifi;
 extern uint8 isWagnerProduct;
 extern U8_T MAX_MASTER;
@@ -202,7 +206,6 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 							while((USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET) && (count++ < 1000))
 							{ delay_us(1);
 							}
-							if(count >= 1000) Test[11]++;
 							
 							USART_ClearFlag(USART1, USART_FLAG_TC); 
 							USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
@@ -281,7 +284,42 @@ void USART_SendDataString( u16 num )
 }
 void modbus_init(void)
 {
-	//uart1_init(19200);
+	switch(modbus.baud)
+	{
+		case 0:
+			modbus.baudrate = BAUDRATE_9600 ;
+			uart1_init(BAUDRATE_9600);
+	
+			SERIAL_RECEIVE_TIMEOUT = 6;
+		break ;
+		case 1:
+			modbus.baudrate = BAUDRATE_19200 ;
+			uart1_init(BAUDRATE_19200);	
+			SERIAL_RECEIVE_TIMEOUT = 3;
+		break;
+		case 2:
+			modbus.baudrate = BAUDRATE_38400 ;
+			uart1_init(BAUDRATE_38400);
+			SERIAL_RECEIVE_TIMEOUT = 2;
+		break;
+		case 3:
+			modbus.baudrate = BAUDRATE_57600 ;
+			uart1_init(BAUDRATE_57600);	
+			SERIAL_RECEIVE_TIMEOUT = 1;
+		break;
+		case 5:
+			modbus.baudrate = BAUDRATE_76800 ;
+			uart1_init(BAUDRATE_76800);	
+			SERIAL_RECEIVE_TIMEOUT = 1;
+		break;
+		case 4:
+			modbus.baudrate = BAUDRATE_115200 ;
+			uart1_init(BAUDRATE_115200);	
+			SERIAL_RECEIVE_TIMEOUT = 1;
+		break;
+		default:
+		break ;				
+	}
 	serial_restart();
 	SERIAL_RECEIVE_TIMEOUT = 3;
 	serial_receive_timeout_count = SERIAL_RECEIVE_TIMEOUT;
@@ -469,6 +507,13 @@ void internalDeal(u8 type,  u8 *pData)
 	StartAdd = (u16)(pData[HeadLen + 2] <<8 ) + pData[HeadLen + 3];
 	 if (pData[HeadLen + 1] == MULTIPLE_WRITE) //multi_write
 	{
+		if(StartAdd == MODBUS_FLOAT_TEST_HI_W)
+		{
+			float_w[0] = pData[HeadLen + 7];
+			float_w[1] = pData[HeadLen + 8];
+			float_w[2] = pData[HeadLen + 9];
+			float_w[3] = pData[HeadLen + 10];
+		}
 		if(StartAdd == MODBUS_MAC_ADDRESS_1)
 		{
 			if((modbus.mac_enable == 1) && (pData[HeadLen + 6] == 12))
@@ -503,7 +548,7 @@ void internalDeal(u8 type,  u8 *pData)
 			write_wifi_data_by_block(StartAdd,HeadLen,pData,0);
 		}	
 #endif
-		if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485) || (PRODUCT_ID == STM32_PM25) || (PRODUCT_ID == STM32_CO2_NET) || (PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
+		if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485) || (PRODUCT_ID == STM32_PM25) || (PRODUCT_ID == STM32_CO2_NET) || (PRODUCT_ID == STM32_CO2_RS485))
 		{
 			if(StartAdd  >= TSTAT_NAME1 && StartAdd <= TSTAT_NAME8)
 			{
@@ -621,7 +666,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				modbus.SNWriteflag |= 0x08;
 				AT24CXX_WriteOneByte((u16)EEP_SERIALNUMBER_WRITE_FLAG, modbus.SNWriteflag);
 				
-				if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
+				if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 				sprintf((char *)panelname,"%s", (char *)"CO2_NET");
 				else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485))
 					sprintf((char *)panelname,"%s", (char *)"Pressure");
@@ -629,8 +674,6 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					sprintf((char *)panelname,"%s", (char *)"Humdity");
 				else if((PRODUCT_ID == STM32_PM25))
 					sprintf((char *)panelname,"%s", (char *)"PM2.5");
-				else if((PRODUCT_ID == STM32_CO2_NODE_NEW))
-					sprintf((char *)panelname,"%s", (char *)"CO2_NODE");
 				else 
 					sprintf((char *)panelname,"%s", (char *)"other");
 				
@@ -650,47 +693,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		else if(StartAdd == MODBUS_BAUDRATE )
 		{			
 			modbus.baud = Data_L ;
-			switch(modbus.baud)
-			{
-				case 0:
-					modbus.baudrate = BAUDRATE_9600 ;
-					uart1_init(BAUDRATE_9600);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);					
-					SERIAL_RECEIVE_TIMEOUT = 6;
-				break ;
-				case 1:
-					modbus.baudrate = BAUDRATE_19200 ;
-					uart1_init(BAUDRATE_19200);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 3;
-				break;
-				case 2:
-					modbus.baudrate = BAUDRATE_38400 ;
-					uart1_init(BAUDRATE_38400);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 2;
-				break;
-				case 3:
-					modbus.baudrate = BAUDRATE_57600 ;
-					uart1_init(BAUDRATE_57600);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;
-				break;
-				case 5:
-					modbus.baudrate = BAUDRATE_76800 ;
-					uart1_init(BAUDRATE_76800);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;
-				break;
-				case 4:
-					modbus.baudrate = BAUDRATE_115200 ;
-					uart1_init(BAUDRATE_115200);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE,Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;		
-				break ;
-				default:
-				break ;				
-			}
+			AT24CXX_WriteOneByte(EEP_BAUDRATE,Data_L);	
 			modbus_init();
 		}
 		else if(StartAdd == MODBUS_UPDATE_STATUS )			// july 21 Ron
@@ -759,13 +762,23 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					write_eeprom(EEP_OUTPUT_CO2_RANGE_MAX,output_range_table[CHANNEL_CO2].max);
 			  
 			// temperature output range
-					write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN + 1,0);
-					write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN,0); 
-					output_range_table[CHANNEL_TEMP].max = 1000;
+					if(PRODUCT_ID == STM32_CO2_NET || PRODUCT_ID == STM32_CO2_RS485 || \
+						PRODUCT_ID == STM32_HUM_NET || PRODUCT_ID == STM32_HUM_RS485)
+							output_range_table[CHANNEL_TEMP].min = -400;
+					else
+						output_range_table[CHANNEL_TEMP].min = 0;
+					write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN + 1,output_range_table[CHANNEL_TEMP].min >> 8);
+					write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MIN,output_range_table[CHANNEL_TEMP].min);
+					if(PRODUCT_ID == STM32_CO2_NET || PRODUCT_ID == STM32_CO2_RS485 || \
+						PRODUCT_ID == STM32_HUM_NET || PRODUCT_ID == STM32_HUM_RS485)
+							output_range_table[CHANNEL_TEMP].max = 600;
+					else
+							output_range_table[CHANNEL_TEMP].max = 1000;
 					write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MAX + 1,output_range_table[CHANNEL_TEMP].max>>8);
 					write_eeprom(EEP_OUTPUT_TEMPERATURE_RANGE_MAX,output_range_table[CHANNEL_TEMP].max);
 					
 			// humidity output range
+					output_range_table[CHANNEL_HUM].min = 0;
 					write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN + 1,0);
 					write_eeprom(EEP_OUTPUT_HUMIDITY_RANGE_MIN,0); 
 					output_range_table[CHANNEL_HUM].max = 1000;
@@ -789,15 +802,21 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					write_eeprom(EEP_EXT_TEMPERATURE_FILTER,DEFAULT_FILTER);   
 					write_eeprom(EEP_INT_TEMPERATURE_FILTER,DEFAULT_FILTER);
 
-					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW))
+					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 						sprintf((char *)panelname,"%s", (char *)"CO2_NET");
 					else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) )
 						sprintf((char *)panelname,"%s", (char *)"Pressure");
 					else if(PRODUCT_ID == STM32_PM25)
 						sprintf((char *)panelname,"%s", (char *)"PM25");
 					else //if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+					{
+						if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+						{
+							sprintf((char *)panelname,"%s", (char *)"RTS2");
+						}
+						else
 						sprintf((char *)panelname,"%s", (char *)"Humdity");
-					
+					}
 					 
 					for(i=0;i<20;i++)			 
 					{
@@ -1172,48 +1191,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		if(StartAdd == MODBUS_HUM_BAUDRATE) 
 		{			
 			modbus.baud = Data_L ;
-			switch(modbus.baud)
-			{
-				case 0:
-					modbus.baudrate = BAUDRATE_9600 ;
-					uart1_init(BAUDRATE_9600);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);					
-					SERIAL_RECEIVE_TIMEOUT = 6;
-				break ;
-				case 1:
-					modbus.baudrate = BAUDRATE_19200 ;
-					uart1_init(BAUDRATE_19200);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 3;
-				break;
-				case 2:
-					modbus.baudrate = BAUDRATE_38400 ;
-					uart1_init(BAUDRATE_38400);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 2;
-				break;
-				case 3:
-					modbus.baudrate = BAUDRATE_57600 ;
-					uart1_init(BAUDRATE_57600);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;
-				break;
-				case 5:
-					modbus.baudrate = BAUDRATE_76800 ;
-					uart1_init(BAUDRATE_76800);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;
-				break;				
-				case 4:
-					modbus.baudrate = BAUDRATE_115200 ;
-					uart1_init(BAUDRATE_115200);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;	
-				break;
-				
-				default:
-				break ;				
-			}
+			AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
 			modbus_init();
 		} 
 		else if(StartAdd == MODBUS_HUM_TEMPERATURE_DEGREE_C_OR_F)
@@ -1224,16 +1202,35 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				deg_c_or_f = 0;
 			write_eeprom(EEP_DEG_C_OR_F, (uint8)deg_c_or_f);
 		}
-		 
+		else if(StartAdd == MODBUS_HUM_SUB_PRODUCT)
+		{
+			write_eeprom(EEP_SUB_PRODUCT, Data_L);
+		}
 		else if(StartAdd == MODBUS_HUM_EXTERNAL_TEMPERATURE_CELSIUS)	
 		{
+
 			external_operation_value = (int16)(((uint16)Data_H << 8) | Data_L);
 			if((output_auto_manual & 0x01) == 0x01)
 			{
 				output_manual_value_temp = external_operation_value;
 			}
 			else
-				external_operation_flag = TEMP_CALIBRATION; 
+			{
+				if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
+				{
+					if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+					{
+						internal_temperature_offset += (((uint16)Data_H << 8) | Data_L) - internal_temperature_c;
+						write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 0, (uint8)(internal_temperature_offset & 0x00ff));
+						write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 1, (uint8)(internal_temperature_offset >> 8));
+					}
+					else
+						external_operation_flag = TEMP_CALIBRATION; 
+				}
+				else
+					external_operation_flag = TEMP_CALIBRATION; 
+			}
+				
 		}
 		else if(StartAdd == MODBUS_HUM_EXTERNAL_TEMPERATURE_FAHRENHEIT)
 		{
@@ -1242,8 +1239,22 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			{
 				output_manual_value_temp = external_operation_value;
 			}
-			else
-				external_operation_flag = TEMP_CALIBRATION;
+			else 
+			{
+				if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
+				{
+					if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+					{
+						internal_temperature_offset += ((int16)(((uint16)Data_H << 8) | Data_L) - internal_temperature_f) * 5 / 9;
+						write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 0, (uint8)(internal_temperature_offset & 0x00ff));
+						write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 1, (uint8)(internal_temperature_offset >> 8));
+					}
+					else
+						external_operation_flag = TEMP_CALIBRATION;
+				}
+				else
+					external_operation_flag = TEMP_CALIBRATION;
+			}				
 		} 
 		else if((StartAdd == MODBUS_HUM_HUMIDITY)||(StartAdd == MODBUS_HUM_HUMIDITY1))
 		{
@@ -1390,6 +1401,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		} 
 		else if(StartAdd == MODBUS_HUM_TABLE_SEL)
 		{
+#if OLD_HUM
 			if(hum_exists == 1)
 			{
 				if((Data_L == USER)||(Data_L == FACTORY))
@@ -1407,7 +1419,9 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 						new_write_eeprom(EEP_USER_POINTS,0);    //hum_size_copy
 				} 
 			}
-			else if(hum_exists == 2)
+			else
+#endif
+			if(hum_exists == 2)
 			{
 				if(Data_L == 3)
 					update_flag = 8;
@@ -1456,7 +1470,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				}
 				else
 				{	 
-
+#if OLD_HUM
 					if(hum_exists == 1)
 					{						
 						 new_write_eeprom(EEP_USER_RH1 + i*4 +2,HumSensor.frequency);			  
@@ -1470,7 +1484,9 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 								new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8); 					
 						 }
 					}
-					else if(hum_exists == 2)
+					else
+#endif
+					if(hum_exists == 2)
 					{
 //						 new_write_eeprom(EEP_USER_RH1 + i*4,hum_org);			  
 //						 new_write_eeprom(EEP_USER_RH1 + i*4+1, (uint16)hum_org >> 8); 
@@ -2335,48 +2351,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
  		if((StartAdd == MODBUS_BAUDRATE )||(StartAdd == MODBUS_HUM_BAUDRATE )) 
 		{			
 			modbus.baud = Data_L ;
-			switch(modbus.baud)
-			{
-				case 0:
-					modbus.baudrate = BAUDRATE_9600 ;
-					uart1_init(BAUDRATE_9600);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);					
-					SERIAL_RECEIVE_TIMEOUT = 6;
-				break ;
-				case 1:
-					modbus.baudrate = BAUDRATE_19200 ;
-					uart1_init(BAUDRATE_19200);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 3;
-				break;
-				case 2:
-					modbus.baudrate = BAUDRATE_38400 ;
-					uart1_init(BAUDRATE_38400);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 2;
-				break;
-				case 3:
-					modbus.baudrate = BAUDRATE_57600 ;
-					uart1_init(BAUDRATE_57600);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;
-				break;
-
-				case 5:
-					modbus.baudrate = BAUDRATE_76800 ;
-					uart1_init(BAUDRATE_76800);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;
-				break;			
-				
-				case 4:
-					modbus.baudrate = BAUDRATE_115200 ;
-					uart1_init(BAUDRATE_115200);
-					AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
-					SERIAL_RECEIVE_TIMEOUT = 1;		
-				default:
-				break ;				
-			}
+			AT24CXX_WriteOneByte(EEP_BAUDRATE, Data_L);	
 			modbus_init();
 		}
 		else if(StartAdd == MODBUS_CO2_INTERNAL_EXIST)
@@ -2716,7 +2691,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 ////				SoftReset();
 //		}
 		
-		else if((StartAdd >= MODBUS_TEST1) && (StartAdd <= MODBUS_TEST20))
+		else if((StartAdd >= MODBUS_TEST1) && (StartAdd <= MODBUS_TEST50))
 		{ 				
 			Test[StartAdd - MODBUS_TEST1] = Data_L + Data_H * 256;
 			
@@ -3055,15 +3030,21 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		
 	 else if(StartAdd == MODBUS_CO2_AUTOCAL_DAY)
 	 {
-	   update_flag = 6;
+			update_flag = 6;
 	 }
-
 	 else if(StartAdd == CO2_FRC_VALUE)
 	 {
-		 sensirion_co2_cmd_ForcedCalibration[4] = Data_H;	
+			sensirion_co2_cmd_ForcedCalibration[4] = Data_H;	
 			sensirion_co2_cmd_ForcedCalibration[5] = Data_L;
-			scd30_co2_cmd_status = SCD30_SET_FRC; 
-		 co2_frc = (uint16)(sensirion_co2_cmd_ForcedCalibration[4]<<8 )|sensirion_co2_cmd_ForcedCalibration[5];
+			co2_frc = (uint16)(sensirion_co2_cmd_ForcedCalibration[4]<<8 )|sensirion_co2_cmd_ForcedCalibration[5];
+		  if(internal_co2_module_type == SCD30)
+			{
+				scd30_co2_cmd_status = SCD30_SET_FRC; 				
+			}
+			else if(internal_co2_module_type == SCD40)
+			{
+				scd4x_perform_forced = 1;
+			}
 	 }
 	 
 			
@@ -3268,6 +3249,7 @@ void responseCmd(u8 type, u8* pData)
 			address = StartAdd + i;
 			if(address  < ORIGINALADDRESSVALUE)
 			{	
+
 				if(address <= MODBUS_SERIALNUMBER_HIWORD + 1)
 				{
 					temp1 = 0 ;
@@ -3322,6 +3304,44 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);				
 				} 
+#if 1
+				else if(address == MODBUS_FLOAT_TEST_HI)
+				{
+					temp1 = 0x42 ;
+					temp2 = 0xC8;
+					sendbuf[send_cout++] = temp1;
+					sendbuf[send_cout++] = temp2;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
+				else if(address == MODBUS_FLOAT_TEST_LO)
+				{
+					temp1 = 0x33;
+					temp2 = 0x33;
+					sendbuf[send_cout++] = temp1;
+					sendbuf[send_cout++] = temp2;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
+				else if(address == MODBUS_FLOAT_TEST_HI_W)
+				{
+					temp1 = float_w[0];
+					temp2 = float_w[1];
+					sendbuf[send_cout++] = temp1;
+					sendbuf[send_cout++] = temp2;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
+				else if(address == MODBUS_FLOAT_TEST_LO_W)
+				{
+					temp1 = float_w[2];
+					temp2 = float_w[3];
+					sendbuf[send_cout++] = temp1;
+					sendbuf[send_cout++] = temp2;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				
+				}
+#endif
 				else if(address == MODBUS_ISP_REV)
 				{					
 					temp1 = 0;
@@ -3343,7 +3363,7 @@ void responseCmd(u8 type, u8* pData)
 				else if(address == MODBUS_SENSOR_TYPE)
 				{ 
 					temp1 = 0 ;
-					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)||(PRODUCT_ID == STM32_CO2_NODE_NEW)) 
+					if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)) 
 						temp2 =  SENSOR_TYPE1;
 					else if ((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485) ) 
 						temp2 =  SENSOR_TYPE2;
@@ -3591,7 +3611,9 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);	
 				}
+			
 				else
+
 				{
 					temp1 = 0 ;
 					temp2 = 0;
@@ -3720,7 +3742,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp2);
 				}
 #endif
-			else if((address >= MODBUS_TEST1)&&(address <= MODBUS_TEST20))
+			else if((address >= MODBUS_TEST1)&&(address <= MODBUS_TEST50))
 			{ 				
 				temp1 = ((int16)Test[address - MODBUS_TEST1]) >> 8 ;
 				temp2 = ((int16)Test[address - MODBUS_TEST1]) & 0xff;
@@ -3795,8 +3817,24 @@ void responseCmd(u8 type, u8* pData)
 				 
 				else if(address == MODBUS_HUM_EXTERNAL_TEMPERATURE_CELSIUS)	
 				{  
-					temp1 = HumSensor.temperature_c >> 8 ;
-					temp2 = HumSensor.temperature_c  ;
+					if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+					{
+						if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+						{
+							temp1 = internal_temperature_c >> 8 ;
+							temp2 = internal_temperature_c  ;
+						}
+						else
+						{
+							temp1 = HumSensor.temperature_c >> 8 ;
+							temp2 = HumSensor.temperature_c  ;
+						}
+					}
+					else
+					{
+						temp1 = HumSensor.temperature_c >> 8 ;
+						temp2 = HumSensor.temperature_c  ;
+					}
 					sendbuf[send_cout++] = temp1 ;
 					sendbuf[send_cout++] = temp2 ;
 					crc16_byte(temp1);
@@ -3804,8 +3842,33 @@ void responseCmd(u8 type, u8* pData)
 				}
 				else if(address == MODBUS_HUM_EXTERNAL_TEMPERATURE_FAHRENHEIT)
 				{ 
-					temp1 = HumSensor.temperature_f >> 8 ;
-					temp2 = HumSensor.temperature_f  ;
+					if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+					{
+						if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+						{
+							temp1 = internal_temperature_f >> 8 ;
+							temp2 = internal_temperature_f  ;
+						}
+						else
+						{
+							temp1 = HumSensor.temperature_f >> 8 ;
+							temp2 = HumSensor.temperature_f  ;
+						}
+					}
+					else
+					{
+						temp1 = HumSensor.temperature_f >> 8 ;
+						temp2 = HumSensor.temperature_f  ;
+					};
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+				else if(address == MODBUS_HUM_SUB_PRODUCT)
+				{
+					temp1 = 0 ;
+					temp2 = read_eeprom(EEP_SUB_PRODUCT);
 					sendbuf[send_cout++] = temp1 ;
 					sendbuf[send_cout++] = temp2 ;
 					crc16_byte(temp1);
@@ -5527,8 +5590,7 @@ void responseCmd(u8 type, u8* pData)
 				}	
 					
 				else if(address == MODBUS_CO2_INTERNAL_EXIST)
-				{ 				
-					
+				{					
 					temp1 = internal_co2_module_type >> 8 ;
 					temp2 = internal_co2_module_type  ;
 					sendbuf[send_cout++] = temp1 ;

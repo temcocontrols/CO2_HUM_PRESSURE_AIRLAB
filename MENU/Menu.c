@@ -164,10 +164,9 @@ void MenuTask(void *pvParameters)
 //	print("Menu Task\r\n");
 //	xMutex = xQueueCreateMutex();
 //	delay_ms(100);
-	
+	task_test.enable[13] = 1;
 	while(1)
-	{
-		
+	{task_test.count[13]++;Test[40] = 13;
  		if(xQueueTakeMutexRecursive( xMutex, portMAX_DELAY )==pdPASS)
 		{
 			if(xQueueReceive(qKey, &key_temp, 20) == pdTRUE)
@@ -216,9 +215,9 @@ void ScrollingTask(void *pvParameters)
  	update_message_context();
 //	print("Scrolling Task\r\n");
 //	delay_ms(100);
-	
+	task_test.enable[15] = 1;
 	while(1)
-	{
+	{	task_test.count[15]++;Test[40] = 15;
 		if(dis_hum_info == 1)
 		{  
 			sprintf((char *)text,"pts:%u sn:%u", HumSensor.counter,HumSensor.sn);
@@ -241,9 +240,9 @@ void CursorTask(void *pvParameters)
 	portTickType xDelayPeriod = (portTickType)400 / portTICK_RATE_MS;
 	print("Cursor Task\r\n");
 	delay_ms(100);
-	
+	task_test.enable[14] = 1;
 	while(1)
-	{
+	{task_test.count[14]++;Test[40] = 14;
 		 if(xQueueTakeMutexRecursive( xMutex, portMAX_DELAY )==pdPASS)
 		{
 			update_cursor(); 
@@ -254,14 +253,14 @@ void CursorTask(void *pvParameters)
 //		taskYIELD();
 	}
 }
-
+extern xTaskHandle task_handle[20];
 void vStartMenuTask(unsigned char uxPriority)
 { 
-	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE+256 , NULL, uxPriority, NULL);
+	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE , NULL, uxPriority, &task_handle[13]);
 		
-  xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE, NULL, uxPriority, NULL);
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485)/*||(PRODUCT_ID == STM32_PM25)*/||(PRODUCT_ID == STM32_CO2_NODE_NEW) )
-		xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE+128 , NULL, uxPriority, NULL);
+  xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE, NULL, uxPriority, &task_handle[14]);
+	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+		xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE+128 , NULL, uxPriority, &task_handle[15]);
 	 
 }
 

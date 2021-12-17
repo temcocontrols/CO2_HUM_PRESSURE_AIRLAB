@@ -8,7 +8,7 @@ void KEY_Init(void)
 	GPIO_InitTypeDef GPIO_InitStructure;
 	
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);//Ê¹ÄÜGPIOCÊ±ÖÓ 
-  	GPIO_PinRemapConfig(GPIO_Remap_SWJ_Disable , ENABLE);
+  GPIO_PinRemapConfig(GPIO_Remap_SWJ_Disable , ENABLE);
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14 | GPIO_Pin_15;
 	GPIO_InitStructure.GPIO_Mode =  GPIO_Mode_IPU;
  	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -26,13 +26,39 @@ u8 KEY_Scan(void)
 	key_2nd = ~GPIO_ReadInputData(GPIOA) & 0xf000; // PC0-3
 	
 	if(key_1st & key_2nd & KEY_1)
-		key_val |= KEY_1;
+	{
+		if(PRODUCT_ID == STM32_CO2_RS485)
+		{
+			key_val |= KEY_3;
+		}
+		else if(PRODUCT_ID == STM32_HUM_RS485)
+		{
+			if(read_eeprom(EEP_SUB_PRODUCT) == 1)
+				key_val |= KEY_3;
+			else
+				key_val |= KEY_1;
+		}
+		else
+			key_val |= KEY_1;
+	}
 	
 	if(key_1st & key_2nd & KEY_2)
 		key_val |= KEY_2;
 	
 	if(key_1st & key_2nd & KEY_3)
-		key_val |= KEY_3;
+	{
+		if(PRODUCT_ID == STM32_CO2_RS485)
+			key_val |= KEY_1;
+		else if(PRODUCT_ID == STM32_HUM_RS485)
+		{
+			if(read_eeprom(EEP_SUB_PRODUCT) == 1)
+				key_val |= KEY_1;
+			else
+				key_val |= KEY_3;
+		}
+		else
+			key_val |= KEY_3;
+	}
 	
 	if(key_1st & key_2nd & KEY_4)
 		key_val |= KEY_4;
@@ -40,6 +66,7 @@ u8 KEY_Scan(void)
 	return  (key_val >> 12);
 }
  extern void watchdog(void);
+//extern uint16 low_pri;
 void vKEYTask( void *pvParameters )
 {
 	u16 key_temp;
@@ -49,11 +76,14 @@ void vKEYTask( void *pvParameters )
  	KEY_Init();
 	//print("Key Task\r\n");
 	delay_ms(100);
-	
+	task_test.enable[10] = 1;
 	for( ;; )
-	{
-		if ((PRODUCT_ID != STM32_CO2_NET)&&(PRODUCT_ID != STM32_HUM_NET)&&(PRODUCT_ID != STM32_PRESSURE_NET)&&(PRODUCT_ID != STM32_PM25)) 
-		 watchdog();
+	{task_test.count[10]++;Test[40] = 10;
+		//if ((PRODUCT_ID != STM32_CO2_NET)&&(PRODUCT_ID != STM32_HUM_NET)&&(PRODUCT_ID != STM32_PRESSURE_NET)&&(PRODUCT_ID != STM32_PM25)) 
+		{
+//			low_pri++;
+			watchdog();
+		}
 		if((key_temp = KEY_Scan()) != pre_key)
 		{
 			xQueueSend(qKey, &key_temp, 0);
@@ -80,8 +110,8 @@ void vKEYTask( void *pvParameters )
 					long_press_key_start++;
 			}
 		} 
-
-		vTaskDelay(100 / portTICK_RATE_MS);
+		Test[40] = 27;
+		vTaskDelay(100 / portTICK_RATE_MS);Test[40] = 28;
 //		stack_detect(&test[8]);
     }
 }

@@ -219,7 +219,6 @@ u8 RTC_WaitForLastTask(void)
 		if(temp>=300)
 			return 1;
   }
-	Test[5] = temp+5;
 	return 0;
 }
 

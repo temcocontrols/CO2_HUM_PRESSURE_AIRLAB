@@ -1087,7 +1087,7 @@ tskTCB * pxNewTCB;
 
 void vTaskStartScheduler( void )
 {
-portBASE_TYPE xReturn;
+	portBASE_TYPE xReturn;
 
 	/* Add the idle task at the lowest priority. */
 	#if ( INCLUDE_xTaskGetIdleTaskHandle == 1 )

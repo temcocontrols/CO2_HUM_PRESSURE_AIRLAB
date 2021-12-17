@@ -1233,44 +1233,6 @@ void Misc_keycope(uint16 key_value)
 						Lcd_Show_String(item_index % MAX_ROW, 0, DISP_INV, text);
 						in_sub_menu = FALSE;
 
-						switch(modbus.baud)
-						{
-							case 0:
-								modbus.baudrate = BAUDRATE_9600 ;
-								uart1_init(BAUDRATE_9600);
-						
-								SERIAL_RECEIVE_TIMEOUT = 6;
-							break ;
-							case 1:
-								modbus.baudrate = BAUDRATE_19200 ;
-								uart1_init(BAUDRATE_19200);	
-								SERIAL_RECEIVE_TIMEOUT = 3;
-							break;
-							case 2:
-								modbus.baudrate = BAUDRATE_38400 ;
-								uart1_init(BAUDRATE_38400);
-								SERIAL_RECEIVE_TIMEOUT = 2;
-							break;
-							case 3:
-								modbus.baudrate = BAUDRATE_57600 ;
-								uart1_init(BAUDRATE_57600);	
-								SERIAL_RECEIVE_TIMEOUT = 1;
-							break;
-							
-							case 5:
-								modbus.baudrate = BAUDRATE_76800 ;
-								uart1_init(BAUDRATE_76800);	
-								SERIAL_RECEIVE_TIMEOUT = 1;
-							break;
-							
-							case 4:
-								modbus.baudrate = BAUDRATE_115200 ;
-								uart1_init(BAUDRATE_115200);	
-								SERIAL_RECEIVE_TIMEOUT = 1;
-							break;
-							default:
-							break ;				
-						}
 						AT24CXX_WriteOneByte(EEP_BAUDRATE,modbus.baud );
 						modbus_init();
 					}
