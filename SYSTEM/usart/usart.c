@@ -180,7 +180,7 @@ void uart2_init(u32 bound)
 //	GPIO_SetBits(GPIOA, GPIO_Pin_8); 
 	
 	//Usart1 NVIC 配置
-    NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
+  NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;	//抢占优先级3
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;			//子优先级3
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;				//IRQ通道使能

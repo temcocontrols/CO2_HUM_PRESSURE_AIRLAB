@@ -325,7 +325,7 @@ void refresh_output(void)
 	}
 		
 	if((output_auto_manual & 0x01) == 0x01)
-	{
+	{	
 		Set_analog_output(output_mode, CHANNEL_TEMP,output_manual_value_temp);
 	}
 	else if(temperature_sensor_select == INTERNAL_TEMPERATURE_SENSOR)
@@ -336,7 +336,7 @@ void refresh_output(void)
 	{
 		if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
 		{
-			if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+			if(sub_product == 1) // RTS2
 			{
 				Set_analog_output(output_mode, CHANNEL_TEMP,internal_temperature_c);
 			}
@@ -349,14 +349,17 @@ void refresh_output(void)
 			Set_analog_output(output_mode, CHANNEL_TEMP,HumSensor.temperature_c);
 	} 
 	
-	if((output_auto_manual & 0x02))
-	{	
-		Set_analog_output(output_mode, CHANNEL_HUM,output_manual_value_humidity);
+	if((PRODUCT_ID != STM32_PRESSURE_NET) && (PRODUCT_ID != STM32_PRESSURE_RS485))
+	{
+		if((output_auto_manual & 0x02))
+		{	
+			if(sub_product != 1)
+				Set_analog_output(output_mode, CHANNEL_HUM,output_manual_value_humidity);
+		}
 	}
-	
 }
 
- void Flash_task(void);
+void Flash_task(void);
 
 //extern void watchdog(void);
 void vOutPutTask(void *pvParameters)
@@ -377,6 +380,7 @@ void vOutPutTask(void *pvParameters)
 		vTaskDelay(500 / portTICK_RATE_MS);
 		Test[40] = 29;
 //		 stack_detect(&test[7]);
+
 	}
 }
 

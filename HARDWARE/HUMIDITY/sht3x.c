@@ -37,7 +37,7 @@
 //-- Global variables ----------------------------------------------------------
 uint8 _i2cWriteHeader ;
 uint8 _i2cReadHeader ;
-
+uint8 count_sht3x_err;
 //==============================================================================
 void SHT3X_Init(uint8 i2cAdr){              /* -- adapt the init for your uC -- */
 //==============================================================================
@@ -88,7 +88,7 @@ etError SHT3x_ReadSerialNumber(uint32 *serialNbr){
   
   // if no error, calc serial number as 32-bit integer
   if(error == NO_ERROR)
-  {Test[20]++;
+  {
     *serialNbr = (serialNumWords[0] << 16) | serialNumWords[1];
   }
 
@@ -500,10 +500,15 @@ etError SHT3X_Read2BytesAndCrc(uint16 *data, etI2cAck finaleAckNack, uint8 timeo
 		Test[23]++;
 	
   if(error == NO_ERROR)
+	{
   // combine the two bytes to a 16-bit value
   *data = (bytes[0] << 8) | bytes[1];
+		count_sht3x_err = 0;
+	}
   else
-		Test[24]++;
+	{	Test[24]++;
+	count_sht3x_err++;
+	}
   return error;
 }
 

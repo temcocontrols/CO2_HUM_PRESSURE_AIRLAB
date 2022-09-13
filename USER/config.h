@@ -74,6 +74,8 @@
 #include "../PM25/pm25.h" 
 #include "../PM25/aqi.h" 
 
+#include "check_AQ.h"
+
 #endif
 
 

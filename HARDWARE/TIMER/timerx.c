@@ -125,7 +125,7 @@ void TIM6_IRQHandler(void)//1ms
 	
 	unsigned portBASE_TYPE uxSavedInterruptStatus;
 	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
-	
+	//if(Test[33] > 2000)	while(1) ;
 	if(TIM_GetFlagStatus(TIM6, TIM_IT_Update) == SET)
 	{
 		uip_timer++;		//uip计时器增加1
@@ -140,6 +140,7 @@ void TIM6_IRQHandler(void)//1ms
 		{
 				SilenceTime = 0 ;
 		}
+		
 	//	if(dhcp_run_time >0) dhcp_run_time -- ;
 		if (PRODUCT_ID == STM32_HUM_RS485)  // for heart beat
 		{
@@ -154,9 +155,6 @@ void TIM6_IRQHandler(void)//1ms
 		{
 			if(led_count++ >= 1000)
 			{			
-//				Test[39]++;
-//				if(Test[39] == 20)
-//					SoftReset();
 				check_Task_locked();
 				led_count= 0 ;
 			}

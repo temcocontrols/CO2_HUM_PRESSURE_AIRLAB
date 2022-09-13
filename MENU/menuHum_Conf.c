@@ -164,10 +164,14 @@ void Hum_Conf_keycope(uint16 key_value)
 				{
 					case 0:
 						sprintf((char *)text, "%s%u.%u%%", item_name[item_index], set_value / 10, set_value % 10);
+					
+						HumSensor.offset_h = set_value - hum_org;
 						external_operation_value = set_value;
 						external_operation_flag = HUM_CALIBRATION; 
 						HumSensor.humidity = set_value;
 						Run_Timer = 0;
+						write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h);
+						write_eeprom(EEP_HUM_OFFSET + 1,HumSensor.offset_h >> 8);					
 						break;
 					case 1:
 						sprintf((char *)text, "%s%s", item_name[item_index], OnOff[set_value]);

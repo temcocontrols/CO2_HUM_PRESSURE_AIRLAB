@@ -55,6 +55,8 @@ void SHT4x_Initial(void)
 	}	
 	if(count <= 3)	
 		hum_exists = 3;
+//	else
+//		hum_exists = 4;
 }
 
 void Refresh_SHT4x(void)
@@ -64,6 +66,7 @@ void Refresh_SHT4x(void)
 		 * temperature, humidity (each output multiplied by 1000).
 		 */
 		int8_t ret;
+	static uint8_t error_cnt = 0;
 		
 		if(hum_exists == 3)
 		{
@@ -77,8 +80,26 @@ void Refresh_SHT4x(void)
 	//                   temperature / 1000.0f, humidity / 1000.0f);
 			} else {//Test[18]++;
 				 // printf("error reading measurement\n");
+				error_cnt++;
 			}		
-		}		
+			if(error_cnt>5)
+			{
+				error_cnt = 0;
+				hum_exists = 2;
+				tem_org = 0;
+				hum_org = 0;
+			}
+		}
+		else if(hum_exists == 2)
+		{
+			
+		}
+		else 
+		{
+			SHT4x_Initial();
+		}
+//		if(hum_exists == 4)
+//			SHT4x_Initial();
 }
 #if 0
 void SHT4x_Task( void *pvParameters )	{

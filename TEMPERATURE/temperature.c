@@ -1,6 +1,7 @@
 
 #include "config.h" 
 #include "sht3x.h"
+#include "check_AQ.h"
 //uint16 light_org = 0;
 uint16 hum_read_delay = 1;
 extern uint8 update_flag;
@@ -704,18 +705,26 @@ int16 Get_Average_Humdity(int16 para_h)
 		else
 		   output_manual_value_temp = HumSensor.temperature_c ;
 		HumSensor.temperature_f = HumSensor.temperature_c * 9 / 5 + 320;
-		internal_temp_ad = get_ad_val(TEMP_AD);
-		temp = (int16)(look_up_table(internal_temp_ad/4));
-		if(temp & 0x8000) // minus temperature
-			temp = -(signed int)(temp & 0x7fff);
-		
+//		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+//		{
+//			
+//		}
+//		else
+		{
+			internal_temp_ad = get_ad_val(TEMP_AD);
+			temp = (int16)(look_up_table(internal_temp_ad/4));
+			if(temp & 0x8000) // minus temperature
+				temp = -(signed int)(temp & 0x7fff);
+		}
  	//	temp = temp + internal_temperature_offset;
  		pre_int_temperature = Sys_Filter(temp, pre_int_temperature, Temperature_Filter);
 		if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
-			internal_temperature_c =   pre_int_temperature  + internal_temperature_offset; 
+		{
+			internal_temperature_c = pre_int_temperature  + internal_temperature_offset; 
+		}
 		else if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 		{
-			if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+			if(sub_product == 1) // RTS2
 			{
 				internal_temperature_c = pre_int_temperature  + internal_temperature_offset; 
 			}
@@ -1158,9 +1167,18 @@ int16 Get_Average_Humdity(int16 para_h)
 extern uint8 light_sensor;
 extern uint8 read_light;
 uint16 get_light_value(uint16 ad);
+
+ extern uint8 count_sht3x_err;
+ 
+
+
+
+
 void vUpdate_Temperature_Task( void *pvParameters )
 { 
 //	 initial_hum();
+
+	
 	 uint16 itemp;
 	 etError   error; 
 	 regStatus status;      // sensor status
@@ -1186,6 +1204,8 @@ void vUpdate_Temperature_Task( void *pvParameters )
 		static uint8 ctr = 0;	
 		Test[40] = 7;task_test.count[7]++;		
 		Test[19] = hum_exists;
+		Test[20]++;
+
 		if(xQueueTakeMutexRecursive( IicMutex, portMAX_DELAY ) == pdPASS)
 		{			
 			Refresh_SCD40();
@@ -1194,7 +1214,7 @@ void vUpdate_Temperature_Task( void *pvParameters )
 			
 			//if(internal_co2_module_type != SCD40)
 			{ // When scd40 is instal
-				
+				Test[6] = hum_exists;
 			if(hum_exists != 3)
 			{
 			if(display_state != PIC_NORMAL)
@@ -1205,6 +1225,25 @@ void vUpdate_Temperature_Task( void *pvParameters )
 					HumSensor.humidity = hum_org;
 					hum_exists = 2; // new SHT3X
 					ctr = 0;
+				}
+				else
+				{
+//					hum_exists = 0;
+//					tem_org = 0;
+//					hum_org = 0;
+//					HumSensor.temperature_c = 0;
+//					HumSensor.humidity = 0;
+					//if(internal_co2_module_type != 7/*SCD40*/)
+					{						
+						if(count_sht3x_err > 5)
+						{
+							tem_org = 0;
+							hum_org = 0;
+							HumSensor.temperature_c = 0;
+							HumSensor.humidity = 0;
+							hum_exists = 0; // new SHT3X
+						}
+					}
 				}
 #if OLD_HUM
 				else
@@ -1234,21 +1273,30 @@ void vUpdate_Temperature_Task( void *pvParameters )
 			else
 			{
 //				if(!read_sensor())
-//				{
-		
-				if(hum_exists == 2)
-				{  
+//				{				
+				//if(hum_exists == 2)
+				{
 					if(SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50) != 0 )
-					{		
+					{
 						if(ctr < 20)  ctr++;						
 						if(ctr == 20)
 						{	
-							display_state = PIC_ON_TO_OFF;
+							if(internal_co2_module_type!= 7)
+							{
+								tem_org = 0;
+								hum_org = 0;
+								HumSensor.temperature_c = 0;
+								HumSensor.humidity = 0;			
+							}								
+							//display_state = PIC_ON_TO_OFF;
 							hum_exists = 0; 
+							Test[25]++;
 						}				
 					}
 					else
 					{
+						//hum_exists = 0;
+						hum_exists = 2;
 						ctr = 0;
 					}		
 					
@@ -1272,9 +1320,16 @@ void vUpdate_Temperature_Task( void *pvParameters )
 #endif
 
 
-				else 
-					ctr = 0;
-			} 
+//				else 
+//					ctr = 0;
+			}
+//			if(hum_exists == 0)
+//			{
+//				tem_org = 0;
+//				hum_org = 0;
+//				HumSensor.temperature_c = 0;
+//				HumSensor.humidity = 0;				
+//			}
 		}
 	}
 			hum_read_delay = 1;			
@@ -1317,6 +1372,7 @@ void vUpdate_Temperature_Task( void *pvParameters )
 			xQueueGiveMutexRecursive( IicMutex );
 		}
 		
+
 		external_operation();
 		if(hum_exists != 0)
 		{
@@ -1330,7 +1386,7 @@ void vUpdate_Temperature_Task( void *pvParameters )
 		{	// current product is RTS2
 			if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
 			{
-				if(read_eeprom(EEP_SUB_PRODUCT) == 1)
+				if(sub_product == 1)
 				update_temperature();
 			}
 		}

@@ -13,8 +13,9 @@ typedef enum
 	HUM_CUR_FB, 
 	TEMP_CUR_FB,	 
 	CO2_CUR_FB,		 
-  	PRE_AD,
+  PRE_AD,
 	TEMP_AD,
+	AQ_AD,
 	AD_MAX_CHANNEL,
 }AD_CHANNEL_SEL;
 

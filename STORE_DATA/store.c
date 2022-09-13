@@ -17,45 +17,7 @@ uint8_t write_page_en[MAX_TYPE];
 Str_variable_point var[MAX_AVS] ;
 
  
-  
 
-//static uint8_t  tempbuf[1024] = {0};
-
- 
- 
-//#define PAGE127     0x0803f800 
-// 
-
-//void Flash_Write_Mass(void)
-//{
-//	uint8 i;
-//	uint16 pos;
-//	if(write_page_en == 1)
-//	{
-//		write_page_en = 0; 
-//		pos = 0;
-//		for(i = 0;i < MAX_VARS; i++) 
-//		{	 
-//			memcpy(&tempbuf[pos],var[i].description,21); 
-//			pos += 21;
-//			memcpy(&tempbuf[pos],var[i].label,9); 
-//			pos += 9;
-//		}
-//		for(i = 0;i < MAX_AOS; i++) 
-//		{
-//			memcpy(&tempbuf[pos],outputs[i].description,21); 
-//			pos += 21;
-//			memcpy(&tempbuf[pos],outputs[i].label,9); 
-//			pos += 9;			
-//		} 
-//		
-//		STMFLASH_Unlock();  //解锁	 
-//		STMFLASH_ErasePage(PAGE127);	//擦除这个扇区
-//		iap_write_appbin(PAGE127,tempbuf,pos); 
-//		STMFLASH_Lock();	//上锁
-//	}
-//	 
-//}
 
 void Flash_Write_Mass(void)
 { 
@@ -119,9 +81,9 @@ void Flash_Write_Mass(void)
 //		STMFLASH_Lock();
 //		write_page_en[VAR_TYPE] = 0 ; 
 //	}	
-#if WIFITEST
+#if WIFITEST		
 	if(write_page_en[WIFI_TYPE] == 1)
-	{ 			
+	{ 	
 		__disable_irq();
 		STMFLASH_Unlock();
 		STMFLASH_ErasePage(WIFI_PAGE_FLAG);
@@ -309,7 +271,7 @@ void mass_flash_init(void)
 		__disable_irq();
 		STMFLASH_Unlock();
 		STMFLASH_ErasePage(OUT_PAGE_FLAG);
-		for(loop=0; loop<MAX_OUTS; loop++ )
+		for(loop=0; loop<MAX_OUTS; loop++)
 		{
 			memcpy(outputs[loop].description,Outputs_Description[loop],21);  
 			memcpy(outputs[loop].label,Outputs_label[loop],9);  		
@@ -410,22 +372,25 @@ void mass_flash_init(void)
 
 	
 	temp = STMFLASH_ReadHalfWord(WIFI_PAGE_FLAG);
+	
 #if WIFITEST
 	if(temp != 10000)
 	{
 		memset(&SSID_Info,0,sizeof(STR_SSID));
 		__disable_irq();
-		STMFLASH_Unlock();
+		//STMFLASH_Unlock();
 		STMFLASH_ErasePage(WIFI_PAGE_FLAG);
 		iap_write_appbin(WIFI_PAGE,(void *)(&SSID_Info), sizeof(STR_SSID));	
-		STMFLASH_WriteHalfWord(WIFI_PAGE_FLAG, 1000);
-		STMFLASH_Lock();
+		STMFLASH_WriteHalfWord(WIFI_PAGE_FLAG, 10000);
+		//STMFLASH_Lock();
 		__enable_irq();
 	}
 	else//
 	{
 		STMFLASH_MUL_Read(WIFI_PAGE,(void *)(&SSID_Info),sizeof(STR_SSID));
 	}
+	
+
 #endif
 }
 
@@ -481,7 +446,7 @@ void io_control(void)
 		{
 			external_operation_value = inputs[1].calibration_lo + ((int16)inputs[1].calibration_hi<<8); 
 			if(inputs[1].calibration_sign) external_operation_value = 0 -external_operation_value;
-			 
+#if OLD_HUM			 
 			if(table_sel== USER)
 			{
 				HumSensor.offset_h =external_operation_value;
@@ -496,6 +461,11 @@ void io_control(void)
 			}
 //			external_operation_flag = 0; 
 			Run_Timer = 0;
+#else
+			HumSensor.offset_h =external_operation_value;
+			new_write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h); 
+			new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8);
+#endif
 		}
 			
 		HumSensor.H_Filter = inputs[1].filter;  
@@ -645,7 +615,8 @@ void io_control(void)
 		inputs[1].filter = HumSensor.H_Filter ; 
 		inputs[1].auto_manual = output_auto_manual & 0x02; 
 		inputs[1].range = HUMIDITY;  
-		 
+
+#if OLD_HUM		
 		if(table_sel== USER)
 		{
 			external_operation_value = HumSensor.offset_h; 
@@ -654,6 +625,9 @@ void io_control(void)
 		{
 			external_operation_value = HumSensor.offset_h_default; 
 		}
+#else
+		external_operation_value = HumSensor.offset_h; 
+#endif
 		if(external_operation_value < 0) inputs[1].calibration_sign = 1;
 		else inputs[1].calibration_sign = 0;
 		external_operation_value = abs(external_operation_value);

@@ -59,6 +59,7 @@ const uint8 AV_TYPE[MAX_AVS] = {
 	AV_CO2,//34 CO2
 	AV_PM25,  //35		PM25
 	AV_COMMON, // 36 
+	
 
 };
 
@@ -102,6 +103,7 @@ const uint8 Var_label[MAX_AVS][9] = {
 	"MAX_RNG2",//34 
 	"AQI",	   //35
 	"MaxMSTER",//36
+	
 
 };
 const uint8 Var_Description[MAX_AVS][21] = {
@@ -142,7 +144,8 @@ const uint8 Var_Description[MAX_AVS][21] = {
 	"Co2 Min Range",			// CO2
 	"Co2 Max Range", 			// CO2
 	"Air Quality Index",			// PM25
-	"Max MSTP master"
+	"Max MSTP master",				// 36
+	
 };
 
 
@@ -496,7 +499,10 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 						var[io_index].value = (float)HumSensor.Mix_Ratio/10;
 						break;
 					case 14://Enthalpy
-						var[io_index].value = (float)HumSensor.Enthalpy/10;
+						if(deg_c_or_f == DEGREE_C)	
+							var[io_index].value = (float)HumSensor.Enthalpy/10;
+						else
+							var[io_index].value = (float)HumSensor.Enthalpy/10*0.00043;
 						break;
 					case 15: //OffSet_H 
 						if(table_sel == USER)
@@ -570,6 +576,9 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 					case 36: // max master
 						var[io_index].value = MAX_MASTER;
 						break;
+					case 37: // light
+						var[io_index].value = light.val;
+						break;
 					default: 
 						var[io_index].value = 0;
 					break;
@@ -630,6 +639,8 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 						}	
 						else if(i == 1)	
 							ftemp = (float)HumSensor.humidity/10;
+						else if(i == 2)
+							ftemp = light.val;
 						break;
 					case STM32_PRESSURE_NET: //			214
 					case STM32_PRESSURE_RS485://		215
@@ -1100,6 +1111,8 @@ char* get_label(uint8_t type,uint8_t num)
 						 return "Temperature";
 					 else if(num == 1)
 						 return "Humidity";
+					 else if(num == 2)
+						 return "Light";
 				 }
 			 }
             break;
@@ -1181,7 +1194,45 @@ char get_range(uint8_t type,uint8_t num)
 //			if(io_index == 14)	
 //				return UNITS_KILOJOULES_PER_KILOGRAM_DRY_AIR;
 //			else if(io_index == 14)	
-			return 	UNITS_NO_UNITS; 
+		if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) \
+				|| (PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
+			{
+//				if(num == 0)
+//				{
+//					if(deg_c_or_f == DEGREE_C)
+//						return 	UNITS_DEGREES_CELSIUS ;
+//					else	
+//						return 	UNITS_DEGREES_FAHRENHEIT ;					
+//				} 
+//				else if(num == 2)
+//					return UNITS_LUMENS;
+//				
+//				else
+//					return UNITS_NO_UNITS;
+				Get_index_by_AVx(num,&io_index);
+				if(io_index == 11)
+				{
+					if(deg_c_or_f == DEGREE_C)
+						return 	UNITS_DEGREES_CELSIUS ;
+					else	
+						return 	UNITS_DEGREES_FAHRENHEIT ;		
+				}
+				else if(io_index == 12)
+					return UNITS_HECTOPASCALS;
+				else if(io_index == 13)
+					return UNITS_GRAMS_OF_WATER_PER_KILOGRAM_DRY_AIR;
+				else if(io_index == 14)
+				{				
+					if(deg_c_or_f == DEGREE_C)	
+						return UNITS_KILOJOULES_PER_KILOGRAM_DRY_AIR;
+					else
+						return UNITS_BTUS_PER_POUND_DRY_AIR;
+				}
+				else
+					return UNITS_NO_UNITS;
+			}
+			else
+				return 	UNITS_NO_UNITS; 
 				
 			break;
 		
@@ -1216,6 +1267,8 @@ char get_range(uint8_t type,uint8_t num)
 			}
 			else if(num == 1)
 				return 	UNITS_PERCENT_RELATIVE_HUMIDITY ; 
+			else if(num == 2)
+				return UNITS_LUMENS;
 			}
 			else if(PRODUCT_ID == STM32_PRESSURE_NET || PRODUCT_ID == STM32_PRESSURE_RS485)
 				{// TBD:

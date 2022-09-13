@@ -80,6 +80,9 @@ typedef struct _CO2_STRUCT_
 	uint8 alarm_state;
 	uint8 fail_counter;
 	uint8 warming_time;
+	int16_t temperature;
+	uint16_t humi;
+	uint8_t noSensor;
 } CO2_STR;
 
 extern CO2_STR far int_co2_str;

@@ -830,6 +830,7 @@ void scroll_warning(void)
 void display_dec(uint8 blink)
 {
 	//if(blink)//show dec
+	if((hum_exists== 3)||(hum_exists==2))
 	{
 	if((screenArea1 == SCREEN_AREA_TEMP)||(screenArea1 == SCREEN_AREA_HUMI))
 		disp_null_icon(8, 8,0,60, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
@@ -841,6 +842,17 @@ void display_dec(uint8 blink)
 	if((screenArea3 == SCREEN_AREA_TEMP)||(screenArea3 == SCREEN_AREA_HUMI))
 		if(enableScroll==false)
 			disp_null_icon(8, 8,0,60+80+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+	}
+	else
+	{	// 
+		if(sub_product == 1)
+		{
+			if(screenArea2 == SCREEN_AREA_TEMP)	
+			{
+				disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+			
+			}
+		}
 	}
 }	
 
@@ -875,7 +887,8 @@ void display_dec(uint8 blink)
 //		disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
 //	}
 //}
-
+extern uint8 rx_icon;
+extern uint8 tx_icon;
 void Top_area_display(uint8 item, int16 value, uint8 unit)
 {
 int16 value_buf;
@@ -887,65 +900,78 @@ switch(item)
 		if(screenArea1 == SCREEN_AREA_TEMP)
 		{
 			disp_icon(55, 55, TempIcon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-			if(value >=0)
+			if((hum_exists!= 3)&&(hum_exists!=2)&&(internal_co2_module_type!= 7))
 			{
-				value_buf = value;
-//				disp_null_icon(3, 10, 0, 32,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
-//				disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
-				disp_null_icon(5,15,0,32,245,TSTAT8_BACK_COLOR,TSTAT8_BACK_COLOR);
-				if(value >= 1000)
-				{
-					value_buf /= 10;
-					if((value_buf >= 100))
-						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					else 
-						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					
-					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-				}
-				if(value<1000 )
-				{
-					if((value >= 100))
-						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					else 
-						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				}
-				else if(value <100)
-				{
-					disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
-				}
+//				xCO2 = 160;
+//				yCO2 = UNIT_POS+25;
+//				oCO2 = 38;//35;
+					disp_str(FORM15X30, THERM_METER_POS,UNIT_POS+25+38*3+13,"NO SENSOR",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, THERM_METER_POS+31,UNIT_POS+25+38*3+20,"            ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 			}
-			else//nagtive value
-			{
-				value_buf = -value;
-				//disp_str(FORM15X30, 6,  32,  "-",SCH_COLOR,TSTAT8_BACK_COLOR);
-				disp_null_icon(3, 10, 0, 32,245,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
-				
-				if(value_buf >= 100)
-				{
-				//disp_ch(0,0,THERM_METER_POS,'-',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-				disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				}
-				else if(value_buf < 100)
-				{
-
-				disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-				disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-				disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
-				}
-			}
-			if(deg_c_or_f == DEGREE_C)
-				disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS,"C ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 			else
-				disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-1,"F ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			{
+				if(value >=0)
+				{
+					value_buf = value;
+	//				disp_null_icon(3, 10, 0, 32,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+	//				disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
+					disp_null_icon(5,15,0,32,245,TSTAT8_BACK_COLOR,TSTAT8_BACK_COLOR);
+					if(value >= 1000)
+					{
+						value_buf /= 10;
+						if((value_buf >= 100))
+							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						else 
+							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						
+						disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					}
+					if(value<1000 )
+					{
+						if((value >= 100))
+							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						else 
+							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					}
+					else if(value <100)
+					{
+						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
+					}
+				}
+				else//nagtive value
+				{
+					value_buf = -value;
+					//disp_str(FORM15X30, 6,  32,  "-",SCH_COLOR,TSTAT8_BACK_COLOR);
+					disp_null_icon(3, 10, 0, 32,245,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+					
+					if(value_buf >= 100)
+					{
+					//disp_ch(0,0,THERM_METER_POS,'-',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					}
+					else if(value_buf < 100)
+					{
 
+					disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
+					}
+				}
+				//disp_str(FORM15X30, THERM_METER_POS,UNIT_POS-20,"    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_str(FORM15X30, THERM_METER_POS,UNIT_POS+75," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_str(FORM15X30, THERM_METER_POS,UNIT_POS+12,"   ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);				
+				if(deg_c_or_f == DEGREE_C)
+					disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS,"C ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				else
+					disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-1,"F ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			}
 		}
 		else if(screenArea1 == SCREEN_AREA_HUMI)
 		{
@@ -1104,51 +1130,67 @@ switch(item)
 		if(screenArea2 == SCREEN_AREA_HUMI)
 		{
 			disp_icon(55, 55, HumIcon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-			if(value >=0)
+			if((hum_exists!= 3)&&(hum_exists!=2)&&(internal_co2_module_type!= 7))
 			{
-				value_buf = value;
-				disp_null_icon(5, 15, 0, HUM_POS+32+5,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
-
-				if(value >= 1000)
+//				xCO2 = 160;
+//				yCO2 = UNIT_POS+25;
+//				oCO2 = 38;//35;
 				{
-					disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
-					value_buf /= 10;
-					if((value_buf >= 100))
-						disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					else 
-						disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					
-					disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					disp_str(FORM15X30, HUM_POS,UNIT_POS+25+38*3+13,"NO SENSOR",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, HUM_POS+31,UNIT_POS+25+38*3+20,"            ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);				
 				}
-				else	
-				{ // < 1000
-					disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
-					if(value >= 100 )
+			}
+			else
+			{
+				if(value >=0)
+				{
+					value_buf = value;
+					disp_null_icon(5, 15, 0, HUM_POS+32+5,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+
+					if(value >= 1000)
 					{
-						//if((value >= 100))
+						disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+						value_buf /= 10;
+						if((value_buf >= 100))
 							disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						//else 
-						//	disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						else 
+							disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						
 						disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
 					}
-					else //if(value <100)
-					{
-						disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-						disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-						disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
+					else	
+					{ // < 1000
+						disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+						if(value >= 100 )
+						{
+							//if((value >= 100))
+								disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							//else 
+							//	disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						}
+						else //if(value <100)
+						{
+							disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+							disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+							disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
+						}
 					}
+					//disp_str(FORM15X30, 160,UNIT_POS,"    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, HUM_POS,UNIT_POS+75," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, HUM_POS,UNIT_POS+12,"    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, 33+HUM_POS,UNIT_POS,"%  ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 				}
-				disp_str(FORM15X30, 33+HUM_POS,UNIT_POS,"%  ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 			}
 		}
 		else if(screenArea2 == SCREEN_AREA_TEMP)
-		{Test[23]++;
+		{
 			disp_icon(55, 55, TempIcon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-			Test[25] = value;
+			
 			if(value >=0)
-			{Test[24]++;
+			{
 				value_buf = value;
 //				disp_null_icon(3, 10, 0, 32,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
 //				disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
@@ -1315,86 +1357,98 @@ switch(item)
 		
 		if( screenArea3 == SCREEN_AREA_CO2)
 		{
-			if(value >= 10000) value = 9999;
-			if(value >=0)
+			if(int_co2_str.noSensor == 1)
 			{
-				value_buf = value;
-				if(enableScroll == false)
+				xCO2 = 160;
+				yCO2 = UNIT_POS+25;
+				oCO2 = 38;//35;
+				disp_str(FORM15X30, xCO2,yCO2+oCO2*3+15,"NO SENSOR",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_str(FORM15X30, xCO2+31,yCO2+oCO2*3+20,"            ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			}
+			else
+			{
+				if(value >= 10000) value = 9999;
+				if(value >=0)
 				{
-					disp_icon(55, 55, co2Icon, 170, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-					formCO2 = FORM32X64;
-					xCO2 = 160;
-					yCO2 = UNIT_POS+25;
-					oCO2 = 38;//35;
-					disp_str(FORM15X30, 66+CO2_POS,UNIT_POS-4,"ppm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				}
-				else
-				{
-					formCO2 = FORM15X30;
-					xCO2 = 33+CO2_POS;
-					yCO2 = THIRD_CH_POS;
-					oCO2 = CO2_POSY_OFFSET;
-					//disp_str(FORM15X30, 33+CO2_POS,THIRD_CH_POS+CO2_POSY_OFFSET*9,"CO2:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_str(FORM15X30, 33+CO2_POS,THIRD_CH_POS+CO2_POSY_OFFSET*9,"CO2:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_str(FORM15X30, 33+CO2_POS,UNIT_POS-4,"ppm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				}
-				//disp_null_icon(3, 10, 0, 80+80+32,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
-				//disp_str(FORM15X30, 6,  80+32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
-//				if(enableScroll==false)
-//				{
-////					if(value >= 1000)
-////					{
-////						//value_buf /= 10;
-////						if((value_buf >= 1000))
-////							disp_ch(0,160,UNIT_POS+25+35*3,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-////						else 
-////							disp_ch(0,160,UNIT_POS+25+35*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-////						
-////						disp_ch(0,160,UNIT_POS+25+35*2,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-////						disp_ch(0,160,UNIT_POS+25+35*1,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-////						disp_ch(0,160,UNIT_POS+25,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-////					}
-//					if(value<1000 )
-//					{
-//						disp_ch(0,160,UNIT_POS+25+35*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-//						if((value >= 100))
-//							disp_ch(0,160,UNIT_POS+25+35*2,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-//						else 
-//							disp_ch(0,160,UNIT_POS+25+35*2,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-//						disp_ch(0,160,UNIT_POS+25+35*1,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-//						disp_ch(0,160,UNIT_POS+25,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-//					}
-//					
-//					//disp_str(FORM15X30, 33+CO2_POS,THIRD_CH_POS+CO2_POSY_OFFSET*9,"CO2:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-//					disp_str(FORM15X30, 66+CO2_POS,UNIT_POS-4,"ppm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-//				}
-//				else
-				{
-					if(value >= 1000)
+					value_buf = value;
+					if(enableScroll == false)
 					{
-						//value_buf /= 10;
-						if((value_buf >= 1000))
-							disp_ch(formCO2,xCO2,yCO2+oCO2*3,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						else 
+						disp_icon(55, 55, co2Icon, 170, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+						formCO2 = FORM32X64;
+						xCO2 = 160;
+						yCO2 = UNIT_POS+25;
+						oCO2 = 38;//35;
+						disp_str(FORM15X30, 160,UNIT_POS,"    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_str(FORM15X30, 66+CO2_POS,UNIT_POS-4,"ppm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					}
+					else
+					{
+						formCO2 = FORM15X30;
+						xCO2 = 33+CO2_POS;
+						yCO2 = THIRD_CH_POS;
+						oCO2 = CO2_POSY_OFFSET;
+						//disp_str(FORM15X30, 33+CO2_POS,THIRD_CH_POS+CO2_POSY_OFFSET*9,"CO2:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_str(FORM15X30, 33+CO2_POS,THIRD_CH_POS+CO2_POSY_OFFSET*9,"CO2:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_str(FORM15X30, 33+CO2_POS,UNIT_POS-4,"ppm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					}
+					//disp_null_icon(3, 10, 0, 80+80+32,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+					//disp_str(FORM15X30, 6,  80+32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
+	//				if(enableScroll==false)
+	//				{
+	////					if(value >= 1000)
+	////					{
+	////						//value_buf /= 10;
+	////						if((value_buf >= 1000))
+	////							disp_ch(0,160,UNIT_POS+25+35*3,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	////						else 
+	////							disp_ch(0,160,UNIT_POS+25+35*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	////						
+	////						disp_ch(0,160,UNIT_POS+25+35*2,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	////						disp_ch(0,160,UNIT_POS+25+35*1,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+	////						disp_ch(0,160,UNIT_POS+25,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+	////					}
+	//					if(value<1000 )
+	//					{
+	//						disp_ch(0,160,UNIT_POS+25+35*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	//						if((value >= 100))
+	//							disp_ch(0,160,UNIT_POS+25+35*2,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	//						else 
+	//							disp_ch(0,160,UNIT_POS+25+35*2,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	//						disp_ch(0,160,UNIT_POS+25+35*1,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	//						disp_ch(0,160,UNIT_POS+25,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	//					}
+	//					
+	//					//disp_str(FORM15X30, 33+CO2_POS,THIRD_CH_POS+CO2_POSY_OFFSET*9,"CO2:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	//					disp_str(FORM15X30, 66+CO2_POS,UNIT_POS-4,"ppm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+	//				}
+	//				else
+					{
+						if(value >= 1000)
+						{
+							//value_buf /= 10;
+							if((value_buf >= 1000))
+								disp_ch(formCO2,xCO2,yCO2+oCO2*3,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							else 
+								disp_ch(formCO2,xCO2,yCO2+oCO2*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							
+							disp_ch(formCO2,xCO2,yCO2+oCO2*2,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(formCO2,xCO2,yCO2+oCO2,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+							disp_ch(formCO2,xCO2,yCO2,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+						}
+						if(value<1000 )
+						{
 							disp_ch(formCO2,xCO2,yCO2+oCO2*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							if((value >= 100))
+								disp_ch(formCO2,xCO2,yCO2+oCO2*2,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							else 
+								disp_ch(formCO2,xCO2,yCO2+oCO2*2,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(formCO2,xCO2,yCO2+oCO2,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(formCO2,xCO2,yCO2,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						}
 						
-						disp_ch(formCO2,xCO2,yCO2+oCO2*2,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(formCO2,xCO2,yCO2+oCO2,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-						disp_ch(formCO2,xCO2,yCO2,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+						//disp_str(FORM15X30, 33+CO2_POS,THIRD_CH_POS+CO2_POSY_OFFSET*9,"CO2:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						//disp_str(FORM15X30, 33+CO2_POS,UNIT_POS-4,"ppm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 					}
-					if(value<1000 )
-					{
-						disp_ch(formCO2,xCO2,yCO2+oCO2*3,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						if((value >= 100))
-							disp_ch(formCO2,xCO2,yCO2+oCO2*2,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						else 
-							disp_ch(formCO2,xCO2,yCO2+oCO2*2,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(formCO2,xCO2,yCO2+oCO2,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(formCO2,xCO2,yCO2,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					}
-					
-					//disp_str(FORM15X30, 33+CO2_POS,THIRD_CH_POS+CO2_POSY_OFFSET*9,"CO2:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					//disp_str(FORM15X30, 33+CO2_POS,UNIT_POS-4,"ppm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 				}
 			}
 		}
@@ -1709,12 +1763,70 @@ switch(item)
 				}
 			}
 		}
-	break; 
+		else if( screenArea3 == SCREEN_AREA_AQI)
+		{
+			disp_icon(55, 55, aqiicon, 170, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+			if(value >= 1000) value = 999;
+			if(value >=0)
+			{
+				value_buf = value;
+				if(value<1000 )
+				{
+					//disp_ch(0,THERM_METER_POS,UNIT_POS+25+40*3+40,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					if((value >= 100))
+						disp_ch(0,160,UNIT_POS+25+40*2+40,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					else 
+						disp_ch(0,160,UNIT_POS+25+40*2+40,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					if(value>=10)
+						disp_ch(0,160,UNIT_POS+25+40*1+40,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					else
+						disp_ch(0,160,UNIT_POS+25+40*1+40,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,160,UNIT_POS+25+40,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				}
+//				switch(pm25_sensor.level)
+//				{
+//					case GOOD:
+//						disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-4+40," Good",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+//					break;
+//					case MODERATE:
+//						disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-4+40,"  Mod",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+//					break;
+//					case POOL_FOR_SOME:
+//						disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-4+40," SoSo",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+//					break;
+//					case UNHEALTHY:
+//						disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-4+40," Poor",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+//					break;
+//					case MORE_UNHEALTHY:
+//						disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-4+40,"  Bad",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+//					break;
+//					case HAZARDOUS:
+//						disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-4+40,"Alarm",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+//					break;
+//				}
+			}
+		}
+		break; 
 	}
 	if(value>=1000)
 		display_dec(0);
 	else
 		display_dec(1);
+	
+	if(rx_icon>0)
+	{
+		rx_icon--;
+		disp_icon(15,15,rx_down_icon,0,0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+	}
+	else
+		disp_icon(15,15,tx_rx_clear,0,0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+	if(tx_icon>0)
+	{
+		tx_icon--;	
+		disp_icon(15,15,tx_up_icon,0,0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+	}
+	else
+		disp_icon(15,15,tx_rx_clear,0,0, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 	
 	// wifi icon
 #if WIFITEST			
@@ -4149,6 +4261,108 @@ uint16 const wifi_3[] =
 
 
 };
+
+uint16 const tx_up_icon[]=
+{
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x2965,0x9cd3,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x3186,0xad75,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x3186,0xb596,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x3186,0xb596,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x31a6,0xb596,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x31a6,0xb596,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x31a6,0xb5b6,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x52aa,0xffdf,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x2104,0x9cf3,0xffdf,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x2104,0x9cd3,0xffdf,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x2104,0x9cd3,0xffdf,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x2104,0x9cd3,0xffdf,0xffff,0xffff,0xffff,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x2104,0x9cd3,0xffdf,0xffff,0xffff,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x18e3,0x9cd3,0xffdf,0xffff,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x18e3,0x8430,
+
+
+};
+
+uint16 const rx_down_icon[] = {
+0x8430,0x18e3,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffdf,0x9cd3,0x18e3,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xffff,0xffdf,0x9cd3,0x18e3,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffdf,0x9cd3,0x2104,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffdf,0x9cd3,0x2104,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffdf,0x9cd3,0x2104,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffdf,0x9cf3,0x2104,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffdf,0x52aa,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xb5b6,0x31a6,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xb596,0x31a6,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xb596,0x31a6,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xffff,0xffff,0xb596,0x3186,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xffff,0xffff,0xb596,0x3186,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0xffff,0xffff,0xad75,0x3186,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x9cd3,0x2965,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+};
+
+uint16 const tx_rx_clear[]={
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,0x7e19,
+
+	
+};
+
 //end 
 //#endif //TSTAT9
 

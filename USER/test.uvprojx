@@ -338,7 +338,7 @@
               <MiscControls></MiscControls>
               <Define>STM32F10X_HD, USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>..\CORE;..\USER;..\STM32F10x_FWLib\inc;..\HARDWARE\LED;..\HARDWARE\LCD;..\FreeRTOS\include;..\FreeRTOS\portable\RVDS\ARM_CM3;..\SYSTEM\delay;..\SYSTEM\usart;..\SYSTEM;..\HARDWARE\KEY;..\HARDWARE\IIC;..\HARDWARE\24CXX;..\HARDWARE\SPI;..\HARDWARE\TOUCH;..\HARDWARE\FLASH;..\HARDWARE\STMFLASH;..\HARDWARE\DMA;..\HARDWARE\SDCARD;..\FATFS\src;..\FATFS\exfuns;..\VMALLOC;..\HARDWARE\TIMER;..\HARDWARE\ENC28J60;..\uIP-1.0\uip;..\uIP-1.0\apps\dhcpc;..\uIP-1.0\apps\resolv;..\uIP-1.0\apps\webserver;..\uIP-APP;..\HARDWARE\RTC;..\USB\CONFIG\inc;..\USB\LIB\inc;..\USB\APP;..\MODBUS;..\TCPIP;..\KEY;..\bac_lib\h_header;..\FILTER;..\RANGE;..\baclib\include;..\baclib;..\INPUT_LIB;..\STORE_DATA;..\INFO;..\MENU;..\baclib\object;..\baclib\include;..\HARDWARE\HUMIDITY;..\TEMPERATURE;..\HARDWARE\ESP8266</IncludePath>
+              <IncludePath>..\CORE;..\USER;..\STM32F10x_FWLib\inc;..\HARDWARE\LED;..\HARDWARE\LCD;..\FreeRTOS\include;..\FreeRTOS\portable\RVDS\ARM_CM3;..\SYSTEM\delay;..\SYSTEM\usart;..\SYSTEM;..\HARDWARE\KEY;..\HARDWARE\IIC;..\HARDWARE\24CXX;..\HARDWARE\SPI;..\HARDWARE\TOUCH;..\HARDWARE\FLASH;..\HARDWARE\STMFLASH;..\HARDWARE\DMA;..\HARDWARE\SDCARD;..\FATFS\src;..\FATFS\exfuns;..\VMALLOC;..\HARDWARE\TIMER;..\HARDWARE\ENC28J60;..\uIP-1.0\uip;..\uIP-1.0\apps\dhcpc;..\uIP-1.0\apps\resolv;..\uIP-1.0\apps\webserver;..\uIP-APP;..\HARDWARE\RTC;..\USB\CONFIG\inc;..\USB\LIB\inc;..\USB\APP;..\MODBUS;..\TCPIP;..\KEY;..\bac_lib\h_header;..\FILTER;..\RANGE;..\baclib\include;..\baclib;..\INPUT_LIB;..\STORE_DATA;..\INFO;..\MENU;..\baclib\object;..\baclib\include;..\HARDWARE\HUMIDITY;..\TEMPERATURE;..\HARDWARE\ESP8266;..\HARDWARE\AQ</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -646,6 +646,11 @@
               <FileName>sensirion_sw_i2c_implementation.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\HUMIDITY\sensirion_sw_i2c_implementation.c</FilePath>
+            </File>
+            <File>
+              <FileName>check_AQ.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\AQ\check_AQ.c</FilePath>
             </File>
           </Files>
         </Group>

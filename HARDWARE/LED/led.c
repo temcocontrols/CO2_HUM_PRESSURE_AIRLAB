@@ -20,9 +20,10 @@ void LED_Init(void)
 
 }
 
-
+extern u16  Test[50];
 void refresh_alarm_status_led(char Led_Status)
-{   	
+{ 
+
 	if(Led_Status &0x02) 
 	{
 		LED_CO2_GOOD = LED_ON;//STM_EVAL_LEDOn(LED_CO2_GOOD); 
@@ -54,3 +55,5 @@ void refresh_net_status_led(char Led_Status)
       LED_NET_BEAT = LED_OFF;//STM_EVAL_LEDOff(LED_HEARTBEAT);
    }
 }
+
+

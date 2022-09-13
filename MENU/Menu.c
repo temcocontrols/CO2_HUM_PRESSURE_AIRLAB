@@ -242,12 +242,13 @@ void CursorTask(void *pvParameters)
 	delay_ms(100);
 	task_test.enable[14] = 1;
 	while(1)
-	{task_test.count[14]++;Test[40] = 14;
+	{task_test.count[14]++;Test[40] = 43;
 		 if(xQueueTakeMutexRecursive( xMutex, portMAX_DELAY )==pdPASS)
-		{
-			update_cursor(); 
+		{Test[40] = 44;
+			update_cursor(); Test[40] = 45;
 			xQueueGiveMutexRecursive( xMutex );
 		}
+		Test[40] = 46;
 		vTaskDelay(xDelayPeriod);
 //		stack_detect(&test[10]);
 //		taskYIELD();
@@ -258,7 +259,7 @@ void vStartMenuTask(unsigned char uxPriority)
 { 
 	xTaskCreate(MenuTask,   ( signed portCHAR * ) "MenuTask"  , configMINIMAL_STACK_SIZE , NULL, uxPriority, &task_handle[13]);
 		
-  xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE, NULL, uxPriority, &task_handle[14]);
+  xTaskCreate(CursorTask, ( signed portCHAR * ) "CursorTask", configMINIMAL_STACK_SIZE+100, NULL, uxPriority, &task_handle[14]);
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 		xTaskCreate(ScrollingTask, ( signed portCHAR * ) "ScrollingTask", configMINIMAL_STACK_SIZE+128 , NULL, uxPriority, &task_handle[15]);
 	 

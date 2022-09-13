@@ -31,12 +31,13 @@ u8 KEY_Scan(void)
 		{
 			key_val |= KEY_3;
 		}
+		
 		else if(PRODUCT_ID == STM32_HUM_RS485)
 		{
-			if(read_eeprom(EEP_SUB_PRODUCT) == 1)
+			//if(read_eeprom(EEP_SUB_PRODUCT) == 1)
 				key_val |= KEY_3;
-			else
-				key_val |= KEY_1;
+			//else
+			//	key_val |= KEY_1;
 		}
 		else
 			key_val |= KEY_1;
@@ -51,10 +52,10 @@ u8 KEY_Scan(void)
 			key_val |= KEY_1;
 		else if(PRODUCT_ID == STM32_HUM_RS485)
 		{
-			if(read_eeprom(EEP_SUB_PRODUCT) == 1)
+			//if(read_eeprom(EEP_SUB_PRODUCT) == 1)
 				key_val |= KEY_1;
-			else
-				key_val |= KEY_3;
+			//else
+			//	key_val |= KEY_3;
 		}
 		else
 			key_val |= KEY_3;

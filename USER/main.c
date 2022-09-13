@@ -1,6 +1,7 @@
 #include "config.h"
 #include "sht3x.h"
 #include "temperature.h"
+#include "check_AQ.h"
 
 //int16 Test[20];
 uint8 update_flag = 0;
@@ -11,7 +12,7 @@ static void vCOMMTask( void *pvParameters );
 
 xTaskHandle task_handle[20];
 //static void vUSBTask( void *pvParameters );
-
+void AQ_Alarm_task(void *pvParameters );
 static void vNETTask( void *pvParameters );
 //void SHT4x_Task( void *pvParameters );
 //void SCD40_Task( void *pvParameters );
@@ -21,7 +22,7 @@ static void vMSTP_TASK(void *pvParameters );
 void uip_polling(void);
 
 static void watchdog_init(void);
-
+void check_Task_locked(void);
 STR_Task_Test task_test;
 
 void watchdog(void);
@@ -40,7 +41,7 @@ extern bool isThirdLineChange ;
 extern void get_data_format(u8 loc,float num,char *s);
 extern uint8 light_sensor;
 //u8 global_key = KEY_NON;
-
+uint8_t sub_product;// 0- default 1 - only support temperature  2 - AQ
 static void debug_config(void)
 {
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOA, ENABLE);
@@ -72,13 +73,19 @@ int main(void)
 	{
 		while(1) ;
 	}
+	
+	sub_product = read_eeprom(EEP_SUB_PRODUCT);
+	if(sub_product > 2)
+	{ // 0- default 1 - only support temperature  2 - AQ
+		sub_product = 0;
+	}
 	//printf("step2\r\n");
 	if(read_eeprom(EEP_CLEAR_EEP) == 99)
 	{
 		for(j=66;j<2047;j++)
 		{
-		 write_eeprom(j,0xff);
-		 watchdog();
+			write_eeprom(j,0xff);
+			watchdog();
 		}
 		write_eeprom(EEP_UPDATE_STATUS,0);
 	}
@@ -109,6 +116,38 @@ int main(void)
 	
 	
 	EEP_Dat_Init();
+	
+//------AQ CODE-------
+	if(sub_product == 2)
+	{
+		init_AQ_calibration();
+		for(i=0;i<3;i++)	   
+			aq_level_value[i] = AT24CXX_ReadOneByte(EEP_AQI_FIRST_LINE_LO+i*2) + (AT24CXX_ReadOneByte(EEP_AQI_FIRST_LINE_LO+i*2+1)<<8);
+		 
+		if((aq_level_value[0]>1000)||(aq_level_value[1]>1000)||(aq_level_value[2]>1000))	
+		{
+			aq_level_value[0] = 200;
+			aq_level_value[1] = 400;
+			aq_level_value[2] = 600;
+			for(i=0;i<3;i++)
+			{
+				write_eeprom( EEP_AQI_FIRST_LINE_LO +2*i, aq_level_value[i] );
+				write_eeprom( EEP_AQI_FIRST_LINE_LO+2*i + 1, aq_level_value[i]>>8 );
+			}														  
+		}
+		aq_level_value[3] = AT24CXX_ReadOneByte(EEP_MAX_AQ_VAL) + ((int)AT24CXX_ReadOneByte(EEP_MAX_AQ_VAL+1)<<8);
+		if(aq_level_value[3] < 0)
+			aq_level_value[3] = 1000;
+		aq_calibration = AT24CXX_ReadOneByte(EEP_CALIBRATION_AQ) + AT24CXX_ReadOneByte(EEP_CALIBRATION_AQ +1) * 256;
+		if (aq_calibration > 1000 || aq_calibration < 0)
+		{
+			aq_calibration = 500;
+			write_eeprom(EEP_CALIBRATION_AQ, CALIBRATION_DEFAULT & 0xFF);
+			write_eeprom(EEP_CALIBRATION_AQ+1, CALIBRATION_DEFAULT / 256);
+		}
+	}
+//--------------------------end of AQ ini------------------	
+	
 	if(PRODUCT_ID == STM32_PM25)
 	{
 		if(isColorScreen == false)
@@ -151,7 +190,7 @@ int main(void)
 //	mem_init(SRAMIN);
 //	TIM3_Int_Init(5000, 7199);
 // TIMR6_INIT is called in ENC28J60_Reset() when product is XX_NET
-	if (PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_CO2_RS485)
+	if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_CO2_RS485)
 	{	// heartbeat LED 
 		LED_Init();
 		TIM6_Int_Init(100, 7199);
@@ -235,8 +274,7 @@ int main(void)
 	{
 		AT24CXX_WriteOneByte(EEP_RESTART_NUM, Test[0] + 1);
 	}
-
-	
+	Lcd_Show_String(5, 0, DISP_NOR, (uint8 *)"Done");
 
 	if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PM25))  
 		xTaskCreate( vNETTask, ( signed portCHAR * ) "NET",  configMINIMAL_STACK_SIZE + 512, NULL, tskIDLE_PRIORITY + 1 , &task_handle[0] );
@@ -244,10 +282,17 @@ int main(void)
   xTaskCreate( vMSTP_TASK, ( signed portCHAR * ) "MSTP", configMINIMAL_STACK_SIZE + 512  , NULL, tskIDLE_PRIORITY + 6, &task_handle[1] );
  	xTaskCreate( vCOMMTask, ( signed portCHAR * ) "COMM", configMINIMAL_STACK_SIZE + 128, NULL, tskIDLE_PRIORITY + 7, &task_handle[2] );
 //	TXEN = 0;
-	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
+	if((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 	{
-		xTaskCreate( Co2_task,   ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE+50, NULL, tskIDLE_PRIORITY + 5, &task_handle[3]);
-		xTaskCreate( Alarm_task,   ( signed portCHAR * ) "AlarmTask", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3,  &task_handle[4]);
+		xTaskCreate( Co2_task,   ( signed portCHAR * ) "Co2Task", configMINIMAL_STACK_SIZE+50, NULL, tskIDLE_PRIORITY + 5, &task_handle[3]);		
+		//xTaskCreate( Alarm_task,   ( signed portCHAR * ) "AlarmTask", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3,  &task_handle[4]);
+	}
+	if(PRODUCT_ID == STM32_HUM_RS485)
+	{
+		if(sub_product == 2)
+		{
+			xTaskCreate( AQ_Alarm_task,  ( signed portCHAR * ) "AQ_Alarm_task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 3,  &task_handle[4]);	
+		}
 	}
 
 	if(PRODUCT_ID == STM32_PM25)
@@ -277,6 +322,7 @@ int main(void)
 		xTaskCreate( vWifitask, ( signed portCHAR * ) "Wifitask", configMINIMAL_STACK_SIZE+1024, NULL, tskIDLE_PRIORITY + 5, &task_handle[12] );
 #endif 
 	vStartMenuTask(tskIDLE_PRIORITY + 2);
+	Lcd_Show_String(6, 0, DISP_NOR, (uint8 *)"Done");
 	//xTaskCreate( vGet_Hum_Para_Task, ( signed portCHAR * ) "Hum_Paratask", configMINIMAL_STACK_SIZE+512, NULL, tskIDLE_PRIORITY + 5, NULL );
 	vTaskStartScheduler();
 }
@@ -298,7 +344,8 @@ void vLCDtask(void *pvParameters)
 	for(;;)
 	{task_test.count[11]++;Test[40] = 11;
 		//lcdCounter++;
-		
+		//Lcd_Show_String(5, 0, DISP_NOR, (uint8 *)"Done");
+		Lcd_Show_Data(5, 19, task_test.count[11], 1, ALIGN_RIGHT, DISP_NOR);
 		if(update == 1)
 		{	
 			Lcd_Full_Screen(0);
@@ -340,8 +387,9 @@ void vLCDtask(void *pvParameters)
 						{
 							disp_ch(0,THERM_METER_POS,0+40*i,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						}
-						disp_icon(14, 14, degree_o, 30+THERM_METER_POS ,UNIT_POS+20,TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-//						if(read_eeprom(EEP_SUB_PRODUCT) == 1)
+						if((hum_exists== 3)||(hum_exists==2))
+							disp_icon(14, 14, degree_o, 30+THERM_METER_POS ,UNIT_POS+20,TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+//						if(sub_product == 1)
 //						{
 //							if(deg_c_or_f == DEGREE_C)
 //								Top_area_display(TOP_AREA_DISP_ITEM_LINE1, internal_temperature_c, TOP_AREA_DISP_UNIT_C);
@@ -359,7 +407,8 @@ void vLCDtask(void *pvParameters)
 					}
 					//if( lastTemp != HumSensor.temperature_c)
 					{
-						disp_icon(14, 14, degree_o, 30+THERM_METER_POS ,UNIT_POS+20,TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+						if((hum_exists== 3)||(hum_exists==2))
+							disp_icon(14, 14, degree_o, 30+THERM_METER_POS ,UNIT_POS+20,TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 
 						if((output_auto_manual & 0x01) == 0x01)
 						{
@@ -466,7 +515,7 @@ void vLCDtask(void *pvParameters)
 						
 						disp_icon(14, 14, degree_o, 30+HUM_POS ,UNIT_POS+20,TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 						
-						if(read_eeprom(EEP_SUB_PRODUCT) == 1)
+						if(sub_product == 1)
 						{
 							if(deg_c_or_f == DEGREE_C)
 								Top_area_display(TOP_AREA_DISP_ITEM_LINE2, internal_temperature_c, TOP_AREA_DISP_UNIT_C);
@@ -656,6 +705,13 @@ void vLCDtask(void *pvParameters)
 					}
 
 					break;
+					// AQ
+					case SCREEN_AREA_AQI:
+					if(sub_product == 2)
+					{
+						Top_area_display(TOP_AREA_DISP_ITEM_LINE3, aq_value, TOP_AREA_DISP_UNIT_C);
+					}
+					break;
 				default:
 					break;
 			}				
@@ -699,18 +755,19 @@ void check_TXEN(void);
 //		SoftReset();
 //	}
 //}
-
+void save_wifi(void);
 void vCOMMTask(void *pvParameters )
 {
+	uint16_t locked_count = 0;
 	modbus_init(); 
 	reply_done =receive_delay_time;
 //	print("COMM Task\r\n");
 	delay_ms(100);
-//	locked_count = 0;
+	
 	task_test.enable[2] = 1;
 	for( ;; )
 	{		
-		watchdog(); 
+//		watchdog(); 
 		{// TEST stack lenght;
 			char i;
 			for(i = 0;i < 16;i++)
@@ -720,17 +777,22 @@ void vCOMMTask(void *pvParameters )
 		}
 		}
 		
+		save_wifi();
+		
 		task_test.count[2]++; Test[40] = 2;
 		if(dealwithTag)
-		{  
+		{  Test[40] = 30;
 		  dealwithTag--;
 		  if(dealwithTag == 1)//&& !Serial_Master )	
+			{Test[40] = 31;
 				dealwithData();
+				Test[40] = 32;
+			}
 		}
 		check_TXEN();
 		// net product
 //		check_task_locked();
-	
+		Test[40] = 33;
 		if(serial_receive_timeout_count > 0)  
 		{
 			serial_receive_timeout_count--; 
@@ -738,7 +800,7 @@ void vCOMMTask(void *pvParameters )
 			{
 				serial_restart();
 			}
-		}
+		}Test[40] = 34;
 		if(update_flag == 1) //protocol change to modbus 
 		{
 			update_flag = 0;	
@@ -752,8 +814,12 @@ void vCOMMTask(void *pvParameters )
 		}
 //		stack_detect(&test[2]);
 		vTaskDelay(10 / portTICK_RATE_MS);
-		
-	
+		if(locked_count++ % 200 == 0)
+		{
+			Test[32]++;
+			check_Task_locked();
+		}
+		Test[33]++;
 	}
 	
 }
@@ -872,7 +938,7 @@ void Inital_Bacnet_Server(void)
 	}
 	else if(PRODUCT_ID == STM32_HUM_NET || PRODUCT_ID == STM32_HUM_RS485)
 	{
-		AIS = 2;
+		AIS = 3; // temp humdity Light
 		AOS = 2;
 		BOS = 0;
 	}
@@ -1015,7 +1081,7 @@ void vNETTask( void *pvParameters )
   for( ;; )
 	{
 		//low_pri++;
-		task_test.count[0]++; Test[40] = 100;
+		task_test.count[0]++; 
 		//watchdog();
 		uip_polling();	//处理uip事件，必须插入到用户程序的循环体中 
 //		if((IP_Change == 1)/*||(update == 1)*/)
@@ -1658,10 +1724,10 @@ void EEP_Dat_Init(void)
 				screenArea1 = SCREEN_AREA_PRESSURE;
 		else if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
 		{
-			if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+			if(sub_product == 1) // RTS2
 			{
 				screenArea1 = SCREEN_AREA_NONE;
-			}
+			}			
 			else
 				screenArea1 = SCREEN_AREA_TEMP;
 		}
@@ -1684,7 +1750,7 @@ void EEP_Dat_Init(void)
 				screenArea2 = SCREEN_AREA_PRESSURE;
 		else if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
 		{
-			if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+			if(sub_product == 1) // RTS2
 			{
 				screenArea2 = SCREEN_AREA_TEMP;
 			}
@@ -1710,9 +1776,12 @@ void EEP_Dat_Init(void)
 				screenArea3 = SCREEN_AREA_PRESSURE;
 		else if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
 		{
-			screenArea3 = SCREEN_AREA_NONE;
+			if(sub_product == 2) // AQ
+			{
+				screenArea3 = SCREEN_AREA_AQI;
+			}
 		}
-				
+		
 		
 		enableScroll = read_eeprom(EEP_ENABLE_SCROLL);
 		if(enableScroll > 1)
@@ -1801,16 +1870,19 @@ void watchdog(void)
 void SCD40_get_value(uint16_t co2,uint16_t temperaute, uint16_t humidity)
 {
 	int_co2_str.co2_int	= co2 + int_co2_str.co2_offset / 10;	
-	
+
 	if(hum_exists == 0)
 	{// if no humidity, use SCD40
-		HumSensor.temperature_c = temperaute + HumSensor.offset_t;
-		if(table_sel== USER)
-			HumSensor.humidity = humidity + HumSensor.offset_h;
-		else
-			HumSensor.humidity = humidity + HumSensor.offset_h_default;
+		HumSensor.temperature_c = temperaute + HumSensor.offset_t;		
+		HumSensor.humidity = humidity + HumSensor.offset_h;		
 		HumSensor.temperature_f = HumSensor.temperature_c * 9 / 5 + 320;
 	}
+//	else
+//	{
+//		internal_temperature_c = temperaute;
+//	}
+	int_co2_str.temperature = temperaute;
+	int_co2_str.humi = humidity;
 	var[CHANNEL_CO2].value = co2;
 	int_co2_str.warming_time = FALSE;
 	output_manual_value_co2 = int_co2_str.co2_int;
@@ -1822,6 +1894,7 @@ void SCD40_get_value(uint16_t co2,uint16_t temperaute, uint16_t humidity)
 void check_Task_locked(void)
 {
 	char loop;
+	Test[31]++;
 	for(loop = 0;loop < 16;loop++)	
 	{				
 		if(task_test.enable[loop] == 1)
@@ -1834,11 +1907,11 @@ void check_Task_locked(void)
 			else
 				task_test.inactive_count[loop]++;
 		}
-		//Test[20 + loop] = task_test.inactive_count[loop];
 		
 		if(task_test.inactive_count[loop] > 20)	
 		{ 	
-			AT24CXX_WriteOneByte(EEP_HARDFAULT3, loop);
+			AT24CXX_WriteOneByte(EEP_HARDFAULT5, loop);
+			Test[40] = 101;
 			SoftReset();
 
 		}	

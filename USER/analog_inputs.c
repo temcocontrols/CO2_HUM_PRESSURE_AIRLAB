@@ -1,7 +1,7 @@
 #include "config.h" 
 #include "stm32f10x_adc.h"
 #include "stm32f10x_dma.h"
-#define DMA_BUFFER_SIZE			80
+#define DMA_BUFFER_SIZE			90
 
 /* Private define ------------------------------------------------------------*/
  
@@ -38,7 +38,7 @@ static void ADC_Config(void)
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
   
 	/* Configure ADC Channel 14, 15  as analog input */
-  GPIO_InitStructure.GPIO_Pin =    GPIO_Pin_4 | GPIO_Pin_5 ;
+  GPIO_InitStructure.GPIO_Pin =    GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_0;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
 	GPIO_Init(GPIOC, &GPIO_InitStructure);
   
@@ -79,20 +79,21 @@ static void ADC_Config(void)
 	ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;	//模数转换工作在连续模式，还是单次模式
 	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;//转换由软件而不是外部触发启动
 	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;//ADC数据右对齐
-	ADC_InitStructure.ADC_NbrOfChannel = 8;               //规定了顺序进行规则转换的ADC通道的数目。这个数目的取值范围是1到16
+	ADC_InitStructure.ADC_NbrOfChannel = 9;               //规定了顺序进行规则转换的ADC通道的数目。这个数目的取值范围是1到16
 	ADC_Init(ADC1, &ADC_InitStructure);
 	
 	/* ADC1 regular channels configuration [规则模式通道配置]*/ 
 
 	//ADC1 规则通道配置
-  	ADC_RegularChannelConfig(ADC1, ADC_Channel_4,  1, ADC_SampleTime_55Cycles5);	  //通道11采样时间 55.5周期
-  	ADC_RegularChannelConfig(ADC1, ADC_Channel_5,  2, ADC_SampleTime_55Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_4,  1, ADC_SampleTime_55Cycles5);	  //通道11采样时间 55.5周期
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_5,  2, ADC_SampleTime_55Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_6,  3, ADC_SampleTime_55Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_7,  4, ADC_SampleTime_55Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_8,  5, ADC_SampleTime_55Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_9,  6, ADC_SampleTime_55Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_14, 7, ADC_SampleTime_55Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_15, 8, ADC_SampleTime_55Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_10, 9, ADC_SampleTime_55Cycles5);
 	//使能ADC1 DMA 
 	ADC_DMACmd(ADC1, ENABLE);
 	//使能ADC1
@@ -138,6 +139,7 @@ uint16 get_ad_val(uint8 channel)
 			for(i=0;i<10;i++)
 				read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 4]; 
 			break;
+		
 		case HUM_VOL_FB:
 			for(i=0;i<10;i++)
 				read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 3]; 
@@ -158,18 +160,18 @@ uint16 get_ad_val(uint8 channel)
 		
 		case PRE_AD:
 			for(i=0;i<10;i++)
-		{
 				read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 6]; 
 				delay_ms(10);
-		}
 			break;
 		
 		case TEMP_AD:
 			for(i = 0;i < 10;i++)
-			{
-					read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 7]; 
-			//	delay_ms(1);
-			}
+				read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 7]; 
+			break;
+		
+		case AQ_AD://ADC10 8
+			for(i=0;i<10;i++)
+				read_buf[i] = DMA_Buffer[i * AD_MAX_CHANNEL + 8]; 
 			break;
 		default:
 			break;

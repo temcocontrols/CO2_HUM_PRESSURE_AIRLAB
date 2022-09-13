@@ -118,7 +118,7 @@ void UsageFault_Handler(void)
   */
 void SVC_Handler(void)
 {
-	AT24CXX_WriteOneByte(EEP_HARDFAULT5, Test[40]);
+	//AT24CXX_WriteOneByte(EEP_HARDFAULT5, Test[40]);
 		print("SVC ");
 }
 

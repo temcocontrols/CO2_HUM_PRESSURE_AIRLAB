@@ -100,7 +100,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 	
 	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
 
-	//if(Test[3]++ > 100)	while(1);
+	
 
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) == SET)	//接收中断
 	{
@@ -810,7 +810,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 						sprintf((char *)panelname,"%s", (char *)"PM25");
 					else //if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 					{
-						if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+						if(sub_product == 1) // RTS2
 						{
 							sprintf((char *)panelname,"%s", (char *)"RTS2");
 						}
@@ -1106,7 +1106,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 	 }
 	 else if(StartAdd == MODBUS_SCREEN_AREA_3)
 	 {
-		 if(Data_L<6)
+		 if(Data_L<8)
 		 {
 			 screenArea3 = Data_L;
 			 write_eeprom(EEP_SCREEN_AREA_3,screenArea3); 
@@ -1204,7 +1204,10 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		}
 		else if(StartAdd == MODBUS_HUM_SUB_PRODUCT)
 		{
-			write_eeprom(EEP_SUB_PRODUCT, Data_L);
+			Test[39]++;
+			Test[38] = Data_L;
+			if(Data_L <= 2)
+				write_eeprom(EEP_SUB_PRODUCT, Data_L);
 		}
 		else if(StartAdd == MODBUS_HUM_EXTERNAL_TEMPERATURE_CELSIUS)	
 		{
@@ -1218,7 +1221,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			{
 				if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
 				{
-					if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+					if(sub_product == 1) // RTS2
 					{
 						internal_temperature_offset += (((uint16)Data_H << 8) | Data_L) - internal_temperature_c;
 						write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 0, (uint8)(internal_temperature_offset & 0x00ff));
@@ -1243,7 +1246,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			{
 				if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
 				{
-					if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+					if(sub_product == 1) // RTS2
 					{
 						internal_temperature_offset += ((int16)(((uint16)Data_H << 8) | Data_L) - internal_temperature_f) * 5 / 9;
 						write_eeprom(EEP_INTERNAL_TEMPERATURE_OFFSET + 0, (uint8)(internal_temperature_offset & 0x00ff));
@@ -1715,7 +1718,83 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			else
 				mode_select = TRANSMIT_MODE;
 			write_eeprom(EEP_MODE_SELECT,Data_L);
-		}  
+		}
+//-----------START AQ
+		else if(StartAdd == MODBUS_AQ_VALUE)
+			{
+				signed short int temp_error;
+				aq_value = (int)(Data_L << 8) + Data_H;
+				temp_error =  aq_value - show_aq_sen;
+
+				{
+					aq_calibration += temp_error;
+					write_eeprom(EEP_CALIBRATION_AQ, aq_calibration & 0xFF );
+					write_eeprom(EEP_CALIBRATION_AQ+1, aq_calibration/256 );
+				}
+			}
+			
+		 else if(StartAdd == MODBUS_CELBRA_AIR1)
+		 {
+			 write_eeprom( EEP_CELBRA_AIR1 , Data_L) ;
+			 air_cal_point[0]=Data_L;
+		 }
+		 
+		 else if(StartAdd == MODBUS_CELBRA_AIR2)
+		 {
+			 write_eeprom( EEP_CELBRA_AIR2 , Data_L) ;
+			 air_cal_point[1]=Data_L;
+		 }
+
+		 else if(StartAdd == MODBUS_CELBRA_AIR3)
+		 {
+			 write_eeprom( EEP_CELBRA_AIR3 , Data_L) ;
+			 air_cal_point[2]=Data_L;
+		 } 
+
+		 else if(StartAdd == MODBUS_CELBRA_AIR4)
+		 {
+			 write_eeprom( EEP_CELBRA_AIR4 , Data_L) ;
+			 air_cal_point[3]=Data_L;
+		 }  
+
+		 else if(StartAdd == MODBUS_AQ_LEVEL0)
+		 {
+				aq_level_value[0]=(Data_H<<8) + Data_L;
+				write_eeprom(EEP_AQI_FIRST_LINE_LO,Data_L);
+				write_eeprom(EEP_AQI_FIRST_LINE_LO+1,Data_H);
+		 }  
+		 
+		 else if(StartAdd == MODBUS_AQ_LEVEL1)
+		 {
+				aq_level_value[1]=(Data_H<<8) + Data_L;
+				write_eeprom(EEP_AQI_SECOND_LINE_LO,Data_L);
+				write_eeprom(EEP_AQI_SECOND_LINE_LO+1,Data_H);
+		 }  
+
+		 else if(StartAdd == MODBUS_AQ_LEVEL2)
+		 {
+				aq_level_value[1]=(Data_H<<8) + Data_L;
+				write_eeprom(EEP_AQI_THIRD_LINE_LO,Data_L);
+				write_eeprom(EEP_AQI_THIRD_LINE_LO+1,Data_H);
+		 }
+
+		 else if(StartAdd == MODBUS_MAX_AQ_VAL)
+		 {
+				aq_level_value[3]=(Data_H<<8) + Data_L;
+				write_eeprom(EEP_MAX_AQ_VAL,Data_L);
+				write_eeprom(EEP_MAX_AQ_VAL+1,Data_H);
+		 } 
+		 
+			else if(StartAdd ==MODBUS_CALIBRATION_AQ)
+			{
+				write_eeprom(EEP_CALIBRATION_AQ+1, Data_H);
+				write_eeprom(EEP_CALIBRATION_AQ, Data_L);
+				aq_calibration =  Data_L + Data_H*256;
+			}
+ 
+
+
+//------------END AQ		
 	} 
 	else if((StartAdd < MODBUS_PRESSURE_END)&&((PRODUCT_ID == STM32_PRESSURE_NET)||(PRODUCT_ID == STM32_PRESSURE_RS485)))
 	{   
@@ -2699,6 +2778,13 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			{
 				write_eeprom(EEP_RESTART_NUM, Data_L);
 			}
+			if(StartAdd == MODBUS_TEST1 + 41)			write_eeprom(EEP_HARDFAULT1, 0xff);
+			if(StartAdd == MODBUS_TEST1 + 42)			write_eeprom(EEP_HARDFAULT2, 0xff);
+			if(StartAdd == MODBUS_TEST1 + 43)			write_eeprom(EEP_HARDFAULT3, 0xff);
+			if(StartAdd == MODBUS_TEST1 + 44)			write_eeprom(EEP_HARDFAULT4, 0xff);
+			if(StartAdd == MODBUS_TEST1 + 45)			write_eeprom(EEP_HARDFAULT5, 0xff);
+
+			
 		} 		
 		else if(StartAdd == MODBUS_INT_TEMPRATURE_FILTER) 
 		{
@@ -3819,7 +3905,7 @@ void responseCmd(u8 type, u8* pData)
 				{  
 					if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 					{
-						if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+						if(sub_product == 1) // RTS2
 						{
 							temp1 = internal_temperature_c >> 8 ;
 							temp2 = internal_temperature_c  ;
@@ -3844,7 +3930,7 @@ void responseCmd(u8 type, u8* pData)
 				{ 
 					if((PRODUCT_ID == STM32_HUM_NET)||(PRODUCT_ID == STM32_HUM_RS485))
 					{
-						if(read_eeprom(EEP_SUB_PRODUCT) == 1) // RTS2
+						if(sub_product == 1) // RTS2
 						{
 							temp1 = internal_temperature_f >> 8 ;
 							temp2 = internal_temperature_f  ;
@@ -3868,7 +3954,7 @@ void responseCmd(u8 type, u8* pData)
 				else if(address == MODBUS_HUM_SUB_PRODUCT)
 				{
 					temp1 = 0 ;
-					temp2 = read_eeprom(EEP_SUB_PRODUCT);
+					temp2 = sub_product;
 					sendbuf[send_cout++] = temp1 ;
 					sendbuf[send_cout++] = temp2 ;
 					crc16_byte(temp1);
@@ -4518,9 +4604,100 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
-	//---------------------end pid ------------------------			
-				
-				
+	//---------------------end pid ------------------------	
+
+	// -------start AQ------------				
+				else if(address == MODBUS_AQ_VALUE)
+				{				
+					temp1 =  aq_value >> 8;
+					temp2 = aq_value;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}				
+			 else if(address == MODBUS_CELBRA_AIR1)
+			 {				
+					temp1 =  air_cal_point[0] >> 8;
+					temp2 = air_cal_point[0];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);			 
+			 }
+			 else if(address == MODBUS_CELBRA_AIR2)
+			 {
+					temp1 = air_cal_point[1] >> 8;
+					temp2 = air_cal_point[1];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);			 
+			 }		 
+			 else if(address == MODBUS_CELBRA_AIR3)
+			 {
+					temp1 = air_cal_point[2] >> 8;
+					temp2 = air_cal_point[2];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				 
+			 }		 
+			 else if(address == MODBUS_CELBRA_AIR4)
+			 {
+					temp1 = air_cal_point[3] >> 8;
+					temp2 = air_cal_point[3];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				 
+			 }
+			 else if(address == MODBUS_AQ_LEVEL0)
+			 {
+					temp1 = aq_level_value[0] >> 8;
+					temp2 = aq_level_value[0];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);				 
+			 }
+			 else if(address == MODBUS_AQ_LEVEL1)
+			 {
+					temp1 = aq_level_value[1] >> 8;
+					temp2 = aq_level_value[1];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);		 
+			 }
+			 else if(address == MODBUS_AQ_LEVEL2)
+			 {
+					temp1 = aq_level_value[2] >> 8;
+					temp2 = aq_level_value[2];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);		 
+			 }
+			 else if(address == MODBUS_MAX_AQ_VAL)
+			 {
+					temp1 = aq_level_value[3] >> 8;
+					temp2 = aq_level_value[3];
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);			 
+			 }		 
+			 else if(address == MODBUS_CALIBRATION_AQ)
+			 {
+					temp1 = aq_calibration >> 8;
+					temp2 = aq_calibration;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+			 }		 
+//-------------END 	AQ				
 				 
 				else if( address == TSTAT_NAME_ENABLE || (address == PRESSURE_TSTAT_NAME_ENABLE))  
 				{ 
@@ -5634,6 +5811,24 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
+				else if(address == MODBUS_CO2_TEMP)
+				{
+					temp1= HIGH_BYTE(int_co2_str.temperature);
+					temp2= LOW_BYTE(int_co2_str.temperature);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);					
+				}
+				else if(address == MODBUS_CO2_HUMI)
+				{
+					temp1= HIGH_BYTE(int_co2_str.humi);
+					temp2= LOW_BYTE(int_co2_str.humi);
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);					
+				}				
 				else if(address == MODBUS_CO2_SLOPE_DETECT_VALUE)
 				{ 
 					temp1= HIGH_BYTE(co2_slope_detect_value);
@@ -6515,6 +6710,7 @@ void responseCmd(u8 type, u8* pData)
 		}
 		else
 		{
+			tx_icon = 1;
 				sendbuf[0] = pData[0] ;
 				sendbuf[1] = pData[1] ;
 				sendbuf[2] = 0 ;
@@ -6755,45 +6951,43 @@ void stack_detect(u16 *p)
 }
 
 #if WIFITEST
-void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type) 
+extern uint8_t flag_save_wifi;
+extern void save_wifi(void);
+void write_wifi_data_by_block(uint16 StartAdd,uint8 HeadLen,uint8 *pData,uint8 type) 
 {
-	U8_T far i,j;
+	uint8 far i,j;
 	if(StartAdd == MODBUS_WIFI_SSID_MANUAL_EN)
 	{
+		Test[38]++;
+		//disconnect_AP();
+		SSID_Info.IP_Wifi_Status = WIFI_NO_CONNECT;
 		SSID_Info.MANUEL_EN = pData[HeadLen + 5];
-		write_page_en[WIFI_TYPE] = 1;
-		Flash_Write_Mass();
-//		ESP8266_JoinAP_DEF(SSID_Info.name,SSID_Info.password);
-//		//if(SSID_Info.MANUEL_EN != 0)
+		Restore_WIFI();
+		flag_save_wifi = 100;
+		//save_wifi();
+		//if(SSID_Info.MANUEL_EN != 0)
 //		{
-			Restore_WIFI();
-////			if(type == WIFI)
-////			{
-////				flag_connect_AP = 1;
-////			}
-////			else
-////			{
-////				connect_AP();	
-				SoftReset();					
-////			}
-////			
+//			if(type == WIFI)
+//			{// response first, then reboot
+//		delay_ms(1000);
+//				flag_connect_AP = 1;				
+//				
+//			}
+//			else
+//			{
+				//SoftReset();
+//			}			
 //		}
 	}
 	else if(StartAdd == MODBUS_WIFI_RESTORE)
 	{
 		if(pData[HeadLen + 5] == 1)
-		{
 			Restore_WIFI();
-			// Clear SSID
-			memset(&SSID_Info,0,sizeof(STR_SSID));
-			write_page_en[WIFI_TYPE] = 1; 
-			Flash_Write_Mass();
-			//QuickSoftReset();	
-		}
 	}
 	else if(StartAdd == MODBUS_WIFI_MODE)
 	{
 		SSID_Info.IP_Auto_Manual = pData[HeadLen + 5];
+//		write_eeprom(WIFI_IP_AM,pData[HeadLen + 5]);			
 	}
 	else if(StartAdd == MODBUS_WIFI_BACNET_PORT)
 	{
@@ -6802,19 +6996,31 @@ void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type)
 	else if(StartAdd == MODBUS_WIFI_MODBUS_PORT)
 	{
 		SSID_Info.modbus_port = pData[HeadLen + 5]+ (pData[HeadLen + 4]<<8);
+//		write_eeprom(WIFI_MODBUS_PORT,SSID_Info.modbus_port);	
+//		write_eeprom(WIFI_MODBUS_PORT + 1,SSID_Info.modbus_port >> 8);	
+	}
+	else if(StartAdd == MODBUS_WIIF_START_SMART)
+	{
+		// write 1, start smart cofigure
+		if(pData[HeadLen + 5] == 1)
+			Start_Smart_Config();
+		else
+			Stop_Smart_Config();
 	}
 	else if(StartAdd >= MODBUS_WIFI_SSID_START && StartAdd <= MODBUS_WIFI_SSID_END)
 	{
 		if((StartAdd - MODBUS_WIFI_SSID_START) % 32 == 0)
 		{
+			char i;
 			memset(&SSID_Info.name,'\0',64);
-			memcpy(&SSID_Info.name,&pData[HeadLen + 7],64);
+			memcpy(&SSID_Info.name,&pData[HeadLen + 7],64);		
 		}
 	}
 	else if(StartAdd >= MODBUS_WIFI_PASS_START && StartAdd <= MODBUS_WIFI_PASS_END)
 	{
 		if((StartAdd - MODBUS_WIFI_PASS_START) % 16 == 0)
 		{
+			char i;
 			memset(&SSID_Info.password,'\0',32);
 			memcpy(&SSID_Info.password,&pData[HeadLen + 7],32);
 		}
@@ -6837,7 +7043,6 @@ void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type)
 			SSID_Info.getway[1] = pData[HeadLen + 26];
 			SSID_Info.getway[2] = pData[HeadLen + 28];
 			SSID_Info.getway[3] = pData[HeadLen + 30];
-					
 			
 		}
 	}
@@ -6845,24 +7050,23 @@ void write_wifi_data_by_block(U16_T StartAdd,U8_T HeadLen,U8_T *pData,U8_T type)
 	{
 		if((StartAdd - MDOBUS_WIFI_MACADDR) % 6 == 0)
 		{
-			uint8_t mac_addr[6];
-			mac_addr[0] = pData[HeadLen + 8];
-			mac_addr[1] = pData[HeadLen + 10];
-			mac_addr[2] = pData[HeadLen + 12];
-			mac_addr[3] = pData[HeadLen + 14];					
-			mac_addr[4] = pData[HeadLen + 16];
-			mac_addr[5] = pData[HeadLen + 18];	
+			SSID_Info.mac_addr[0] = pData[HeadLen + 8];
+			SSID_Info.mac_addr[1] = pData[HeadLen + 10];
+			SSID_Info.mac_addr[2] = pData[HeadLen + 12];
+			SSID_Info.mac_addr[3] = pData[HeadLen + 14];					
+			SSID_Info.mac_addr[4] = pData[HeadLen + 16];
+			SSID_Info.mac_addr[5] = pData[HeadLen + 18];	
 
-			ESP8266_Set_MAC(mac_addr);			
-			flag_set_wifi = 1;
+			ESP8266_Set_MAC(SSID_Info.mac_addr);
+			ESP8266_Get_MAC(SSID_Info.mac_addr);
 		}
 	}
-	
+
 }
 
 
 
-U16_T read_wifi_data_by_block(U16_T addr) 
+uint16 read_wifi_data_by_block(uint16 addr) 
 {
 	uint8 item;	
 	uint16 *block;			

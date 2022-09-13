@@ -207,6 +207,9 @@ extern uint16 const wifi_2[];
 extern uint16 const wifi_3[];
 extern uint16 const wifi_4[];
 extern uint16 const wifi_none[];
+extern uint16 const tx_up_icon[];
+extern uint16 const rx_down_icon[];
+extern uint16 const tx_rx_clear[];
 
 extern U8_T const   network_status_text[];
 extern U8_T const   net_status_ok_text[];

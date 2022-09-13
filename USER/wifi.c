@@ -157,11 +157,11 @@ void connect_AP(void)
 			delay_ms(1000);
 		}
 	}
-	
+	Test[30] = count;
 	check_linkStatus();
 
 }
-	
+extern uint8 rx_icon;	
 uint8 count_reboot_wifi = 0;
 void vWifitask( void *pvParameters )
 {
@@ -314,7 +314,7 @@ void vWifitask( void *pvParameters )
 			{						
 					count = 0;	
 					do
-					{
+					{task_test.count[12]++;
 						SSID_Info.IP_Wifi_Status = ESP8266_Get_LinkStatus();
 						delay_ms(100);
 						IWDG_ReloadCounter();
@@ -330,7 +330,8 @@ void vWifitask( void *pvParameters )
 					
 					
 					// Clear SSID
-					// 一旦通过smartconfig方式配置SSID_Info.MANUEL_EN要设为0					
+					// 一旦通过smartconfig方式配置SSID_Info.MANUEL_EN要设为0	
+					
 					SSID_Info.MANUEL_EN = 0;
 					memset(SSID_Info.name,0,64);
 					memset(SSID_Info.password,0,32);
@@ -386,6 +387,7 @@ void vWifitask( void *pvParameters )
 				packet_len = check_packet(cStr,packet);
 				if(packet_len > 0)
 				{
+					rx_icon = 1;
 					if(ucID >= 2 && ucID <= 4)  // modbus TCP 502
 					{
 				// check modbus data
@@ -563,3 +565,15 @@ void vWifitask( void *pvParameters )
 
 #endif
 
+uint8_t flag_save_wifi;
+void save_wifi(void)
+{
+	if(flag_save_wifi == 100)		
+	{
+		write_page_en[WIFI_TYPE] = 1; 
+		Flash_Write_Mass();
+		flag_save_wifi = 0;
+		delay_ms(1000);
+		SoftReset();
+	}
+}

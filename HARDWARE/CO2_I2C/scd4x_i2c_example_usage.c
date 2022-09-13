@@ -31,6 +31,7 @@
 
 #include <stdio.h>  // printf
 
+#include "config.h"
 #include "scd4x_i2c.h"
 #include "sensirion_common.h"
 #include "sensirion_i2c.h"
@@ -43,6 +44,7 @@
 
 extern uint16_t  Test[50];
 extern uint8_t internal_co2_module_type;
+
 void co2_reset(void);
 void IO_Init(void);
 void SCD40_get_value(uint16_t co2,uint16_t temperaute, uint16_t humidity);
@@ -81,6 +83,7 @@ void SCD40_Initial(void)
     error = scd4x_start_periodic_measurement();
     if (error) {
         //printf("Error executing scd4x_start_periodic_measurement(): %i\n", error);
+			int_co2_str.noSensor = 1;
     }
 		else{
 			internal_co2_module_type = 7;//SCD40;
@@ -94,7 +97,7 @@ extern float hum_org;
 void Refresh_SCD40(void)
 {
 	int16_t error = 0;
-	
+	static uint8_t error_cnt = 0;
 	if(internal_co2_module_type == 7/*SCD40*/)
 	{ 
 		uint16_t co2;
@@ -116,15 +119,24 @@ void Refresh_SCD40(void)
 			else
 			{					
 				error = scd4x_read_measurement(&co2, &temperature, &humidity);
-				if (error) {
+				if (error) {//Test[46]++; 
+					error_cnt++;
 						//printf("Error executing scd4x_read_measurement(): %i\n", error);
 				} else if (co2 == 0) {
 					 // printf("Invalid sample detected, skipping.\n");
-				} else {
+				} else {//Test[48]++; 
+					error_cnt = 0;
 					SCD40_get_value(co2,temperature / 100,humidity / 100);
-					
+					int_co2_str.noSensor = 0;
 				}
-
+				//Test[47] = error_cnt;
+				if(error_cnt > 5)
+				{
+					int_co2_str.noSensor = 1;
+					SCD40_get_value(0,0,0);
+					error_cnt = 0;
+					SCD40_Initial();
+				}
 			}
 
 		}

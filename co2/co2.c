@@ -835,8 +835,18 @@ void co2_self_control(void)
 //	if(self_control_timer)
 //		self_control_timer--;
 //	else
+	if(co2_asc == 0)
 	{
-		
+		if(aq_value > 250)
+			alarm_status1 = (alarm_status1 & 0x01) | 0x08;
+		else if(aq_value > 150)
+			alarm_status1 = (alarm_status1 & 0x01) | 0x04;
+		else
+			alarm_status1 = (alarm_status1 & 0x01) | 0x02;
+	
+	}
+	else
+	{		
 		if(co2_asc >= int_co2_str.alarm_setpoint)
 			alarm_status1 = (alarm_status1 & 0x01) | 0x08;
 		else if(co2_asc >= int_co2_str.pre_alarm_setpoint)
@@ -866,9 +876,9 @@ void refresh_led_alarm(void)
 				comm_good = FALSE;
 			}
 		}
-
+		
 		if(pre_alarm_status != alarm_status1)
-		{			
+		{		
 			refresh_alarm_status_led(alarm_status1);
 			pre_alarm_status = alarm_status1;
 		}
@@ -893,7 +903,107 @@ void Alarm_task(void *pvParameters )
 }
 
 
+//-----------AQ-------------------
+#define COUNTER_TIME  2
+#define	SMAPLE_AVG	  1
+#define  NOT_STABLE	0
+unsigned char signal_stable_flag = 0;
+void AQ_Alarm_task(void *pvParameters )
+{
+	portTickType xDelayPeriod = (portTickType)200 / portTICK_RATE_MS;
+	static unsigned int  start_check = 0;
+	static bit first_time = 0;
+	static unsigned int xdata  old_value = 0;
+	static unsigned int xdata  new_value= 0;
+	static unsigned int xdata  core = 0;
+	static unsigned int xdata  count = 0;
+	static bit detect_aq = 0; 
+	
+	uint16 count_1s = 0;
+	print("AQ_Alarm_task Task\r\n");
+	
+	delay_ms(100);
+	LED_Init();//task_test.enable[4] = 1;
+	while(1)
+	{
+		Test[30]++;
+				// AQ sensor
+		//-----------------------CALCULATE AQ VALUE ---------------------
+	 if(sub_product == 2) // AQ
+	 {
+		aq_value_temp = get_ad_val(AQ_AD)/4;
+		
+		if(detect_aq == 0)					 //when we first run this route . we store the value for compare.
+		{									 // when the signal is stable , we no need do this route any more.
+			if(first_time == 0)
+			{
+				core += aq_value_temp;
+				count++ ;
+				if(count > COUNTER_TIME)
+				{
+					first_time = 1;
+					old_value =  core/ COUNTER_TIME;
+					core = 0;
+					count= 0;
+				}	
+			}
+			else
+			{
+					 core += aq_value_temp;			 //to detect the signal is stable
+					 count++ ;
+					 if(count > COUNTER_TIME) 
+					 {
+							new_value =  core/ COUNTER_TIME;
+						if( abs(new_value - old_value)/SMAPLE_AVG < 5)
+						{
+							signal_stable_flag = 1;
+							detect_aq = 1;	
+						}
+						else
+						{
+							old_value = new_value;
+						}
+						core = 0;
+						count= 0;
 
+					 }
+		
+				if(((old_value-aq_value_temp)<8) || ((old_value-aq_value_temp)<8))
+				{
+					signal_stable_flag = 1;
+					detect_aq = 1;
+				}
+				else 
+				old_value =  aq_value_temp;
+			}
+			 } 		
+		if ((signal_stable_flag == NOT_STABLE)&&(start_check<388))   // if the signal isn't stable ,we will wait for 6 minutes.
+				start_check++;   //test								   // if the signal is stable , we won't do this route again.
+		else
+		{
+				if(run_check_aq==INIT_AQ)
+				{				
+					check_Air_Quality();
+					run_check_aq=NO_AQ_CHECK;
+				}
+				else if(run_check_aq==NO_AQ_CHECK)
+				{	
+					run_check_aq=AQ_CHECK;
+				}
+				else if(run_check_aq==AQ_CHECK)
+				{
+					check_Air_Quality();
+					run_check_aq=NO_AQ_CHECK;
+				}
+		} 	
+	}		
+//-------------------------------------------------		
+		
+		if(count_1s++ % 5 == 0)  // 1s
+			refresh_led_alarm();
+		vTaskDelay(xDelayPeriod); 
+	}
+}
 
 
 

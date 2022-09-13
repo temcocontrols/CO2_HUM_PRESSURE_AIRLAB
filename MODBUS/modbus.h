@@ -186,6 +186,8 @@ extern u8 receive_delay_time;
 extern u8 reply_done;
 extern u8 uart1_parity;
 
+extern u8 sub_product;
+
 void Inital_Bacnet_Server(void);
 void EEP_Dat_Init(void) ;
 

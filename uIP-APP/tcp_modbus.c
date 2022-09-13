@@ -11,7 +11,7 @@ u8 tcp_server_sta;				//服务端状态
 
 u8 tcp_server_sendbuf[300];
 u16 tcp_server_sendlen;
-
+extern uint8 rx_icon;
 
 //这是一个TCP 服务器应用回调函数。
 //该函数通过UIP_APPCALL(tcp_demo_appcall)调用,实现Web Server的功能.
@@ -30,6 +30,7 @@ void tcp_server_appcall(void)
 	if(uip_newdata())//收到客户端发过来的数据
 	{
 //		net_rx_count  = 2 ;
+		rx_icon = 1;
 		memcpy(&tcp_server_databuf[0], uip_appdata,uip_len);		
 		// check modbus data
 		if( (tcp_server_databuf[0] == 0xee) && (tcp_server_databuf[1] == 0x10) &&
