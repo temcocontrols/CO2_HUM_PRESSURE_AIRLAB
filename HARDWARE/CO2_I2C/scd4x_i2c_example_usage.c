@@ -48,20 +48,21 @@ extern uint8_t internal_co2_module_type;
 void co2_reset(void);
 void IO_Init(void);
 void SCD40_get_value(uint16_t co2,uint16_t temperaute, uint16_t humidity);
-uint8_t scd4x_perform_forced;
+uint8_t scd4x_perform_forced[3];
 extern uint16_t co2_frc;
 extern uint16_t co2_asc;
+
+uint8_t i2c_sensor_type[3];//i2c_co2_exist[3];
+uint8_t i2c_co2_num = 0;
 
 extern uint8_t output_auto_manual;
 extern uint16_t output_manual_value_co2;
 
+
 void SCD40_Initial(void)
 {
 	int16_t error = 0;
-//    uint16_t serial_0;
-//    uint16_t serial_1;
-//    uint16_t serial_2;
- //   sensirion_i2c_hal_init();
+		IIC_Init();
 		sensirion_i2c_init();
 		IO_Init();		
 		co2_reset();
@@ -70,11 +71,13 @@ void SCD40_Initial(void)
     scd4x_wake_up();
     scd4x_stop_periodic_measurement();
     scd4x_reinit();
-		scd4x_perform_forced = 0;
+		scd4x_perform_forced[0] = 0;
+		scd4x_perform_forced[1] = 0;
+		scd4x_perform_forced[2] = 0;
 //    error = scd4x_get_serial_number(&serial_0, &serial_1, &serial_2);
-//    if (error) {;//Test[4] = 2;
+//    if (error) {Test[29] = 2;
 //       // printf("Error executing scd4x_get_serial_number(): %i\n", error);
-//    } else {;//Test[4] = 3;
+//    } else {Test[29] = 3;
 //       // printf("serial: 0x%04x%04x%04x\n", serial_0, serial_1, serial_2);
 //			internal_co2_module_type = 7;//SCD40;
 //    }
@@ -86,61 +89,114 @@ void SCD40_Initial(void)
 			int_co2_str.noSensor = 1;
     }
 		else{
+			if(i2c_sensor_type[i2c_index] == 0)
+			{
+				i2c_sensor_type[i2c_index] = 3;
+				i2c_co2_num++;
+			}
+			
 			internal_co2_module_type = 7;//SCD40;
 		}
     //printf("Waiting for first measurement... (5 sec)\n");
-
+		Test[22 + i2c_index] = i2c_sensor_type[i2c_index];
 }
-extern float tem_org;
-extern float hum_org;
+
+void SCD40_Initial_1st(void)
+{
+	i2c_index = 0;
+	SCD40_Initial();
+	i2c_index = 0;
+}
+void SCD40_Initial_2nd(void)
+{
+	i2c_index = 1;
+	SCD40_Initial();
+	i2c_index = 0;
+}
+
+void SCD40_Initial_3rd(void)
+{
+	i2c_index = 2;
+	SCD40_Initial();
+	i2c_index = 0;
+}
+
 
 void Refresh_SCD40(void)
 {
 	int16_t error = 0;
-	static uint8_t error_cnt = 0;
-	if(internal_co2_module_type == 7/*SCD40*/)
-	{ 
-		uint16_t co2;
-		int32_t temperature;
-		int32_t humidity;		
-		if(scd4x_perform_forced == 1)
-		{
-			scd4x_stop_periodic_measurement();delay_ms(1000);
-			scd4x_perform_forced_recalibration(co2_frc,&co2_asc);delay_ms(1000);
-			scd4x_start_periodic_measurement();delay_ms(1000);
-			scd4x_perform_forced = 0;
-		}
-		else
-		{
-			if((output_auto_manual & 0x04) == 0x04)
+	static uint8_t error_cnt[3] = {0 , 0 ,0};
+	u8 j;
+	// check exist i2c channel
+	if(i2c_co2_num == 0) 
+		return;
+	
+	for(j = 0;j < 3;j++)
+	{
+		if(i2c_sensor_type[j] == 3)
+		{	
+			i2c_index = j;	
 			{
-				SCD40_get_value(output_manual_value_co2,tem_org,hum_org);
-			}
-			else
-			{					
-				error = scd4x_read_measurement(&co2, &temperature, &humidity);
-				if (error) {//Test[46]++; 
-					error_cnt++;
-						//printf("Error executing scd4x_read_measurement(): %i\n", error);
-				} else if (co2 == 0) {
-					 // printf("Invalid sample detected, skipping.\n");
-				} else {//Test[48]++; 
-					error_cnt = 0;
-					SCD40_get_value(co2,temperature / 100,humidity / 100);
-					int_co2_str.noSensor = 0;
-				}
-				//Test[47] = error_cnt;
-				if(error_cnt > 5)
-				{
-					int_co2_str.noSensor = 1;
-					SCD40_get_value(0,0,0);
-					error_cnt = 0;
-					SCD40_Initial();
-				}
-			}
+					uint16_t co2;
+					int32_t temperature;
+					int32_t humidity;		
+					if(scd4x_perform_forced[j] == 1)
+					{
+						scd4x_stop_periodic_measurement();delay_ms(1000);
+						scd4x_perform_forced_recalibration(co2_frc,&co2_asc);delay_ms(1000);
+						scd4x_start_periodic_measurement();delay_ms(1000);
+						scd4x_perform_forced[j] = 0;
+					}
+					else
+					{
+						if((output_auto_manual & 0x04) == 0x04)
+						{
+							SCD40_get_value(output_manual_value_co2,I2C_Sensor[i2c_index].tem_org,I2C_Sensor[i2c_index].hum_org);
+						}
+						else
+						{	
+							error = scd4x_read_measurement(&co2, &temperature, &humidity);
+							if (error) {
+								error_cnt[j]++;
+									//printf("Error executing scd4x_read_measurement(): %i\n", error);
+							} else if (co2 == 0) {
+								 // printf("Invalid sample detected, skipping.\n");
+							} else {
+								error_cnt[j] = 0;
+								SCD40_get_value(co2,temperature / 100,humidity / 100);
+								int_co2_str.noSensor = 0;								
+							}
+							
+							/*if(error_cnt[j] > 5)
+							{	Test[35]++;
+								int_co2_str.noSensor = 1;
+								SCD40_get_value(0,0,0);
+								error_cnt[j] = 0;
+								if(i2c_index == 0)
+									SCD40_Initial();
+								else if(i2c_index == 1)
+									SCD40_Initial_2nd();
+								else if(i2c_index == 2)
+									SCD40_Initial_3rd();
+							}*/
+						}
 
-		}
+					}
+				}
+		}	
+//		else
+//		{
+//			if(i2c_index == 0)
+//				SCD40_Initial();
+//			else if(i2c_index == 1)
+//				SCD40_Initial_2nd();
+//			else if(i2c_index == 2)
+//				SCD40_Initial_3rd();
+//		}
 	}
+	
+
+	i2c_index = 0;
 }
 #if 0
 void SCD40_Task( void *pvParameters )

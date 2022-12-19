@@ -10,7 +10,53 @@ static uint8 force_refresh = TRUE;
 extern uint8 rx_icon;
 extern uint8 tx_icon;
 
+uint8_t lcd_i2c_sensor_index = 0;
+uint8_t flag_setpoint;
+int8_t index_setpoint;
+uint8_t max_setpoint;
+uint8_t icon_setpoint[3];
+uint8_t count_enter_idle;
 
+uint8_t check_idle_setp(void)
+{
+	uint8 i = 0;
+	if((screenArea1 >= SCREEN_AREA_TEMSETP) && (screenArea1 <= SCREEN_AREA_CO2SETP))
+	{
+		icon_setpoint[0] = screenArea1;
+		i++;
+	}
+	else
+		icon_setpoint[0] = 0;
+	if((screenArea2 >= SCREEN_AREA_TEMSETP) && (screenArea2 <= SCREEN_AREA_CO2SETP))
+	{		
+		icon_setpoint[1] = screenArea2;
+		i++;
+	}
+	else
+		icon_setpoint[1] = 0;
+	if((screenArea3 >= SCREEN_AREA_TEMSETP) && (screenArea3 <= SCREEN_AREA_CO2SETP))
+	{
+		icon_setpoint[2] = screenArea3;
+		i++;		
+	}
+	else
+		icon_setpoint[2] = 0;
+	return i;
+}
+
+char get_curret_setp(uint8_t index)
+{
+	uint8_t i;
+	if(index < 0)	return -1;
+	if(index > 2) return -1;
+	for (i = 0; i < 3;i++)
+	{
+		if(icon_setpoint[i] != 0 && (i == index))
+			return i;
+			
+	} 
+	return -1;
+}
 
 void Idle_init(void)
 {
@@ -18,7 +64,10 @@ void Idle_init(void)
 	uint8 db_ctr;
 	db_ctr = 1;
 //#endif
+	intial_setpoint();
+	
 	Lcd_Full_Screen(0);
+	lcd_i2c_sensor_index = 0;
 	exit_request_password();
 	if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485))
 	{
@@ -184,6 +233,32 @@ void Idle_display(void)
 	if(isColorScreen == false)
 	{
 	}
+	check_setpoint_count();
+}
+
+void intial_setpoint(void)
+{
+	flag_setpoint = 0;
+	index_setpoint = -1;
+	count_enter_idle = 0;
+	max_setpoint = check_idle_setp();
+}
+void start_setpoint_count(void)
+{
+	count_enter_idle = 10;
+}
+
+void check_setpoint_count(void)
+{
+	if(flag_setpoint > 0)
+	{
+		if(count_enter_idle > 0)
+			count_enter_idle--;
+		else
+		{
+			intial_setpoint();			
+		}
+	}
 }
 
 void Idle_keycope(uint16 key_value)
@@ -195,16 +270,90 @@ void Idle_keycope(uint16 key_value)
 			// do nothing
 			break;
 		case KEY_UP_MASK:
+			if(flag_setpoint == 0)
+			{
+				if(lcd_i2c_sensor_index < 2)	lcd_i2c_sensor_index++;
+				else
+					lcd_i2c_sensor_index = 0;
+			}
+			else
+			{
+				char i;
+				start_setpoint_count();
+				i = get_curret_setp(index_setpoint);
+				if(i >= 0)
+				{
+					if(icon_setpoint[i] == SCREEN_AREA_TEMSETP)
+					{
+						PID[0].EEP_SetPoint += 10;
+						write_eeprom(EEP_PID1_SETPOINT,PID[0].EEP_SetPoint);
+						write_eeprom(EEP_PID1_SETPOINT+1,PID[0].EEP_SetPoint >> 8);
+					}
+					if(icon_setpoint[i] == SCREEN_AREA_HUMSETP)
+					{
+						PID[1].EEP_SetPoint += 10;
+						write_eeprom(EEP_PID2_SETPOINT,PID[1].EEP_SetPoint);
+						write_eeprom(EEP_PID2_SETPOINT+1,PID[1].EEP_SetPoint >> 8);
+					}
+					if(icon_setpoint[i] == SCREEN_AREA_CO2SETP)
+					{
+						PID[2].EEP_SetPoint += 10;
+						write_eeprom(EEP_PID3_SETPOINT,PID[2].EEP_SetPoint);
+						write_eeprom(EEP_PID3_SETPOINT+1,PID[2].EEP_SetPoint >> 8);
+					}
+				}
+			}
 			// do nothing
 			break;
 		case KEY_DOWN_MASK:
-			// do nothing
+			if(flag_setpoint == 0)
+			{
+				if(lcd_i2c_sensor_index > 0)	lcd_i2c_sensor_index--;
+				else
+					lcd_i2c_sensor_index = 2;
+			}
+			else
+			{
+				char i;
+				start_setpoint_count();
+				i = get_curret_setp(index_setpoint);
+				if(i >= 0)
+				{
+					if(icon_setpoint[i] == SCREEN_AREA_TEMSETP)
+					{
+						PID[0].EEP_SetPoint -= 10;
+						write_eeprom(EEP_PID1_SETPOINT,PID[0].EEP_SetPoint);
+						write_eeprom(EEP_PID1_SETPOINT+1,PID[0].EEP_SetPoint >> 8);
+					}
+					if(icon_setpoint[i] == SCREEN_AREA_HUMSETP)
+					{
+						PID[1].EEP_SetPoint -= 10;
+						write_eeprom(EEP_PID2_SETPOINT,PID[1].EEP_SetPoint);
+						write_eeprom(EEP_PID2_SETPOINT+1,PID[1].EEP_SetPoint >> 8);
+					}
+					if(icon_setpoint[i] == SCREEN_AREA_CO2SETP)
+					{
+						PID[2].EEP_SetPoint -= 10;
+						write_eeprom(EEP_PID3_SETPOINT,PID[2].EEP_SetPoint);
+						write_eeprom(EEP_PID3_SETPOINT+1,PID[2].EEP_SetPoint >> 8);
+					}
+				}
+			}
 			break;
 		case KEY_LEFT_MASK:
-			// do nothing
+			if(max_setpoint > 0)
+			{
+				start_setpoint_count();
+				flag_setpoint = 1;
+				if(index_setpoint < 2)
+					index_setpoint++;
+				else
+					index_setpoint = 0;
+			}
 			break;
 		case KEY_RIGHT_MASK:
 			// go into main menu
+			flag_setpoint = 0;
 			update_menu_state(MenuMain);
 			break;
 	}

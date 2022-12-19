@@ -31,18 +31,26 @@
 
 #include "sht4x.h"
 #include <stdio.h>  // printf
+#include "myiic.h"
 
 // added by chelsea
 #include "humidity.h"
+extern uint8_t i2c_index;
+extern uint8_t i2c_sensor_type[3];//i2c_sht_exist[3];
+extern uint8_t i2c_sht_num;
 extern STR_HUMIDITY HumSensor;
 extern uint16_t  Test[50];
 extern bit hum_exists;
-extern float tem_org;
-extern float hum_org;
+extern uint8_t lcd_i2c_sensor_index;
+
+extern Str_Mul_I2C I2C_Sensor[3];
+
+void IIC_Init(void);
 /**
  * TO USE CONSOLE OUTPUT (PRINTF) AND WAIT (SLEEP) PLEASE ADAPT THEM TO YOUR
  * PLATFORM
  */
+
 
 void SHT4x_Initial(void)
 {
@@ -53,10 +61,45 @@ void SHT4x_Initial(void)
 		//printf("SHT sensor probing failed\n");
 		sensirion_sleep_usec(50000); /* sleep 1s */		
 	}	
+
 	if(count <= 3)	
-		hum_exists = 3;
-//	else
-//		hum_exists = 4;
+	{
+		hum_exists = 3;		
+		if(i2c_sensor_type[i2c_index] == 0)
+		{
+			i2c_sensor_type[i2c_index] = 2;
+			i2c_sht_num++;
+		}
+	}
+	else
+	{
+		
+	}
+
+	Test[22 + i2c_index] = i2c_sensor_type[i2c_index];
+}
+void SHT4x_Initial_1st(void)
+{
+	i2c_index = 0;
+	IIC_Init();
+	SHT4x_Initial();
+	i2c_index = 0;
+}
+
+void SHT4x_Initial_2nd(void)
+{
+	i2c_index = 1;
+	IIC_Init();
+	SHT4x_Initial();
+	i2c_index = 0;
+}
+
+void SHT4x_Initial_3rd(void)
+{
+	i2c_index = 2;
+	IIC_Init();
+	SHT4x_Initial();
+	i2c_index = 0;
 }
 
 void Refresh_SHT4x(void)
@@ -66,41 +109,48 @@ void Refresh_SHT4x(void)
 		 * temperature, humidity (each output multiplied by 1000).
 		 */
 		int8_t ret;
-	static uint8_t error_cnt = 0;
-		
-		if(hum_exists == 3)
+	
+		static uint8_t error_cnt[3] = {0,0,0};
+	//	static	u8 i = 0;
+		u8 j;
+	// check exist i2c channel
+	
+	if(i2c_sht_num == 0) 
+		return;
+	
+	for(j = 0;j < 3;j++)
+	{
+		if(i2c_sensor_type[j] == 2)
 		{
+			i2c_index = j;
 			ret = sht4x_measure_blocking_read(&temperature, &humidity);
-			if (ret == STATUS_OK) {
-				tem_org = temperature / 100;
-				hum_org = humidity / 100;
+			if (ret == STATUS_OK) {			
 				
-	//            printf("measured temperature: %0.2f degreeCelsius, "
-	//                   "measured humidity: %0.2f percentRH\n",
-	//                   temperature / 1000.0f, humidity / 1000.0f);
+				//tem_org = temperature / 100;
+				//hum_org = humidity / 100;				
+				I2C_Sensor[j].tem_org = temperature / 100;
+				I2C_Sensor[j].hum_org = humidity / 100;
+//            printf("measured temperature: %0.2f degreeCelsius, "
+//                   "measured humidity: %0.2f percentRH\n",
+//                   temperature / 1000.0f, humidity / 1000.0f);
 			} else {//Test[18]++;
 				 // printf("error reading measurement\n");
-				error_cnt++;
+				error_cnt[j]++;
 			}		
-			if(error_cnt>5)
+			if(error_cnt[j]>5)
 			{
-				error_cnt = 0;
+				error_cnt[j] = 0;
 				hum_exists = 2;
-				tem_org = 0;
-				hum_org = 0;
+				I2C_Sensor[j].tem_org = 0;
+				I2C_Sensor[j].hum_org = 0;
 			}
-		}
-		else if(hum_exists == 2)
-		{
-			
-		}
-		else 
-		{
-			SHT4x_Initial();
-		}
-//		if(hum_exists == 4)
-//			SHT4x_Initial();
+			i2c_index = 0;
+		}		
+		
+	}
+	i2c_index = 0;
 }
+
 #if 0
 void SHT4x_Task( void *pvParameters )	{
     /* Initialize the i2c bus for the current platform */

@@ -29,10 +29,18 @@
 u8 float_w[4];
 int16_t scd4x_perform_forced_recalibration(uint16_t target_co2_concentration,
                                           uint16_t* frc_correction);
-extern uint8_t scd4x_perform_forced;
+extern uint8_t scd4x_perform_forced[3];
 extern uint8_t flag_set_wifi;
 extern uint8 isWagnerProduct;
 extern U8_T MAX_MASTER;
+extern uint8 lcd_i2c_sensor_index;
+extern uint8_t stc3x_perform_forced;
+extern uint16_t stc_frc;
+extern uint8_t stc3x_perform_forced;
+extern uint16_t stc_frc;
+extern uint16_t stc3x_gas;
+extern uint16_t stc3x_tem;
+uint16 read_mui_I2C_sensor_by_block(uint16 address);
 
 extern uint8 update_flag;
 uint8 mhz19_cal_h = 0;
@@ -1068,6 +1076,13 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //			lastTemp = -100;
 //			lastHumi = -1;			 
 		 }
+		 else if((Data_L >= SCREEN_AREA_TEMSETP) &&(Data_L <= SCREEN_AREA_CO2SETP) )
+		 {
+			 screenArea1 = Data_L;
+			 write_eeprom(EEP_SCREEN_AREA_1,screenArea1); 
+			 isFirstLineChange = true;
+			  max_setpoint = check_idle_setp();
+		 } 
 	 }
 	 else if(StartAdd == MODBUS_SCREEN_AREA_2)
 	 {
@@ -1094,6 +1109,13 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //			lastTemp = -100;
 //			lastHumi = -1;
 		 }
+		 else if((Data_L >= SCREEN_AREA_TEMSETP) &&(Data_L <= SCREEN_AREA_CO2SETP) )
+		 {
+			 screenArea2 = Data_L;
+			 write_eeprom(EEP_SCREEN_AREA_2,screenArea2); 
+			 isSecondLineChange = true;
+			  max_setpoint = check_idle_setp();
+		 } 
 	 }
 	 else if(StartAdd == MODBUS_ENABLE_SCROLL)
 	 {
@@ -1115,6 +1137,13 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //			lastTemp = -100;
 //			lastHumi = -1;
 		 }
+		 else if((Data_L >= SCREEN_AREA_TEMSETP) &&(Data_L <= SCREEN_AREA_CO2SETP) )
+		 {
+			 screenArea3 = Data_L;
+			 write_eeprom(EEP_SCREEN_AREA_3,screenArea3); 
+			 isThirdLineChange = true;
+			 max_setpoint = check_idle_setp();
+		 } 
 	 }
 	 
 	 else if(StartAdd == MODBUS_SCREEN_MANUAL_RESET)
@@ -1204,8 +1233,6 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 		}
 		else if(StartAdd == MODBUS_HUM_SUB_PRODUCT)
 		{
-			Test[39]++;
-			Test[38] = Data_L;
 			if(Data_L <= 2)
 				write_eeprom(EEP_SUB_PRODUCT, Data_L);
 		}
@@ -1233,7 +1260,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				else
 					external_operation_flag = TEMP_CALIBRATION; 
 			}
-				
+			
 		}
 		else if(StartAdd == MODBUS_HUM_EXTERNAL_TEMPERATURE_FAHRENHEIT)
 		{
@@ -1402,9 +1429,10 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			HumSensor.H_Filter = Data_L;
 			write_eeprom(EEP_HUMIDITY_FILTER,Data_L); 
 		} 
+#if OLD_HUM
 		else if(StartAdd == MODBUS_HUM_TABLE_SEL)
 		{
-#if OLD_HUM
+
 			if(hum_exists == 1)
 			{
 				if((Data_L == USER)||(Data_L == FACTORY))
@@ -1423,13 +1451,12 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				} 
 			}
 			else
-#endif
+
 			if(hum_exists == 2)
 			{
 				if(Data_L == 3)
 					update_flag = 8;
-			}
-				
+			}				
 		}
 		else if(StartAdd == MODBUS_HUM_USER_POINTS)
 		{
@@ -1440,6 +1467,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				table_sel_enable = 1;
 			}
 		}
+
 		else if((StartAdd >= MODBUS_HUM_USER_RH1)&&(StartAdd<= MODBUS_HUM_USER_FRE10))
 		{
 			uint8 temp,i,j;
@@ -1472,8 +1500,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 					 
 				}
 				else
-				{	 
-#if OLD_HUM
+				{	
 					if(hum_exists == 1)
 					{						
 						 new_write_eeprom(EEP_USER_RH1 + i*4 +2,HumSensor.frequency);			  
@@ -1487,9 +1514,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 								new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8); 					
 						 }
 					}
-					else
-#endif
-					if(hum_exists == 2)
+					else	if(hum_exists == 2)
 					{
 //						 new_write_eeprom(EEP_USER_RH1 + i*4,hum_org);			  
 //						 new_write_eeprom(EEP_USER_RH1 + i*4+1, (uint16)hum_org >> 8); 
@@ -1513,6 +1538,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				new_write_eeprom( EEP_USER_FRE1 + i * 4 + 1 , Data_H ) ;
 			}
 		} 
+
 		else if(StartAdd == MODBUS_HUM_DIS_INFO)
 		{ 
 			dis_hum_info =  Data_L;  				
@@ -1540,6 +1566,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			write_eeprom(EEP_CAL_DEFAULT_HUM ,Data_L);
 			write_eeprom(EEP_CAL_DEFAULT_HUM + 1,Data_H);	
 		} 
+#endif
 		else if(StartAdd == MODBUS_HUM_REPLY_DELAY)
 		{  
 			reply_delay_time = Data_L; 
@@ -2740,6 +2767,77 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 //				flash_write_int(FLASH_BACKLIGHT_KEEP_SECONDS, backlight_keep_seconds);
 			
 		}
+		else if(StartAdd == MODBUS_LCD_I2C_SENSOR_Index)
+		{
+			if(Data_L <= 2)
+				lcd_i2c_sensor_index = Data_L;
+			write_eeprom(EEP_LCD_I2C_SENSOR,lcd_i2c_sensor_index);
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR1_TEM)
+		{
+			current_i2c = 0;
+			external_operation_value = ((uint16)Data_H << 8) | Data_L;
+			external_operation_flag = TEMP_CALIBRATION;
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR1_HUM)
+		{
+			current_i2c = 0;
+			external_operation_value = ((uint16)Data_H << 8) | Data_L;
+			external_operation_flag = HUM_CALIBRATION;
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR1_CO2_FRC)
+		{
+			if(i2c_sensor_type[0] == 3)
+			{
+				scd4x_perform_forced[0] = 1;
+				co2_frc = ((uint16)Data_H << 8) | Data_L;
+			}
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR2_TEM)
+		{
+			current_i2c = 1;
+			external_operation_value = ((uint16)Data_H << 8) | Data_L;
+			external_operation_flag = TEMP_CALIBRATION;
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR2_HUM)
+		{
+			current_i2c = 1;
+			external_operation_value = ((uint16)Data_H << 8) | Data_L;
+			external_operation_flag = HUM_CALIBRATION;
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR2_CO2_FRC)
+		{
+			if(i2c_sensor_type[1] == 3)
+			{
+				scd4x_perform_forced[1] = 1;
+				co2_frc = ((uint16)Data_H << 8) | Data_L;
+			}
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR3_TEM)
+		{
+			current_i2c = 2;
+			external_operation_value = ((uint16)Data_H << 8) | Data_L;
+			external_operation_flag = TEMP_CALIBRATION;
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR3_HUM)
+		{
+			current_i2c = 2;
+			external_operation_value = ((uint16)Data_H << 8) | Data_L;
+			external_operation_flag = HUM_CALIBRATION;
+		}
+		else if(StartAdd == MODBUS_I2C_SENOR3_CO2_FRC)
+		{
+			if(i2c_sensor_type[2] == 3)
+			{
+				scd4x_perform_forced[2] = 1;
+				co2_frc = ((uint16)Data_H << 8) | Data_L;
+			}
+		}
+		else if(StartAdd == MODBUS_STC3X_FRC)
+		{
+			stc3x_perform_forced = 1;
+			stc_frc = ((uint16)Data_H << 8) | Data_L;
+		}
 #if OLD_CO2
 		else if(StartAdd == MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY)
 		{
@@ -2801,7 +2899,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			HumSensor.H_Filter = Data_L;
 			write_eeprom(EEP_HUMIDITY_FILTER,Data_L); 
 		}
- 
+ #if OLD_HUM
 		else if(StartAdd == MODBUS_TABLE_SEL)
 		{
 			if((Data_L == USER)||(Data_L == FACTORY))
@@ -2828,6 +2926,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				table_sel_enable = 1;
 			}
 		}
+	
 		else if((StartAdd >= MODBUS_USER_RH1)&&(StartAdd<= MODBUS_USER_FRE10))
 		{
 			uint8 temp,i,j;
@@ -2879,6 +2978,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 				new_write_eeprom( EEP_USER_FRE1 + i * 4 + 1 , Data_H ) ;
 			}
 		} 
+#endif
 		else if(StartAdd == MODBUS_DIS_INFO)
 		{ 
 			dis_hum_info =  Data_L;  				
@@ -3129,7 +3229,7 @@ void Data_Deal(u16 StartAdd,u8 Data_H,u8 Data_L)
 			}
 			else if(internal_co2_module_type == SCD40)
 			{
-				scd4x_perform_forced = 1;
+				scd4x_perform_forced[lcd_i2c_sensor_index] = 1;
 			}
 	 }
 	 
@@ -4145,7 +4245,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp2);
 				}
 	 
-				
+#if OLD_HUM			
 				else if(address == MODBUS_HUM_HUMDITY_SN)
 				{ 
 					temp1= HumSensor.sn>>8;
@@ -4227,6 +4327,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				} 
+#endif
 				else if(address == MODBUS_HUM_DEW_PT)
 				{ 
 					temp1= HumSensor.dew_pt >> 8;
@@ -4245,6 +4346,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
+#if OLD_HUM
 				else if(address == MODBUS_HUM_DIS_INFO)
 				{ 
 					temp1=  0;
@@ -4254,6 +4356,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
+#endif
 				else if(address == MODBUS_HUM_OUTPUT_SEL)
 				{ 
 					temp1=  0;
@@ -4263,6 +4366,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				} 
+
 				else if(address == MODBUS_HUM_PWS)
 				{ 	
 					temp1= HumSensor.Pws>>8 ;
@@ -4311,6 +4415,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
+
 				else if(address == MODBUS_HUM_CAL_DEFAULT_HUM)
 				{ 	
 					temp1= HumSensor.offset_h_default>>8;
@@ -4320,6 +4425,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				} 
+#if OLD_HUM
 				else if(address == MODBUS_HUM_K_LINE)
 				{
 					int16 itemp;
@@ -4340,7 +4446,7 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
-	 
+#endif	 
 				else if(address == MODBUS_HUM_REPLY_DELAY)
 				{ 
 					temp1=  0;
@@ -6014,6 +6120,20 @@ void responseCmd(u8 type, u8* pData)
 					crc16_byte(temp1);
 					crc16_byte(temp2);
 				}
+// multiple channel I2C sensors-----
+				else if(address >= MODBUS_LCD_I2C_SENSOR_Index && address <= MODBUS_LCD_I2C_SENSOR_Index + 100)
+				{
+					U16_T  temp;
+					temp = read_mui_I2C_sensor_by_block(address);
+					temp1 = (temp >> 8) & 0xFF;
+					temp2 = temp & 0xFF;
+					sendbuf[send_cout++] = temp1 ;
+					sendbuf[send_cout++] = temp2 ;
+					crc16_byte(temp1);
+					crc16_byte(temp2);
+				}
+// multiple channel----
+				
 				else if(address == MODBUS_INT_TEMPRATURE_FILTER) 
 				{
 					temp1= 0;
@@ -6958,7 +7078,6 @@ void write_wifi_data_by_block(uint16 StartAdd,uint8 HeadLen,uint8 *pData,uint8 t
 	uint8 far i,j;
 	if(StartAdd == MODBUS_WIFI_SSID_MANUAL_EN)
 	{
-		Test[38]++;
 		//disconnect_AP();
 		SSID_Info.IP_Wifi_Status = WIFI_NO_CONNECT;
 		SSID_Info.MANUEL_EN = pData[HeadLen + 5];
@@ -7139,5 +7258,92 @@ uint16 read_wifi_data_by_block(uint16 addr)
 		return 0;
 	
 }
+
+
+
 #endif
+
+uint16 read_mui_I2C_sensor_by_block(uint16 address)
+{	
+		if(address == MODBUS_LCD_I2C_SENSOR_Index)
+		{
+			return lcd_i2c_sensor_index;
+		}
+		else if(address == MODBUS_I2C_SENOR1_TYPE) 
+		{	
+			return i2c_sensor_type[0];
+		}
+		else if(address == MODBUS_I2C_SENOR1_TEM) 
+		{	
+			return I2C_Sensor[0].tem_org;
+		}
+		else if(address == MODBUS_I2C_SENOR1_HUM) 
+		{	
+			return I2C_Sensor[0].hum_org;
+		}
+		else if(address == MODBUS_I2C_SENOR1_CO2) 
+		{	
+			return I2C_Sensor[0].co2_org;
+		}
+		else if(address == MODBUS_I2C_SENOR1_CO2_FRC) 
+		{	
+			return I2C_Sensor[0].co2_org;
+		}
+		
+		else if(address == MODBUS_I2C_SENOR2_TYPE) 
+		{	
+			return i2c_sensor_type[1];
+		}
+		else if(address == MODBUS_I2C_SENOR2_TEM) 
+		{	
+			return I2C_Sensor[1].tem_org;
+		}
+		else if(address == MODBUS_I2C_SENOR2_HUM) 
+		{	
+			return I2C_Sensor[1].hum_org;
+		}
+		else if(address == MODBUS_I2C_SENOR2_CO2) 
+		{	
+			return I2C_Sensor[1].co2_org;
+		}
+		else if(address == MODBUS_I2C_SENOR2_CO2_FRC) 
+		{	
+			return I2C_Sensor[1].co2_org;
+		}
+		
+		else if(address == MODBUS_I2C_SENOR3_TYPE) 
+		{	
+			return i2c_sensor_type[2];
+		}
+		else if(address == MODBUS_I2C_SENOR3_TEM) 
+		{	
+			return I2C_Sensor[2].tem_org;
+		}
+		else if(address == MODBUS_I2C_SENOR3_HUM) 
+		{	
+			return I2C_Sensor[2].hum_org;
+		}
+		else if(address == MODBUS_I2C_SENOR3_CO2) 
+		{	
+			return I2C_Sensor[2].co2_org;
+		}
+		else if(address == MODBUS_I2C_SENOR3_CO2_FRC) 
+		{	
+			return I2C_Sensor[2].co2_org;
+		}
+		
+		else if(address == MODBUS_STC3X_GAS)
+		{
+			return stc3x_gas;
+		}
+		else if(address == MODBUS_STC3X_TEM)
+		{
+			return stc3x_tem;
+		}
+		else
+			return 0;
+}
+
+				
+				
 

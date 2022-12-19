@@ -155,11 +155,11 @@ int8_t sensirion_i2c_write(uint8_t address, const uint8_t* data,
     uint16_t i;
 		
     ret = sensirion_i2c_start();
-    if (ret != NO_ERROR)
-        return ret;
+    if (ret != NO_ERROR){
+        return ret;}
 		
     ret = sensirion_i2c_write_byte(address << 1);
-    if (ret != NO_ERROR) {
+    if (ret != NO_ERROR) {Test[21]++;
         //sensirion_i2c_stop();
         return ret;
     }

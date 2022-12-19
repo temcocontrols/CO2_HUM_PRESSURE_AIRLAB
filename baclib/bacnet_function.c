@@ -60,6 +60,11 @@ const uint8 AV_TYPE[MAX_AVS] = {
 	AV_PM25,  //35		PM25
 	AV_COMMON, // 36 
 	
+	AV_HUM, // 37 HUM
+	
+	AV_HUM, // 38 HUM
+	AV_HUM, // 39 HUM
+	AV_CO2, // 40 CO2
 
 };
 
@@ -104,6 +109,11 @@ const uint8 Var_label[MAX_AVS][9] = {
 	"AQI",	   //35
 	"MaxMSTER",//36
 	
+	"LIGHT",	// 37
+	
+	"TEM_SETP",//38
+	"HUM_SETP",//39
+	"CO2_SETP",//40
 
 };
 const uint8 Var_Description[MAX_AVS][21] = {
@@ -145,6 +155,12 @@ const uint8 Var_Description[MAX_AVS][21] = {
 	"Co2 Max Range", 			// CO2
 	"Air Quality Index",			// PM25
 	"Max MSTP master",				// 36
+	
+	"Light",		// 37
+	
+	"TEM Setpoint", // 38
+	"HUM Setpoint", // 39
+	"CO2 Setpoint", // 40
 	
 };
 
@@ -579,6 +595,15 @@ float Get_bacnet_value_from_buf(uint8_t type,uint8_t priority,uint8_t i)
 					case 37: // light
 						var[io_index].value = light.val;
 						break;
+					case 38: // TEM setpoint
+						var[io_index].value = PID[0].EEP_SetPoint;
+						break;
+					case 39: // HUM setpoint
+						var[io_index].value = PID[1].EEP_SetPoint;
+						break;
+					case 40: // CO2 setpoint
+						var[io_index].value = PID[2].EEP_SetPoint;
+						break;
 					default: 
 						var[io_index].value = 0;
 					break;
@@ -747,8 +772,21 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 							if(table_sel == USER)
 							{
 								HumSensor.offset_h = (int16)var[io_index].value;  
-								write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h);
-								write_eeprom(EEP_HUM_OFFSET + 1,HumSensor.offset_h >> 8);
+								if(lcd_i2c_sensor_index == 0)
+								{
+									write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h);
+									write_eeprom(EEP_HUM_OFFSET + 1,HumSensor.offset_h >> 8);
+								}
+								else if(lcd_i2c_sensor_index == 1)
+								{
+									write_eeprom(EEP_HUM1_OFFSET,HumSensor.offset_h);
+									write_eeprom(EEP_HUM1_OFFSET + 1,HumSensor.offset_h >> 8);
+								}
+								else if(lcd_i2c_sensor_index == 2)
+								{
+									write_eeprom(EEP_HUM2_OFFSET,HumSensor.offset_h);
+									write_eeprom(EEP_HUM2_OFFSET + 1,HumSensor.offset_h >> 8);
+								}
 							}
 							else
 							{
@@ -759,9 +797,22 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 							break;
 						case 16: //OffSet_T 
 							var[io_index].value = value*10;
-							HumSensor.offset_t = (int16)var[io_index].value;    
-							write_eeprom(EEP_TEMP_OFFSET,HumSensor.offset_t);
-							write_eeprom(EEP_TEMP_OFFSET + 1,HumSensor.offset_t>>8);
+							HumSensor.offset_t = (int16)var[io_index].value;   
+							if(lcd_i2c_sensor_index == 0)
+							{
+								write_eeprom(EEP_TEMP_OFFSET,HumSensor.offset_t);
+								write_eeprom(EEP_TEMP_OFFSET + 1,HumSensor.offset_t>>8);
+							}
+							else if(lcd_i2c_sensor_index == 1)
+							{
+								write_eeprom(EEP_TEMP1_OFFSET,HumSensor.offset_t);
+								write_eeprom(EEP_TEMP1_OFFSET + 1,HumSensor.offset_t>>8);
+							}
+							else if(lcd_i2c_sensor_index == 2)
+							{
+								write_eeprom(EEP_TEMP2_OFFSET,HumSensor.offset_t);
+								write_eeprom(EEP_TEMP2_OFFSET + 1,HumSensor.offset_t>>8);
+							}
 							break; 
 						case 17: //OffSet_C   
 							var[io_index].value = value;
@@ -862,6 +913,21 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 							StartAdd = MODBUS_MSTP_MAX_MASTER;
 							var[io_index].value = value;
 							Data_Deal(StartAdd,(int16)var[io_index].value>>8,var[io_index]. value); 
+							break;
+						case 38:
+							StartAdd = MODBUS_HUM_PID1_SETPOINT;
+							var[io_index].value = value;
+							Data_Deal(StartAdd,(int16)var[io_index].value>>8,var[io_index]. value); 
+							break;	
+						case 39:
+							StartAdd = MODBUS_HUM_PID2_SETPOINT;
+							var[io_index].value = value;
+							Data_Deal(StartAdd,(int16)var[io_index].value>>8,var[io_index]. value); 
+							break;	
+					  case 40:
+							StartAdd = MODBUS_HUM_PID3_SETPOINT;
+							var[io_index].value = value;
+							Data_Deal(StartAdd,(int16)var[io_index].value>>8,var[io_index]. value); 
 							break;	
 						default: 
 							break;
@@ -876,7 +942,7 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 					switch(PRODUCT_ID)
 					{
 						case STM32_PM25:
-							if(i == 0)
+						if(i == 0)
 						{
 							inputs[i].value = value*10;
 							itemp = (unsigned int)inputs[i].value ;
@@ -943,7 +1009,7 @@ void wirte_bacnet_value_to_buf(uint8_t type,uint8_t priority,uint8_t i,float val
 								write_eeprom(EEP_INT_CO2_OFFSET + 1, (uint8)(int_co2_str.co2_offset >> 8));
 							}							
 						}
-						case STM32_HUM_NET	:		
+						case STM32_HUM_NET:		
 						case STM32_HUM_RS485:		
 						if(i == 0) //temperature
 						{

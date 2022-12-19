@@ -57,6 +57,14 @@ float sensirion_common_bytes_to_float(const uint8_t* bytes) {
     return tmp.float32;
 }
 
+void sensirion_common_copy_bytes(const uint8_t* source, uint8_t* destination,
+                                 uint16_t data_length) {
+    uint16_t i;
+    for (i = 0; i < data_length; i++) {
+        destination[i] = source[i];
+    }
+}
+																 
 uint8_t sensirion_common_generate_crc(const uint8_t* data, uint16_t count) {
     uint16_t current_byte;
     uint8_t crc = CRC8_INIT;

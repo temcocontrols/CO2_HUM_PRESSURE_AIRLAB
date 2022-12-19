@@ -11,6 +11,7 @@ uint8 hum_heat_status = 0;
 
 int16 external_operation_value = 0;
 uint8 external_operation_flag = 0;
+uint8 current_i2c = 0;
 
 
 #define SDA			PAout(2)	//SDA	
@@ -22,30 +23,30 @@ uint8 external_operation_flag = 0;
 void i2c_pic_start(void)
 {
 	SDA_OUT(); 
-	SDA = 0;
+	IIC_SDA_LO();
 	delay_us(30);
-	SCL = 0;
+	IIC_SCL_LO();
 	delay_us(30);
 	
 	// reset bus
-	SDA = 1;
-	SCL = 1;
+	IIC_SDA_HI();
+	IIC_SCL_HI();
 	delay_us(30);
 	
 	// 2nd start condition
-	SDA = 0;
+	IIC_SDA_LO();
 	delay_us(30);
-	SCL = 0;
+	IIC_SCL_LO();
 	
 	 
    
-//	SDA = 0; 
+//	IIC_SDA_LO(); 
 //	delay_ms(1);
-//	SDA = 1; 
+//	IIC_SDA_HI(); 
 //	delay_ms(5);
-//	SDA = 0; 
+//	IIC_SDA_LO(); 
 //	delay_ms(10); 
-//	SDA = 1; 
+//	IIC_SDA_HI(); 
 		
 }
 
@@ -53,11 +54,11 @@ void i2c_pic_stop()
 {	
 	SDA_OUT();		//sda线输出
 	delay_us(30);
-	SCL = 0;
-	SDA = 0;
+	IIC_SCL_LO();
+	IIC_SDA_LO();
 	delay_us(30);
-	SCL = 1;
-	SDA = 1; 
+	IIC_SCL_HI();
+	IIC_SDA_HI(); 
 }
 
 void i2c_pic_write(u8 ch)
@@ -67,19 +68,19 @@ void i2c_pic_write(u8 ch)
 	do
 	{    
 		if((ch & 0x80))
-			SDA = 1;
+			IIC_SDA_HI();
 		else
-			SDA = 0;
+			IIC_SDA_LO();
 		ch <<= 1;
 		
 		// Pulse the clock
 		delay_us(30); // settling time ,when use perry's code, change this to 10, not work
-		SCL = 1;
+		IIC_SCL_HI();
 		delay_us(30);
-		SCL = 0; 
+		IIC_SCL_LO(); 
 	}while(--i != 0);
 	
- // 	SDA = 1;
+ // 	IIC_SDA_HI();
 }
 
 #define READ_BITS	8//16
@@ -92,14 +93,14 @@ u16 i2c_pic_read(void)
 	for(i = 0; i < 16; i++)
 	{
 		delay_us(30);
-		SCL = 1;
+		IIC_SCL_HI();
 		delay_us(30);
 		
-		if(READ_SDA)
+		if(READ_SDA())
 			data1 = (data1 << 1) | 0x01;
 		else
 			data1 = (data1 << 1) ;
-		SCL = 0;
+		IIC_SCL_LO();
 	}
 	return data1;
 }
@@ -113,14 +114,14 @@ u8 i2c_read_light(void)
 	for(i = 0; i < 8; i++)
 	{
 		delay_us(30);
-		SCL = 1;
+		IIC_SCL_HI();
 		delay_us(30);
 		
-		if(READ_SDA)
+		if(READ_SDA())
 			data1 = (data1 << 1) | 0x01;
 		else
 			data1 = (data1 << 1) ;
-		SCL = 0;
+		IIC_SCL_LO();
 	}
 	return data1;
 }
@@ -133,18 +134,18 @@ u8 GET_ACK(void)
 	delay_us(10);
 	for (i = 0; i < 10; i++)
 	{
-		c = READ_SDA;
+		c = READ_SDA();
 		if(c == 0)
 		{
 			// if data line is low, pulse the clock.
-			SCL = 1;
+			IIC_SCL_HI();
 			delay_us(50);
-			SCL = 0;
+			IIC_SCL_LO();
 			return 0;
 		}
 		delay_us(2);
 	}
-	SCL = 0;
+	IIC_SCL_LO();
 	return 1;
 }
 
@@ -153,7 +154,7 @@ void GIVE_PIC_ACK()
 	uint8 j = 0;
 	SDA_IN();			//SDA设置为输入 
 	// Wait until the data signal goes high
-	while(!READ_SDA)
+	while(!READ_SDA())
 	{
 		j++;
 		// If no clock, exit i2c_read routine
@@ -168,28 +169,28 @@ void GIVE_PIC_ACK()
 	SDA_OUT();		//sda线输出
 	delay_us(30);
 	// Bring the data line low
-	SDA = 0;
+	IIC_SDA_LO();
 	delay_us(30); // settling time 
 	
 	// Pulse the clock
-	SCL = 1;
+	IIC_SCL_HI();
 	delay_us(30);
-	SCL = 0;
+	IIC_SCL_LO();
 	
 	// Bring the data line back high
-	SDA = 1;
+	IIC_SDA_HI();
 } 
 
 void GIVE_PIC_NACK(void)
 {
 	SDA_OUT();		//sda线输出
 	SCL_OUT();
-  SCL = 0;
-  SDA = 1;
+  IIC_SCL_LO();
+  IIC_SDA_HI();
   delay_us(30);
-  SCL = 1;
+  IIC_SCL_HI();
   delay_us(30);
-  SDA = 0;
+  IIC_SDA_LO();
 }
 uint16 temp_version;
 void start_light_sensor_mearsure(void)
@@ -373,8 +374,9 @@ uint16 read_light_sensors_data1(void)
 	return data;
 }
 
-uint8 light_sensor;
-uint8 read_light;  // light and tempeartarue
+uint8 light_sensor;  // 1 : exist  0 : inexist
+uint8 read_light;  
+// light and tempeartarue, do not read light and update_temperature at the same time
 bit read_light_sensor_version(void)
 {
 	uint16 temp_version = 0;
@@ -1384,12 +1386,24 @@ void external_operation(void)
 {  
 	switch(external_operation_flag)
 	{
-		case TEMP_CALIBRATION:  
-				HumSensor.offset_t += external_operation_value - HumSensor.temperature_c ;
-				 
+		case TEMP_CALIBRATION:  			  
+				HumSensor.offset_t += external_operation_value - HumSensor.temperature_c ;				 
 				external_operation_flag = 0;
+				if(current_i2c == 0)
+				{
 				new_write_eeprom(EEP_TEMP_OFFSET,HumSensor.offset_t); 
 				new_write_eeprom(EEP_TEMP_OFFSET+1,HumSensor.offset_t>>8);  
+				}
+				else if(current_i2c == 1)
+				{
+				new_write_eeprom(EEP_TEMP1_OFFSET,HumSensor.offset_t); 
+				new_write_eeprom(EEP_TEMP1_OFFSET+1,HumSensor.offset_t>>8);  
+				}
+				else if(current_i2c == 2)
+				{
+				new_write_eeprom(EEP_TEMP2_OFFSET,HumSensor.offset_t); 
+				new_write_eeprom(EEP_TEMP2_OFFSET+1,HumSensor.offset_t>>8);  
+				}
 			break;
 		case HUM_CALIBRATION: 
 #if OLD_HUM
@@ -1413,8 +1427,21 @@ void external_operation(void)
 				//if(hum_exists == 2 || ((hum_exists == 0) && (internal_co2_module_type == SCD40)))
 				{
 					HumSensor.offset_h += external_operation_value - HumSensor.humidity;
+					if(current_i2c == 0)
+					{
 					new_write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h); 
 					new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8);
+					}
+					else if(current_i2c == 1)
+					{
+					new_write_eeprom(EEP_HUM1_OFFSET,HumSensor.offset_h); 
+					new_write_eeprom(EEP_HUM1_OFFSET+1,HumSensor.offset_h>>8);
+					}
+					else if(current_i2c == 2)
+					{
+					new_write_eeprom(EEP_HUM2_OFFSET,HumSensor.offset_h); 
+					new_write_eeprom(EEP_HUM2_OFFSET+1,HumSensor.offset_h>>8);
+					}
 				}
 				//else 
 				external_operation_flag = 0; 
@@ -1451,7 +1478,9 @@ void external_operation(void)
 void auto_heating(void)
 { 
 	static int8 read_count;
+#if OLD_HUM
 	if(display_state == PIC_NORMAL)
+#endif
 	{
 		if(hum_heat_status == 0)
 		{
@@ -1511,11 +1540,12 @@ void auto_heating(void)
 			} 
 		} 	
 	}
+#if OLD_HUM
 	else
 	{
 		read_count = 0;
 	} 
-	
+#endif	
 //	test[2] = read_count;
 
 }

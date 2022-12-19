@@ -93,7 +93,8 @@ uint8_t sensirion_common_generate_crc(const uint8_t* data, uint16_t count);
 
 int8_t sensirion_common_check_crc(const uint8_t* data, uint16_t count,
                                   uint8_t checksum);
-
+void sensirion_common_copy_bytes(const uint8_t* source, uint8_t* destination,
+                                 uint16_t data_length);
 /**
  * sensirion_i2c_general_call_reset() - Send a general call reset.
  *

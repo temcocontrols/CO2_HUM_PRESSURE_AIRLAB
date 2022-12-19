@@ -337,6 +337,13 @@ extern void display_pm25( int16 value);
 #define SCREEN_AREA_PM10	6
 #define SCREEN_AREA_AQI   7
 #define SCREEN_AREA_LIGHT 8
+#define SCREEN_AREA_NULL 9
+
+#define SCREEN_AREA_TEMSETP 10
+#define SCREEN_AREA_HUMSETP 11
+#define SCREEN_AREA_CO2SETP 12
+
+
 
 //extern uint8 const   AQI_LEVEL[6][15];
 //extern struct _CURSOR_ cursor;

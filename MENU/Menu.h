@@ -49,6 +49,7 @@ extern uint8 menu_block_seconds;
 extern uint8 backlight_keep_seconds; 
 extern xQueueHandle xMutex,IicMutex;
 
+extern uint8_t lcd_i2c_sensor_index;
  enum
 {
 	MenuIdle = 0,

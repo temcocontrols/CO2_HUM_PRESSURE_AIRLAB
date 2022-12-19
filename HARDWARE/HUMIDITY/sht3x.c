@@ -37,7 +37,7 @@
 //-- Global variables ----------------------------------------------------------
 uint8 _i2cWriteHeader ;
 uint8 _i2cReadHeader ;
-uint8 count_sht3x_err;
+uint8 count_sht3x_err[3];
 //==============================================================================
 void SHT3X_Init(uint8 i2cAdr){              /* -- adapt the init for your uC -- */
 //==============================================================================
@@ -490,24 +490,18 @@ etError SHT3X_Read2BytesAndCrc(uint16 *data, etI2cAck finaleAckNack, uint8 timeo
   // read two data bytes and one checksum byte
 	 error = I2c_ReadByte(&bytes[0], ACK, timeout);	
 	if(error == NO_ERROR) error = I2c_ReadByte(&bytes[1], ACK, 0);
-	else Test[21]++;
+	//else Test[21]++;
   if(error == NO_ERROR) error = I2c_ReadByte(&checksum, finaleAckNack,0);
-  else Test[22]++;
+ // else Test[22]++;
   // verify checksum
-	Test[47] = bytes[0];Test[48] = bytes[1]; Test[49] = checksum;
+	//Test[47] = bytes[0];Test[48] = bytes[1]; Test[49] = checksum;
   if(error == NO_ERROR) error = SHT3X_CheckCrc(bytes, 2, checksum);
-	else 
-		Test[23]++;
+	//else 		Test[23]++;
 	
   if(error == NO_ERROR)
 	{
   // combine the two bytes to a 16-bit value
   *data = (bytes[0] << 8) | bytes[1];
-		count_sht3x_err = 0;
-	}
-  else
-	{	Test[24]++;
-	count_sht3x_err++;
 	}
   return error;
 }

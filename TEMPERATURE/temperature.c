@@ -5,24 +5,37 @@
 //uint16 light_org = 0;
 uint16 hum_read_delay = 1;
 extern uint8 update_flag;
+extern uint8_t lcd_i2c_sensor_index;
+extern uint8_t i2c_sensor_type[3];//i2c_co2_exist[3];
 extern void watchdog(void);
 extern uint8 rx_icon;
 extern uint8 tx_icon;
 
- void SCD40_Initial(void);
+ //void SCD40_Initial(void);
+ void SCD40_Initial_1st(void);
+ void SCD40_Initial_2nd(void);
+ void SCD40_Initial_3rd(void);
  void Refresh_SCD40(void);
- void SHT4x_Initial(void);
+ void SHT4x_Initial_1st(void);
+void SHT4x_Initial_2nd(void);
+ void SHT4x_Initial_3rd(void);
  void Refresh_SHT4x(void);
+ void Refresh_Light(void);
+ 
+void Refresh_SHT3X(void);
 
 STR_LIGHT_SENSOR light;
 uint16 internal_temp_ad = 0;
 
 
-float tem_org = 0;
-float hum_org = 0;
+//float tem_org = 0;
+//float hum_org = 0;
 bit hum_exists = 0;  
+
 // 0 -> no humidty 1-> old humidty  2-> SHT3X  3-> SHT4X
+#if OLD_HUM
 bit table_sel_enable = 1;
+#endif
 
 uint8 xdata display_state = 0;
 uint8 xdata table_sel;
@@ -42,6 +55,8 @@ uint8 Temperature_Filter;
 int16 internal_temperature_c = 0;
 int16 internal_temperature_f = 0;
 int16 internal_temperature_offset = 0;
+int16 offset_tem[3];
+int16 offset_hum[3];
 uint8 deg_c_or_f = 0; // 0 = c, 1 = f
 uint8 pre_deg_c_or_f = 2;// init state
 int16 previous_temperature;
@@ -120,9 +135,17 @@ static void reset_to_factory(void)
 		HumSensor.offset_t = 0;
 		new_write_eeprom(EEP_TEMP_OFFSET,0);
 		new_write_eeprom(EEP_TEMP_OFFSET+1,0); 
+		new_write_eeprom(EEP_TEMP1_OFFSET,0);
+		new_write_eeprom(EEP_TEMP1_OFFSET+1,0);
+		new_write_eeprom(EEP_TEMP2_OFFSET,0);
+		new_write_eeprom(EEP_TEMP2_OFFSET+1,0);
 		HumSensor.offset_h = 0;
 		new_write_eeprom(EEP_HUM_OFFSET+1,0);
 		new_write_eeprom(EEP_HUM_OFFSET,0);  
+		new_write_eeprom(EEP_HUM1_OFFSET+1,0);
+		new_write_eeprom(EEP_HUM1_OFFSET,0);
+		new_write_eeprom(EEP_HUM2_OFFSET+1,0);
+		new_write_eeprom(EEP_HUM2_OFFSET,0);
 		table_sel = FACTORY,
 		new_write_eeprom(EEP_TABLE_SEL,table_sel);  
 		new_write_eeprom(EEP_USER_POINTS,0);    //hum_size_copy
@@ -270,33 +293,53 @@ static void reset_to_factory(void)
 void initial_hum_eep(void)
 	{
 		uint8 loop;
+		uint8_t i;
 		if(read_eeprom(EEP_HUM_TEST) != 0x56)
 		{
 			write_eeprom(EEP_HUM_TEST,0x56);
 			reset_to_factory();
 		}
 		output_manual_value_co2  = 500;
+#if OLD_HUM
 		display_state = PIC_INITIAL;
+#endif
 		humidity_version = 0;
 		hum_exists = 0;
 		hum_read_delay = 1;
-		for(loop=0;loop<10;loop++) //detect if new hum sensor SHT35 is present,if so  
+		for(i = 0;i < 3; i++)
 		{
-			if(SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50) == 0)
+			i2c_index = i;
+			for(loop=0;loop<10;loop++) //detect if new hum sensor SHT35 is present,if so  
 			{
-				hum_exists = 2;
-				humidity_version = 30;
-		    break;
+				if(SHT3X_GetTempAndHumi(&I2C_Sensor[i].tem_org, &I2C_Sensor[i].hum_org, REPEATAB_HIGH, MODE_POLLING, 50) == 0)
+				{
+					i2c_sensor_type[i] = 1;
+					hum_exists = 2;
+					humidity_version = 30;
+					Test[22 + i2c_index] = i2c_sensor_type[i2c_index];
+					break;
+				}
+				else
+				{
+					delay_ms(10);
+				}
 			}
-			else
-			{
-				delay_ms(10);
-			}
-	  }
+		}
+		i2c_index = 0;
 		hum_read_delay = 1;
+#if OLD_HUM
 		table_sel_enable = 1;
-		HumSensor.offset_t = ((unsigned int)new_read_eeprom(EEP_TEMP_OFFSET + 1)<<8)+new_read_eeprom(EEP_TEMP_OFFSET); 
-		HumSensor.offset_h = ((unsigned int)new_read_eeprom(EEP_HUM_OFFSET + 1)<<8)+new_read_eeprom(EEP_HUM_OFFSET); 
+#endif
+		offset_tem[0] = ((unsigned int)new_read_eeprom(EEP_TEMP_OFFSET + 1)<<8)+new_read_eeprom(EEP_TEMP_OFFSET); 
+		offset_hum[0] = ((unsigned int)new_read_eeprom(EEP_TEMP_OFFSET + 1)<<8)+new_read_eeprom(EEP_TEMP_OFFSET); 
+		offset_tem[1] = ((unsigned int)new_read_eeprom(EEP_TEMP1_OFFSET + 1)<<8)+new_read_eeprom(EEP_TEMP1_OFFSET); 
+		offset_hum[1] = ((unsigned int)new_read_eeprom(EEP_TEMP1_OFFSET + 1)<<8)+new_read_eeprom(EEP_TEMP1_OFFSET); 
+		offset_tem[2] = ((unsigned int)new_read_eeprom(EEP_TEMP2_OFFSET + 1)<<8)+new_read_eeprom(EEP_TEMP2_OFFSET); 
+		offset_hum[2] = ((unsigned int)new_read_eeprom(EEP_TEMP2_OFFSET + 1)<<8)+new_read_eeprom(EEP_TEMP2_OFFSET); 
+
+	
+		HumSensor.offset_t = offset_tem[lcd_i2c_sensor_index];
+		HumSensor.offset_h = offset_hum[lcd_i2c_sensor_index]; 
 		HumSensor.offset_h_default = ((unsigned int)new_read_eeprom(EEP_CAL_DEFAULT_HUM + 1)<<8)+new_read_eeprom(EEP_CAL_DEFAULT_HUM);   
 		Run_Timer = 0;
 		deg_c_or_f = new_read_eeprom(EEP_DEG_C_OR_F );
@@ -314,6 +357,7 @@ void initial_hum_eep(void)
 		light.k = ((int16)new_read_eeprom(EEP_LIGHT_K + 1) << 8) | new_read_eeprom(EEP_LIGHT_K); 
 		
 	}
+#if OLD_HUM
 	static void user_sector_initial(void)
 	{
 		table_sel =  read_eeprom(EEP_TABLE_SEL); 
@@ -322,7 +366,7 @@ void initial_hum_eep(void)
 		hum_size_copy =  new_read_eeprom(EEP_USER_POINTS);
 		if(hum_size_copy > 10 ) hum_size_copy = 0;  	
 	}
-#if OLD_HUM
+
 	bit refresh_sensor(void)
 	{ 
 		uint8 i;
@@ -382,7 +426,7 @@ void initial_hum_eep(void)
 	 
 		return 1;
 	}
-#endif
+
 
 
 	static void min2method(float *K, float *B, unsigned char counter )
@@ -530,6 +574,7 @@ void initial_hum_eep(void)
 //}
 //	
 
+
 #define  ORG_RH  	0
 #define  USER_RH  1	
 //hum_table[i][HUM_FREQ]
@@ -631,6 +676,7 @@ void Get_hum_cal_slope(float hum_data)//according to hum_data, get relative slop
 	
 }	
 
+
 uint16 const HUM_DEF_TABLE[9] = {100,200,300,400,500,600,700,800,900};
 void calibrate_reset(void)
 {
@@ -645,7 +691,7 @@ void calibrate_reset(void)
 		hum_table[i][HUM_PERCENT] = HUM_DEF_TABLE[i];
 	}
 }
-
+#endif
 	
 int16 Get_Average_Humdity(int16 para_h)
 {
@@ -688,13 +734,8 @@ int16 Get_Average_Humdity(int16 para_h)
 		}
 		else 
 #endif
-		if(hum_exists == 2 || hum_exists == 3)
-		{// HTX3 sensor
-//		if(Run_Timer > FIRST_TIME)
-//			HumSensor.pre_temperature_c = Sys_Filter(tem_org,HumSensor.pre_temperature_c,HumSensor.T_Filter);
-//		else
-			HumSensor.pre_temperature_c = tem_org;
-		}		
+
+		HumSensor.pre_temperature_c = I2C_Sensor[lcd_i2c_sensor_index].tem_org;
 		
 		HumSensor.temperature_c = HumSensor.pre_temperature_c ; 
 		HumSensor.temperature_c += HumSensor.offset_t;
@@ -733,66 +774,8 @@ int16 Get_Average_Humdity(int16 para_h)
 		}		 
 
 		internal_temperature_f = internal_temperature_c * 9 / 5 + 320;
-#if OLD_HUM		
-		if(hum_exists == 1)
-		{
-			if(humidity_version>=18)		//we can read the value from the humidity sensor directly.
-			{
-					if(table_sel_enable)
-					{
-						table_sel_enable = 0;
-						calibrate_point_read();
-					}  
-					humidity_back = get_humidity(HumSensor.frequency); 
-					if(humidity_back > 2000) humidity_back = 2000; //200.0%
-					else if(humidity_back < -2000) humidity_back = -2000; // -200.0%
-					
-	//				test[0] = humidity_back;
-	//				test[1] = HumSensor.ad[0];
-					if(table_sel == USER)
-					{  
-						if(hum_size_copy <= 1) 
-						{ 	  
-							if((humidity_version >= 24) ||(humidity_version == 19))
-							{
-								if(humidity_version >= 24)					
-									humidity_back = tempCompensation_HUM(HumSensor.temperature_c ,humidity_back);//HumSensor.ad[0]);
-								else
-									humidity_back=HumSensor.ad[0]; 
-							}
-							humidity_back += HumSensor.offset_h_default;
-							temp=humidity_back + HumSensor.offset_h; 	
-						} 
-						else
-						{  
-							temp=humidity_back+ HumSensor.offset_h; 
-						}
-					}
-					else
-					{ 		  
-						if((humidity_version >= 24) ||(humidity_version == 19))
-						{ 
-							if(humidity_version >= 24)					
-								;//humidity_back = tempCompensation_HUM(HumSensor.temperature_c ,humidity_back);//HumSensor.ad[0]);
-							else
-								humidity_back=HumSensor.ad[0]; 
-						} 
-						temp = humidity_back+HumSensor.offset_h_default; 
-					} 		
-			}
-		}
-		else 
-#endif
-		if(hum_exists == 2 || hum_exists == 3)
-		{
-			if(update_flag == 8)//initialize user table to default value
-			{
-				calibrate_reset();
-			}  
 
-		 temp = hum_org;
-		 
-		}			
+		temp = I2C_Sensor[lcd_i2c_sensor_index].tem_org;
 		
 		if(temp < 0) temp =0;
 		
@@ -816,46 +799,68 @@ int16 Get_Average_Humdity(int16 para_h)
 		}			
 		else 
 #endif
-			if(hum_exists == 2 || hum_exists == 3)
-		{
-			
-			if(Run_Timer < FIRST_TIME)
-			{				
-				HumSensor.humidity = hum_org + HumSensor.offset_h;
-			}
-			else
-			{
-				Get_hum_cal_slope(hum_org);
-		
-				if(point_num <= 1)//no calibration point or just one point, use hum offset
-				{			
-					HumSensor.humidity = hum_org + HumSensor.offset_h;
-					
-				}
-				else
-				{	
-					hum_temp = HumSensor.pre_humidity;					
-				  hum_temp = hum_temp * hum_slope_k + hum_slope_b;
-					//HumSensor.humidity = hum_temp;					
-					HumSensor.humidity = hum_org + HumSensor.offset_h;
-				}
-			}
-			
-		}
-		
+//			if(hum_exists == 2)
+//		{
+//			
+//			if(Run_Timer < FIRST_TIME)
+//			{				
+//				HumSensor.humidity = hum_org + HumSensor.offset_h;
+//			}
+//			else
+//			{
+//				Get_hum_cal_slope(hum_org);
+//		
+//				if(point_num <= 1)//no calibration point or just one point, use hum offset
+//				{			
+//					HumSensor.humidity = hum_org + HumSensor.offset_h;					
+//				}
+//				else
+//				{	
+//					hum_temp = HumSensor.pre_humidity;					
+//				  hum_temp = hum_temp * hum_slope_k + hum_slope_b;
+//					//HumSensor.humidity = hum_temp;					
+//					HumSensor.humidity = hum_org + HumSensor.offset_h;
+//				}
+//			}
+//			
+//		}
+//		else if(hum_exists == 3) // SHT4X
+//		{
+//			if(Run_Timer < FIRST_TIME)
+//			{				
+//				HumSensor.humidity = I2C_Sensor[lcd_i2c_sensor_index].hum_org + HumSensor.offset_h;
+//			}
+//			else
+//			{
+//				//Get_hum_cal_slope(I2C_Sensor[lcd_i2c_sensor_index].hum_org);
+//		
+//				if(point_num <= 1)//no calibration point or just one point, use hum offset
+//				{			
+//					HumSensor.humidity = I2C_Sensor[lcd_i2c_sensor_index].hum_org + HumSensor.offset_h;					
+//				}
+//				else
+//				{	
+//					//hum_temp = HumSensor.pre_humidity;					
+//				  //hum_temp = hum_temp * hum_slope_k + hum_slope_b;
+//					//HumSensor.humidity = hum_temp;					
+//					HumSensor.humidity = I2C_Sensor[lcd_i2c_sensor_index].hum_org + HumSensor.offset_h;
+//				}
+//			}
+//		}
+		HumSensor.humidity = I2C_Sensor[lcd_i2c_sensor_index].hum_org + HumSensor.offset_h;
 
 		if(output_auto_manual & 0x02)
 			HumSensor.humidity = output_manual_value_humidity;
 		else
 			output_manual_value_humidity = HumSensor.humidity;
 		
-		HumSensor.org_hum = HumSensor.humidity - HumSensor.compensation_val ;
+//		HumSensor.org_hum = HumSensor.humidity - HumSensor.compensation_val ;
 		
 		if(HumSensor.humidity > 1000)
 			HumSensor.humidity = 1000; 
 		
 		
-		
+#if OLD_HUM		
 	    
 //-----------------------------		
 		//ADD BY CHARLY			
@@ -876,7 +881,9 @@ int16 Get_Average_Humdity(int16 para_h)
 				else 
 #endif
 				if(hum_exists == 2)
-					SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50);
+				{
+					Refresh_SHT3X();
+				}
 				Lcd_Full_Screen(0);
 				hum_read_delay = 1;
 			}			
@@ -924,7 +931,7 @@ int16 Get_Average_Humdity(int16 para_h)
 				{
 					if(hum_exists == 2)
 					{
-						SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50); 
+						Refresh_SHT3X();
 					}
 				}
 				hum_read_delay = 1;				
@@ -973,8 +980,7 @@ int16 Get_Average_Humdity(int16 para_h)
 					refresh_sensor(); 
 				else 
 #endif
-				if(hum_exists == 2)
-					SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50); 
+				Refresh_SHT3X();
 				hum_read_delay = 1;		
 				if(isColorScreen == false)
 					Lcd_Full_Screen(0);
@@ -1010,42 +1016,7 @@ int16 Get_Average_Humdity(int16 para_h)
 			
 			
 		}
-//	    else if ((PRODUCT_ID == STM32_CO2_NET)||(PRODUCT_ID == STM32_CO2_RS485) )
-//		{
-//			if((display_state >= PIC_WAITING1)&&(hum_exists))
-//				display_state++;
-//			if(display_state == PIC_WAITING_END)
-//			{  
-//				display_state = PIC_NORMAL;  
-//				if(hum_exists == 1)				
-//					refresh_sensor(); 
-//				else if(hum_exists == 2)
-//					SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50);	 
-//			}
-//	//=================================================================
-//			if(display_state == PIC_INITIAL)	
-//			{  
-//				display_state = PIC_WAITING1;
-//			} 
-//	//=================================================================    	
-//			if((display_state == PIC_OFF_TO_ON)&&(hum_exists == 1))
-//			{  
-//				Lcd_Full_Screen(0);
-//				Lcd_Show_String(2, 9, DISP_NOR, (unsigned char *)" NEW  "); 
-//				Lcd_Show_String(3, 9, DISP_NOR, (unsigned char *)"SENSOR"); 
-//				display_state = PIC_WAITING1;
-////				SoftReset();
-//			} 
-//				
-//	//======================================================================
-//			if(display_state == PIC_ON_TO_OFF)	
-//			{    
-//				display_state = PIC_WAIT_OFF_TO_ON;
-//			 
-//			}
-//		}
-	 
-		
+#endif		
 		Get_Hum_Para( HumSensor.temperature_c, HumSensor.humidity,&HumSensor.dew_pt,\
 					&HumSensor.Pws,&HumSensor.Mix_Ratio,&HumSensor.Enthalpy); 
 //		#ifdef HUM_SENSOR
@@ -1168,7 +1139,7 @@ extern uint8 light_sensor;
 extern uint8 read_light;
 uint16 get_light_value(uint16 ad);
 
- extern uint8 count_sht3x_err;
+ extern uint8 count_sht3x_err[3];
  
 
 
@@ -1179,14 +1150,9 @@ void vUpdate_Temperature_Task( void *pvParameters )
 //	 initial_hum();
 
 	
-	 uint16 itemp;
 	 etError   error; 
 	 regStatus status;      // sensor status
 	 uint32 serialNumber;// serial number
-		
-	float light_itime;
-	float light_gain;
-	float light_data0,light_data1;
 	
 //	 print("UPDATE TEMPERATURE Task\r\n");
 	delay_ms(100);	
@@ -1196,184 +1162,41 @@ void vUpdate_Temperature_Task( void *pvParameters )
 	start_light_sensor_mearsure();
 	read_light_sensor_version();
 	// initial new sensor 	
-	SCD40_Initial();
-	SHT4x_Initial();
+	i2c_index = 0;
+	stc3x_initial();
+	
+	SCD40_Initial_1st();	
+	SCD40_Initial_2nd();
+	SCD40_Initial_3rd();	
+	
+	SHT4x_Initial_1st();
+	SHT4x_Initial_2nd();
+	SHT4x_Initial_3rd();
 	task_test.enable[7] = 1;
 	 for(;;)
 	 {			 
 		static uint8 ctr = 0;	
 		Test[40] = 7;task_test.count[7]++;		
 		Test[19] = hum_exists;
-		Test[20]++;
+		//Test[20]++;
 
 		if(xQueueTakeMutexRecursive( IicMutex, portMAX_DELAY ) == pdPASS)
-		{			
+		{		
 			Refresh_SCD40();
+			Refresh_stc3x();
 			Refresh_SHT4x();
-			hum_read_delay = 1;
-			
-			//if(internal_co2_module_type != SCD40)
-			{ // When scd40 is instal
-				Test[6] = hum_exists;
-			if(hum_exists != 3)
-			{
-			if(display_state != PIC_NORMAL)
-			{
-				if( SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50) == 0)
-				{	
-					HumSensor.temperature_c = tem_org;
-					HumSensor.humidity = hum_org;
-					hum_exists = 2; // new SHT3X
-					ctr = 0;
-				}
-				else
-				{
-//					hum_exists = 0;
-//					tem_org = 0;
-//					hum_org = 0;
-//					HumSensor.temperature_c = 0;
-//					HumSensor.humidity = 0;
-					//if(internal_co2_module_type != 7/*SCD40*/)
-					{						
-						if(count_sht3x_err > 5)
-						{
-							tem_org = 0;
-							hum_org = 0;
-							HumSensor.temperature_c = 0;
-							HumSensor.humidity = 0;
-							hum_exists = 0; // new SHT3X
-						}
-					}
-				}
-#if OLD_HUM
-				else
-				{
-					if(read_humidity_sensor_version())
-					{ 
-						hum_exists = 1;  // old hum
-						if(display_state == PIC_WAIT_OFF_TO_ON)
-						{
-							display_state = PIC_OFF_TO_ON; 
-						}	
-						ctr = 0;
-					}
-					else
-					{
-						if(ctr <= 20)  ctr++;
-						
-						if(ctr == 20)
-						{	
-							display_state = PIC_ON_TO_OFF;
-							hum_exists = 0; 
-						}
-					}
-				}	
-#endif				
-			}
-			else
-			{
-//				if(!read_sensor())
-//				{				
-				//if(hum_exists == 2)
-				{
-					if(SHT3X_GetTempAndHumi(&tem_org, &hum_org, REPEATAB_HIGH, MODE_POLLING, 50) != 0 )
-					{
-						if(ctr < 20)  ctr++;						
-						if(ctr == 20)
-						{	
-							if(internal_co2_module_type!= 7)
-							{
-								tem_org = 0;
-								hum_org = 0;
-								HumSensor.temperature_c = 0;
-								HumSensor.humidity = 0;			
-							}								
-							//display_state = PIC_ON_TO_OFF;
-							hum_exists = 0; 
-							Test[25]++;
-						}				
-					}
-					else
-					{
-						//hum_exists = 0;
-						hum_exists = 2;
-						ctr = 0;
-					}		
-					
-				}
-#if OLD_HUM
-				else if(hum_exists == 1)
-				{
-					if(!read_sensor())
-					{
-						if(ctr < 20)  ctr++;
-						
-						if(ctr == 20)
-						{	
-							display_state = PIC_ON_TO_OFF;
-							hum_exists = 0; 
-						}						
-					}
-					else
-						ctr = 0;
-				}
-#endif
-
-
-//				else 
-//					ctr = 0;
-			}
-//			if(hum_exists == 0)
-//			{
-//				tem_org = 0;
-//				hum_org = 0;
-//				HumSensor.temperature_c = 0;
-//				HumSensor.humidity = 0;				
-//			}
-		}
-	}
-			hum_read_delay = 1;			
-			read_light++;
+			hum_read_delay = 1;//??????
+			Refresh_SHT3X();			
+	
+			read_light++; 
+			Refresh_Light();
 			delay_ms(100);
-			if (PRODUCT_ID == STM32_HUM_NET)
-			{
-				if(light_sensor == 1)//(read_light_sensor_version())
-				{
-					if(read_light % 2 == 0)
-					{
-						light_itime = (float)read_light_sensors_time();
-						light_gain = (float)read_light_sensors_gain();
-						light_data0 = (float)read_light_sensors_data0();
-						light_data1 = (float)read_light_sensors_data1();
-						if((light_data1/light_data0)<0.26){
-							light.org = ((1.290*light_data0-2.733*light_data1)/light_gain*102.6/light_itime);}
-						else if((light_data1/light_data0)<0.55){
-							light.org = ((0.795*light_data0-0.859*light_data1)/light_gain*102.6/light_itime);}
-						else if((light_data1/light_data0)<1.09){
-							light.org = ((0.510*light_data0-0.345*light_data1)/light_gain*102.6/light_itime);}
-						else if((light_data1/light_data0)<2.13){
-							light.org = ((0.276*light_data0-0.130*light_data1)/light_gain*102.6/light_itime);}
-						else
-						{
-							light.org = 0;
-						}
-						
-						light.val = light.org *  light.k / 100;
-					}
-				}
-				else
-				{
-					pic_read_light_val(&light.ad); 
-					itemp = get_light_value(light.ad);
-					light.pre_val = Sys_Filter(itemp,light.pre_val,light.filter);
-					light.val = light.pre_val;
-				}
-			}
+
 			xQueueGiveMutexRecursive( IicMutex );
-		}
-		
+		}		
 
 		external_operation();
+		
 		if(hum_exists != 0)
 		{
 			if((light_sensor == 0) || (read_light % 2 == 1))
@@ -1387,17 +1210,19 @@ void vUpdate_Temperature_Task( void *pvParameters )
 			if(PRODUCT_ID == STM32_HUM_RS485 || PRODUCT_ID == STM32_HUM_NET)
 			{
 				if(sub_product == 1)
-				update_temperature();
+					update_temperature();
 			}
 		}
 		if(auto_heat_enable)	{
 			auto_heating();
 		}
+#if OLD_HUM
 		if(display_state == PIC_NORMAL)
 		{
 			vTaskDelay(3000 / portTICK_RATE_MS);
 		}
 		else
+#endif
 			vTaskDelay(1000 / portTICK_RATE_MS);
 	 }
 	 
@@ -1440,5 +1265,88 @@ uint16 get_light_value(uint16 ad)
 
 
 
+void Refresh_SHT3X(void)
+{
+		/* Measure temperature and relative humidity and store into variables
+		 * temperature, humidity (each output multiplied by 1000).
+		 */
+		int8_t ret;
+	
+		//static uint8_t error_cnt[3] = {0,0,0};
+	//	static	u8 i = 0;
+		u8 j;
+	// check exist i2c channel	
+	
+	for(j = 0;j < 3;j++)
+	{
+		if(i2c_sensor_type[j] == 1)
+		{
+			i2c_index = j;		
+			
+			if( SHT3X_GetTempAndHumi(&I2C_Sensor[i2c_index].tem_org, &I2C_Sensor[i2c_index].hum_org, REPEATAB_HIGH, MODE_POLLING, 50) == 0)
+			{	
+				HumSensor.temperature_c = I2C_Sensor[i2c_index].tem_org;
+				HumSensor.humidity = I2C_Sensor[i2c_index].hum_org;
+				hum_exists = 2; // new SHT3X
+				count_sht3x_err[j] = 0;
+			}
+			else
+			{					
+					if(count_sht3x_err[j]++ > 5)
+					{
+						count_sht3x_err[j] = 0;
+						HumSensor.temperature_c = 0;
+						HumSensor.humidity = 0;					
+						I2C_Sensor[i2c_index].tem_org = 0;
+						I2C_Sensor[i2c_index].hum_org = 0;
+					}
+			}
+			
+			
+		}		
+		
+	}
+	i2c_index = 0;
+}
 
-
+void Refresh_Light(void)
+{
+  uint16 itemp;
+	float light_itime;
+	float light_gain;
+	float light_data0,light_data1;
+	if (PRODUCT_ID == STM32_HUM_NET)
+	{
+		if(light_sensor == 1)//(read_light_sensor_version())
+		{
+			if(read_light % 2 == 0)
+			{
+				light_itime = (float)read_light_sensors_time();
+				light_gain = (float)read_light_sensors_gain();
+				light_data0 = (float)read_light_sensors_data0();
+				light_data1 = (float)read_light_sensors_data1();
+				if((light_data1/light_data0)<0.26){
+					light.org = ((1.290*light_data0-2.733*light_data1)/light_gain*102.6/light_itime);}
+				else if((light_data1/light_data0)<0.55){
+					light.org = ((0.795*light_data0-0.859*light_data1)/light_gain*102.6/light_itime);}
+				else if((light_data1/light_data0)<1.09){
+					light.org = ((0.510*light_data0-0.345*light_data1)/light_gain*102.6/light_itime);}
+				else if((light_data1/light_data0)<2.13){
+					light.org = ((0.276*light_data0-0.130*light_data1)/light_gain*102.6/light_itime);}
+				else
+				{
+					light.org = 0;
+				}
+				
+				light.val = light.org *  light.k / 100;
+			}
+		}
+		else
+		{
+			pic_read_light_val(&light.ad); 
+			itemp = get_light_value(light.ad);
+			light.pre_val = Sys_Filter(itemp,light.pre_val,light.filter);
+			light.val = light.pre_val;
+		}
+	}
+}

@@ -207,11 +207,11 @@ typedef enum
 	EEP_USER_FRE7 = EEP_USER_RH7+2,
 	EEP_USER_RH8  = EEP_USER_FRE7+2,
 	EEP_USER_FRE8 = EEP_USER_RH8+2,
-	EEP_USER_RH9  = EEP_USER_FRE8+2,
-	EEP_USER_FRE9 = EEP_USER_RH9+2,
-	EEP_USER_RH10 = EEP_USER_FRE9+2,
-	EEP_USER_FRE10= EEP_USER_RH10+2,
-	EEP_TEMP_OFFSET = EEP_USER_FRE10 + 2,  
+	EEP_TEMP1_OFFSET = EEP_USER_FRE8 + 2,//EEP_USER_RH9  = EEP_USER_FRE8+2,
+	EEP_HUM1_OFFSET = EEP_TEMP1_OFFSET + 2,//EEP_USER_FRE9 = EEP_USER_RH9+2,
+	EEP_TEMP2_OFFSET = EEP_HUM1_OFFSET + 2,//EEP_USER_RH10 = EEP_USER_FRE9+2,
+	EEP_HUM2_OFFSET = EEP_TEMP2_OFFSET + 2,//EEP_USER_FRE10= EEP_USER_RH10+2,
+	EEP_TEMP_OFFSET = EEP_HUM2_OFFSET + 2,  
 	EEP_HUM_OFFSET = EEP_TEMP_OFFSET + 2 ,
 	EEP_CAL_DEFAULT_HUM = EEP_HUM_OFFSET + 2,
 	EEP_SENSOR_SELECT = EEP_CAL_DEFAULT_HUM + 2,
@@ -318,6 +318,7 @@ typedef enum
 	EEP_HARDFAULT6,  // FOR TEST
 	
 	EEP_SUB_PRODUCT,
+	EEP_LCD_I2C_SENSOR,
 	
 	EEP_END 
 } EEP_MAP;
@@ -557,24 +558,32 @@ typedef enum
 	MODBUS_MENU_BLOCK_SECONDS,		// 1261
 	MODBUS_BACKLIGHT_KEEP_SECONDS,
 
-//	MODBUS_EXTERNAL_NODES_PLUG_AND_PLAY, // 1263
-
-//	MODBUS_SCAN_DB_CTR,		// 1264
-//	MODBUS_RESET_SCAN_DB,					
-//	MODBUS_SCAN_START,		// 1266						
-//	MODBUS_SCAN_END = MODBUS_SCAN_START + SCAN_DB_SIZE * MAX_EXT_CO2,	// 1266 + 5*254
-
-
-//	MODBUS_GET_NODES_PARA_START = MODBUS_SCAN_END,						// 2536
-//	MODBUS_GET_NODES_PARA_END = MODBUS_GET_NODES_PARA_START + 32,		// 2536 + 32
-
-//	MODBUS_SCAN_OCCUPY_START = MODBUS_GET_NODES_PARA_END,				// 2568
-//	MODBUS_SCAN_OCCUPY_END = MODBUS_SCAN_OCCUPY_START + 32,				// 2568 + 32
-
-//	MODBUS_SCAN_ONLINE_START = MODBUS_SCAN_OCCUPY_END,					// 2600
-//	MODBUS_SCAN_ONLINE_END = MODBUS_SCAN_ONLINE_START + 32,				// 2600 + 32
-
-//	MODBUS_IDLE_ID = MODBUS_SCAN_ONLINE_END,							//2632
+	MODBUS_LCD_I2C_SENSOR_Index = 2199,// 1999 show which sensor on lcd screen
+	// 2000 - 
+	MODBUS_I2C_SENOR1_TYPE = 2200, // 0 - no sensor, 1 - SHT31 ,2- SHT4X ,3-SCD40
+	MODBUS_I2C_SENOR1_TEM,	
+	MODBUS_I2C_SENOR1_HUM,
+	MODBUS_I2C_SENOR1_CO2,
+	MODBUS_I2C_SENOR1_CO2_FRC,
+	
+	MODBUS_I2C_SENOR2_TYPE = 2210, // 0 - no sensor, 1 - SHT31 ,2- SHT4X ,3-SCD40
+	MODBUS_I2C_SENOR2_TEM,	
+	MODBUS_I2C_SENOR2_HUM,
+	MODBUS_I2C_SENOR2_CO2,
+	MODBUS_I2C_SENOR2_CO2_FRC,
+	
+	MODBUS_I2C_SENOR3_TYPE = 2220, // 0 - no sensor, 1 - SHT31 ,2- SHT4X ,3-SCD40
+	MODBUS_I2C_SENOR3_TEM,	
+	MODBUS_I2C_SENOR3_HUM,
+	MODBUS_I2C_SENOR3_CO2,
+	MODBUS_I2C_SENOR3_CO2_FRC,
+	
+	MODBUS_STC3X_TYPE = 2230,
+	MODBUS_STC3X_GAS,	
+	MODBUS_STC3X_TEM,
+	MODBUS_STC3X_FRC,
+	
+	
 			
 	MODBUS_INT_TEMPRATURE_FILTER = 3000, //2650
 	MODBUS_EXT_TEMPRATURE_FILTER, 
@@ -753,30 +762,30 @@ typedef enum
 	MODBUS_HUM_EXT_TEMPRATURE_FILTER, 
 	MODBUS_HUM_HUIDITY_FILTER,
 	MODBUS_HUM_TABLE_SEL = 454, 
-	MODBUS_HUM_USER_POINTS =455,  
-	MODBUS_HUM_USER_RH1 = 456,     
-	MODBUS_HUM_USER_FRE1,
-	MODBUS_HUM_USER_RH2,
-	MODBUS_HUM_USER_FRE2,
-	MODBUS_HUM_USER_RH3,
-	MODBUS_HUM_USER_FRE3                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ,
-	MODBUS_HUM_USER_RH4,
-	MODBUS_HUM_USER_FRE4,
-	MODBUS_HUM_USER_RH5,
-	MODBUS_HUM_USER_FRE5,
-	MODBUS_HUM_USER_RH6,
-	MODBUS_HUM_USER_FRE6,
-	MODBUS_HUM_USER_RH7,
-	MODBUS_HUM_USER_FRE7,
-	MODBUS_HUM_USER_RH8,
-	MODBUS_HUM_USER_FRE8,
-	MODBUS_HUM_USER_RH9,
-	MODBUS_HUM_USER_FRE9,
-	MODBUS_HUM_USER_RH10,
-	MODBUS_HUM_USER_FRE10,  	 
-	MODBUS_HUM_K_LINE = 476,
-	MODBUS_HUM_B_LINE = 477,	
-	MODBUS_HUM_HUMDITY_SN,	
+//	MODBUS_HUM_USER_POINTS =455,  
+//	MODBUS_HUM_USER_RH1 = 456,     
+//	MODBUS_HUM_USER_FRE1,
+//	MODBUS_HUM_USER_RH2,
+//	MODBUS_HUM_USER_FRE2,
+//	MODBUS_HUM_USER_RH3,
+//	MODBUS_HUM_USER_FRE3                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ,
+//	MODBUS_HUM_USER_RH4,
+//	MODBUS_HUM_USER_FRE4,
+//	MODBUS_HUM_USER_RH5,
+//	MODBUS_HUM_USER_FRE5,
+//	MODBUS_HUM_USER_RH6,
+//	MODBUS_HUM_USER_FRE6,
+//	MODBUS_HUM_USER_RH7,
+//	MODBUS_HUM_USER_FRE7,
+//	MODBUS_HUM_USER_RH8,
+//	MODBUS_HUM_USER_FRE8,
+//	MODBUS_HUM_USER_RH9,
+//	MODBUS_HUM_USER_FRE9,
+//	MODBUS_HUM_USER_RH10,
+//	MODBUS_HUM_USER_FRE10,  	 
+//	MODBUS_HUM_K_LINE = 476,
+//	MODBUS_HUM_B_LINE = 477,	
+//	MODBUS_HUM_HUMDITY_SN,	
 	MODBUS_HUM_CAL_DEFAULT_HUM = 479,  	 
 	MODBUS_HUM_CAL_FAC_PTS,		 
 	MODBUS_HUM_DIS_INFO = 481,    	 

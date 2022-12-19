@@ -160,7 +160,7 @@ void MenuTask(void *pvParameters)
 //	vTaskDelay(300);
 //	update_message_context();
 	menu_init();
-	dis_hum_info = 0;
+//	dis_hum_info = 0;
 //	print("Menu Task\r\n");
 //	xMutex = xQueueCreateMutex();
 //	delay_ms(100);
@@ -218,12 +218,15 @@ void ScrollingTask(void *pvParameters)
 	task_test.enable[15] = 1;
 	while(1)
 	{	task_test.count[15]++;Test[40] = 15;
+#if OLD_HUM
 		if(dis_hum_info == 1)
 		{  
 			sprintf((char *)text,"pts:%u sn:%u", HumSensor.counter,HumSensor.sn);
 			Lcd_Show_String(4, 0, DISP_NOR, text);   
 		}
-		else if(xQueueTakeMutexRecursive( xMutex, portMAX_DELAY )==pdPASS)
+		else 
+#endif
+		if(xQueueTakeMutexRecursive( xMutex, portMAX_DELAY )==pdPASS)
 		{
 			scrolling_message();
 			xQueueGiveMutexRecursive( xMutex );

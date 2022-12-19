@@ -832,16 +832,20 @@ void display_dec(uint8 blink)
 	//if(blink)//show dec
 	if((hum_exists== 3)||(hum_exists==2))
 	{
-	if((screenArea1 == SCREEN_AREA_TEMP)||(screenArea1 == SCREEN_AREA_HUMI))
-		disp_null_icon(8, 8,0,60, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
-	if((screenArea2 == SCREEN_AREA_TEMP)/*||(screenArea2 == SCREEN_AREA_HUMI)*/)	
-	{
-		disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
-	
-	}
-	if((screenArea3 == SCREEN_AREA_TEMP)||(screenArea3 == SCREEN_AREA_HUMI))
-		if(enableScroll==false)
-			disp_null_icon(8, 8,0,60+80+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+		if(screenArea1 == SCREEN_AREA_TEMP|| screenArea1 == SCREEN_AREA_HUMI
+			|| screenArea1 == SCREEN_AREA_TEMSETP || screenArea1 == SCREEN_AREA_HUMSETP)
+		{
+			disp_null_icon(8, 8,0,60, SECOND_CH_POS - 8-40,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+		}
+		if(screenArea2 == SCREEN_AREA_TEMP || screenArea2 == SCREEN_AREA_TEMSETP ||  screenArea2 == SCREEN_AREA_HUMSETP)	
+		{
+			disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+		
+		}
+		if(screenArea3 == SCREEN_AREA_TEMP || screenArea3 == SCREEN_AREA_HUMI
+			|| screenArea3 == SCREEN_AREA_TEMSETP || screenArea3 == SCREEN_AREA_HUMSETP)
+			if(enableScroll==false)
+				disp_null_icon(8, 8,0,60+80+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
 	}
 	else
 	{	// 
@@ -891,16 +895,27 @@ extern uint8 rx_icon;
 extern uint8 tx_icon;
 void Top_area_display(uint8 item, int16 value, uint8 unit)
 {
-int16 value_buf;
+	int16 value_buf;
 	uint8 formCO2,xCO2,yCO2,oCO2;
-	
-switch(item)
+	static uint8 blink = 0;
+	switch(item)
 	{
 	case TOP_AREA_DISP_ITEM_LINE1:
-		if(screenArea1 == SCREEN_AREA_TEMP)
-		{
-			disp_icon(55, 55, TempIcon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
-			if((hum_exists!= 3)&&(hum_exists!=2)&&(internal_co2_module_type!= 7))
+		if((screenArea1 >= SCREEN_AREA_TEMSETP) && (screenArea1 <= SCREEN_AREA_CO2SETP))
+		{				
+			if((index_setpoint == 0) && (icon_setpoint[0] > 0) && (blink++ % 2 == 0))
+			{
+				disp_str(FORM15X30, THERM_METER_POS+30,240," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			}
+			else
+				disp_str(FORM15X30, THERM_METER_POS+30,240,">",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);					
+		}
+		
+		if(screenArea1 == SCREEN_AREA_TEMP || screenArea1 == SCREEN_AREA_TEMSETP)
+		{			
+			disp_icon(55, 55, TempIcon, 10, THIRD_CH_POS+CO2_POSY_OFFSET * 8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+		
+			if((hum_exists != 3)&&(hum_exists != 2)&&(internal_co2_module_type != 7))
 			{
 //				xCO2 = 160;
 //				yCO2 = UNIT_POS+25;
@@ -910,70 +925,74 @@ switch(item)
 			}
 			else
 			{
-				if(value >=0)
+				if(value >= 0)
 				{
 					value_buf = value;
-	//				disp_null_icon(3, 10, 0, 32,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
-	//				disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
-					disp_null_icon(5,15,0,32,245,TSTAT8_BACK_COLOR,TSTAT8_BACK_COLOR);
+					if(screenArea1 == SCREEN_AREA_TEMP)
+						disp_null_icon(5,15,0,32,245,TSTAT8_BACK_COLOR,TSTAT8_BACK_COLOR); //不显示负号
 					if(value >= 1000)
 					{
-						value_buf /= 10;
-						if((value_buf >= 100))
-							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						//value_buf /= 10;
+						if((value_buf >= 1000))
+							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						else 
 							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						
-						disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-					}
-					if(value<1000 )
-					{
-						if((value >= 100))
-							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						else 
-							disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					}
-					else if(value <100)
-					{
-						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16-40-16,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					}
+					if(value < 1000)
+					{
+						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						if(value >= 100)
+							disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						else 
+							disp_ch(0,THERM_METER_POS,SECOND_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16-40-16,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					}
+					else if(value < 100)
+					{
+						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16-40-16,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
 					}
 				}
 				else//nagtive value
 				{
 					value_buf = -value;
 					//disp_str(FORM15X30, 6,  32,  "-",SCH_COLOR,TSTAT8_BACK_COLOR);
-					disp_null_icon(3, 10, 0, 32,245,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+					disp_null_icon(3, 10, 0, 32,245,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);//显示负号
 					
 					if(value_buf >= 100)
 					{
 					//disp_ch(0,0,THERM_METER_POS,'-',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,THERM_METER_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-					disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16-40-16,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 					}
 					else if(value_buf < 100)
 					{
 
 					disp_ch(0,THERM_METER_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-					disp_ch(0,THERM_METER_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
+					disp_ch(0,THERM_METER_POS,SECOND_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+					disp_ch(0,THERM_METER_POS,THIRD_CH_POS+16-40-16,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);			
 					}
 				}
 				//disp_str(FORM15X30, THERM_METER_POS,UNIT_POS-20,"    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_str(FORM15X30, THERM_METER_POS,UNIT_POS+75," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-				disp_str(FORM15X30, THERM_METER_POS,UNIT_POS+12,"   ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);				
+				disp_str(FORM15X30, THERM_METER_POS,UNIT_POS+75-40," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				disp_str(FORM15X30, THERM_METER_POS,UNIT_POS+12-40,"   ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);				
 				if(deg_c_or_f == DEGREE_C)
-					disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS,"C ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-40,"C ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 				else
-					disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-1,"F ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS-1-40,"F ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 			}
 		}
-		else if(screenArea1 == SCREEN_AREA_HUMI)
+		else if(screenArea1 == SCREEN_AREA_HUMI || screenArea1 == SCREEN_AREA_HUMSETP)
 		{
 			disp_icon(55, 55, HumIcon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 			if(value >=0)
@@ -1008,7 +1027,7 @@ switch(item)
 				disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS,"%  ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 			}
 		}
-		else if( screenArea1 == SCREEN_AREA_CO2)
+		else if( screenArea1 == SCREEN_AREA_CO2 || screenArea1 == SCREEN_AREA_CO2SETP)
 		{
 			disp_icon(55, 55, co2Icon, 10, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 			if(value >= 10000) value = 9999;
@@ -1124,10 +1143,21 @@ switch(item)
 			disp_icon(55, 55, pressicon, 20, THIRD_CH_POS+CO2_POSY_OFFSET*8-5, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 			disp_str(FORM15X30, 33+THERM_METER_POS,UNIT_POS+160,"Pressure:",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 		}
+		
 	break; 
 		
 	case TOP_AREA_DISP_ITEM_LINE2:
-		if(screenArea2 == SCREEN_AREA_HUMI)
+			if((screenArea2 >= SCREEN_AREA_TEMSETP) && (screenArea2 <= SCREEN_AREA_CO2SETP) )
+			{				
+				if((index_setpoint == 1) && (icon_setpoint[1] > 0) && (blink++ % 2 == 0))
+				{
+					disp_str(FORM15X30, THERM_METER_POS+100,240," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+				}
+				else
+					disp_str(FORM15X30, THERM_METER_POS+100,240,">",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);				
+					
+			}
+		if(screenArea2 == SCREEN_AREA_HUMI || screenArea2 == SCREEN_AREA_HUMSETP)
 		{
 			disp_icon(55, 55, HumIcon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
 			if((hum_exists!= 3)&&(hum_exists!=2)&&(internal_co2_module_type!= 7))
@@ -1145,49 +1175,52 @@ switch(item)
 				if(value >=0)
 				{
 					value_buf = value;
-					disp_null_icon(5, 15, 0, HUM_POS+32+5,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
+					disp_null_icon(5, 15, 0, HUM_POS+32+5,240-40,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);    //不显示负号
 
 					if(value >= 1000)
 					{
-						disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
-						value_buf /= 10;
-						if((value_buf >= 100))
-							disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8-40,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);  //小数点
+						//value_buf /= 10;
+						if((value_buf >= 1000))
+							disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/1000,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						else 
 							disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						
-						disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-						disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+						disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%1000)/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,HUM_POS,THIRD_CH_POS+16,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+						disp_ch(0,HUM_POS,THIRD_CH_POS-40,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
 					}
 					else	
 					{ // < 1000
-						disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);
+						disp_null_icon(8, 8,0,60+80, SECOND_CH_POS - 8-40,TSTAT8_CH_COLOR, TSTAT8_CH_COLOR);     //小数点
 						if(value >= 100 )
 						{
 							//if((value >= 100))
-								disp_ch(0,HUM_POS,FIRST_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+								disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+value_buf/100,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 							//else 
 							//	disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-							disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-							disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(0,HUM_POS,THIRD_CH_POS+16,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(0,HUM_POS,THIRD_CH_POS-40,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 						}
 						else //if(value <100)
 						{
 							disp_ch(0,HUM_POS,FIRST_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-							disp_ch(0,HUM_POS,SECOND_CH_POS,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
-							disp_ch(0,HUM_POS,THIRD_CH_POS,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
+							disp_ch(0,HUM_POS,SECOND_CH_POS,' ',TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+							disp_ch(0,HUM_POS,THIRD_CH_POS+16,0x30+(value_buf%100)/10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);	
+							disp_ch(0,HUM_POS,THIRD_CH_POS-40,0x30+value_buf%10,TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);		
 						}
 					}
 					//disp_str(FORM15X30, 160,UNIT_POS,"    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_str(FORM15X30, HUM_POS,UNIT_POS+75," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_str(FORM15X30, HUM_POS,UNIT_POS+12,"    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
-					disp_str(FORM15X30, 33+HUM_POS,UNIT_POS,"%  ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, HUM_POS,UNIT_POS+75-40," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, HUM_POS,UNIT_POS+12-40,"    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+					disp_str(FORM15X30, 33+HUM_POS,UNIT_POS-40,"%  ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 				}
 			}
 		}
-		else if(screenArea2 == SCREEN_AREA_TEMP)
+		else if(screenArea2 == SCREEN_AREA_TEMP || screenArea1 == SCREEN_AREA_TEMSETP)
 		{
-			disp_icon(55, 55, TempIcon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
+			disp_icon(55, 55, TempIcon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR); 
 			
 			if(value >=0)
 			{
@@ -1248,7 +1281,7 @@ switch(item)
 			else
 				disp_str(FORM15X30, 33+HUM_POS,UNIT_POS-1,"F  ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 		}
-		else if( screenArea2 == SCREEN_AREA_CO2)
+		else if( screenArea2 == SCREEN_AREA_CO2 || screenArea1 == SCREEN_AREA_CO2SETP)
 		{
 			if(value >= 10000) value = 9999;
 			disp_icon(55, 55, co2Icon, 10+HUM_POS, THIRD_CH_POS+CO2_POSY_OFFSET*8, TSTAT8_CH_COLOR, TSTAT8_BACK_COLOR);
@@ -1353,9 +1386,18 @@ switch(item)
 		}
 	break; 
 	
-	case TOP_AREA_DISP_ITEM_LINE3:
-		
-		if( screenArea3 == SCREEN_AREA_CO2)
+	case TOP_AREA_DISP_ITEM_LINE3:			
+		if((screenArea3 >= SCREEN_AREA_TEMSETP) && (screenArea3 <= SCREEN_AREA_CO2SETP) )
+		{				
+			if((index_setpoint == 2) && (icon_setpoint[2] > 0) && (blink++ % 2 == 0))
+			{
+				disp_str(FORM15X30, THERM_METER_POS+180,240," ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
+			}
+			else
+				disp_str(FORM15X30, THERM_METER_POS+180,240,">",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);				
+		}
+			
+		if( screenArea3 == SCREEN_AREA_CO2 || screenArea3 == SCREEN_AREA_CO2SETP)
 		{
 			if(int_co2_str.noSensor == 1)
 			{
@@ -1452,7 +1494,7 @@ switch(item)
 				}
 			}
 		}
-		else if( screenArea3 == SCREEN_AREA_TEMP)
+		else if( screenArea3 == SCREEN_AREA_TEMP || screenArea3 == SCREEN_AREA_TEMSETP)
 		{
 			//if(value >=0)
 			
@@ -1592,7 +1634,7 @@ switch(item)
 //				disp_null_icon(3, 10, 0, 32,240,TSTAT8_BACK_COLOR, TSTAT8_BACK_COLOR);
 //				disp_str(FORM15X30, 6,  32,  " ",SCH_COLOR,TSTAT8_BACK_COLOR);
 		}
-		else if( screenArea3 == SCREEN_AREA_HUMI)
+		else if( screenArea3 == SCREEN_AREA_HUMI || screenArea3 == SCREEN_AREA_HUMSETP)
 		{
 			if(value >= 0)
 			{
@@ -1805,6 +1847,13 @@ switch(item)
 //					break;
 //				}
 			}
+		}
+		else if(screenArea3 == SCREEN_AREA_NULL)
+		{
+			xCO2 = 160;
+			yCO2 = UNIT_POS+25;
+			oCO2 = 38;//35;
+			disp_str(FORM15X30, xCO2,yCO2+oCO2*3+15,"                    ",TSTAT8_CH_COLOR,TSTAT8_BACK_COLOR);
 		}
 		break; 
 	}

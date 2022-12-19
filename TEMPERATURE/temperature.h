@@ -18,8 +18,6 @@
 
 //extern int16 temperature_f, temperature_c;
 extern uint16 hum_read_delay;
-extern float tem_org;
-extern float hum_org;
 extern uint8 deg_c_or_f;
 extern uint8 pre_deg_c_or_f;
 extern int16 previous_temperature;
@@ -35,16 +33,16 @@ void update_temperature(void);
 void update_temperature_display(uint8 ForceUpdate);
  
 		
-#define PIC_NORMAL     0 // sensor work well
-#define PIC_ON_TO_OFF  1 // sensor had been taken off
-#define PIC_OFF_TO_ON  2 // new sensor is connected
-#define PIC_NOT_EXIST  3 // never detect sensor
-#define PIC_WAIT_OFF_TO_ON       4 // wait for PIC state change
-#define PIC_CONNECTING           5 //new sensor is connecting
-#define PIC_INITIAL              6
-#define PIC_WAITING1             7 //wait for 1st display duty
-#define PIC_WAITING2             8 //wait for 1nd display duty
-#define PIC_WAITING_END          11 //end of display waiting
+//#define PIC_NORMAL     0 // sensor work well
+//#define PIC_ON_TO_OFF  1 // sensor had been taken off
+//#define PIC_OFF_TO_ON  2 // new sensor is connected
+//#define PIC_NOT_EXIST  3 // never detect sensor
+//#define PIC_WAIT_OFF_TO_ON       4 // wait for PIC state change
+//#define PIC_CONNECTING           5 //new sensor is connecting
+//#define PIC_INITIAL              6
+//#define PIC_WAITING1             7 //wait for 1st display duty
+//#define PIC_WAITING2             8 //wait for 1nd display duty
+//#define PIC_WAITING_END          11 //end of display waiting
 
 #define FACTORY  0
 #define USER     1
@@ -59,7 +57,9 @@ bit refresh_sensor(void);
 extern uint8   Run_Timer; 
 extern uint16 internal_temp_ad;
 extern bit hum_exists ;
+#if OLD_HUM
 extern bit table_sel_enable  ;
+#endif
 
 extern uint8 xdata display_state ;
 extern uint8 xdata table_sel;

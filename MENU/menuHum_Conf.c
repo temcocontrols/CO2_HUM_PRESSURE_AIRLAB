@@ -4,7 +4,7 @@ static uint8 item_index = 0;
 static uint8 pre_item_index = 0;
 
 static uint16 set_value;
-
+extern uint8_t lcd_i2c_sensor_index;
 #define MAX_HUM_ITEMS	2
 static uint8 const code item_name[MAX_HUM_ITEMS][16] = 
 {
@@ -164,8 +164,8 @@ void Hum_Conf_keycope(uint16 key_value)
 				{
 					case 0:
 						sprintf((char *)text, "%s%u.%u%%", item_name[item_index], set_value / 10, set_value % 10);
-					
-						HumSensor.offset_h = set_value - hum_org;
+						
+						HumSensor.offset_h = set_value - I2C_Sensor[lcd_i2c_sensor_index].hum_org;
 						external_operation_value = set_value;
 						external_operation_flag = HUM_CALIBRATION; 
 						HumSensor.humidity = set_value;

@@ -428,8 +428,21 @@ void io_control(void)
 			if(inputs[0].calibration_sign) external_operation_value = 0 -external_operation_value;
 			HumSensor.offset_t  = external_operation_value ;
 //			external_operation_flag = 0;
-			new_write_eeprom(EEP_TEMP_OFFSET,HumSensor.offset_t); 
-			new_write_eeprom(EEP_TEMP_OFFSET+1,HumSensor.offset_t>>8); 
+			if(lcd_i2c_sensor_index == 0)
+			{				
+				new_write_eeprom(EEP_TEMP_OFFSET,HumSensor.offset_t); 
+				new_write_eeprom(EEP_TEMP_OFFSET+1,HumSensor.offset_t>>8); 
+			}
+			if(lcd_i2c_sensor_index == 1)
+			{				
+				new_write_eeprom(EEP_TEMP1_OFFSET,HumSensor.offset_t); 
+				new_write_eeprom(EEP_TEMP1_OFFSET+1,HumSensor.offset_t>>8); 
+			}
+			if(lcd_i2c_sensor_index == 2)
+			{				
+				new_write_eeprom(EEP_TEMP2_OFFSET,HumSensor.offset_t); 
+				new_write_eeprom(EEP_TEMP2_OFFSET+1,HumSensor.offset_t>>8); 
+			}
 		}
 			
 		if(inputs[0].auto_manual)
@@ -463,8 +476,21 @@ void io_control(void)
 			Run_Timer = 0;
 #else
 			HumSensor.offset_h =external_operation_value;
+			if(lcd_i2c_sensor_index == 0)
+			{
 			new_write_eeprom(EEP_HUM_OFFSET,HumSensor.offset_h); 
 			new_write_eeprom(EEP_HUM_OFFSET+1,HumSensor.offset_h>>8);
+			}
+			else if(lcd_i2c_sensor_index == 1)
+			{
+			new_write_eeprom(EEP_HUM1_OFFSET,HumSensor.offset_h); 
+			new_write_eeprom(EEP_HUM1_OFFSET+1,HumSensor.offset_h>>8);
+			}
+			else if(lcd_i2c_sensor_index == 2)
+			{
+			new_write_eeprom(EEP_HUM2_OFFSET,HumSensor.offset_h); 
+			new_write_eeprom(EEP_HUM2_OFFSET+1,HumSensor.offset_h>>8);
+			}
 #endif
 		}
 			

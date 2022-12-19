@@ -72,7 +72,7 @@ void sensirion_release_pins(void) {
 void sensirion_SDA_in(void) {
 	//SDA_IN();
     // IMPLEMENT
-	IIC_SDA = 1;
+	IIC_SDA_HI();
 }
 
 /**
@@ -81,7 +81,7 @@ void sensirion_SDA_in(void) {
 void sensirion_SDA_out(void) {
     // IMPLEMENT
 	// SDA_OUT();
-	 IIC_SDA = 0;
+	 IIC_SDA_LO();
 }
 
 /**
@@ -91,7 +91,7 @@ void sensirion_SDA_out(void) {
 uint8_t sensirion_SDA_read(void) {
     // IMPLEMENT
 	
-    return READ_SDA;
+    return READ_SDA();
 }
 
 /**
@@ -102,7 +102,7 @@ uint8_t sensirion_SDA_read(void) {
 void sensirion_SCL_in(void) {
     // IMPLEMENT
 	//SCL_IN();
-	 IIC_SCL = 1;
+	 IIC_SCL_HI();
 }
 
 /**
@@ -111,7 +111,7 @@ void sensirion_SCL_in(void) {
 void sensirion_SCL_out(void) {
     // IMPLEMENT
 	//SCL_OUT();
-	 IIC_SCL = 0;
+	 IIC_SCL_LO();
 }
 
 /**
@@ -120,7 +120,7 @@ void sensirion_SCL_out(void) {
  */
 uint8_t sensirion_SCL_read(void) {
     // IMPLEMENT
-    return READ_SCL;
+    return READ_SCL();
 }
 
 /**

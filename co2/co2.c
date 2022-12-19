@@ -527,26 +527,26 @@ void receive_internal_co2_ppm(U8_T *p)
 
 void co2_reset(void)
 {
-//	internal_co2_module_type = SCD40;  // for test SCD40
-//	if((internal_co2_module_type == MH_Z19B)||(SCD30 == internal_co2_module_type)
-//		||(SCD40 == internal_co2_module_type))
-//	{
-//		CO2_RESET_PIN = 0;
-//		delay_ms(100);
-//		CO2_RESET_PIN = 1;
-//	}
-//	else
-//	{
-//		CO2_RESET_PIN = 1;
-//		delay_ms(100);
-//		CO2_RESET_PIN = 0;
-//	}
-	CO2_RESET_PIN = 0;
-	delay_ms(100);
-	CO2_RESET_PIN = 1;
+	if(i2c_index == 0)
+	{
+		CO2_RESET_PIN = 0;
+		delay_ms(100);
+		CO2_RESET_PIN = 1;
+	}
+	else if(i2c_index == 1)
+	{
+		
+	}
+	else if(i2c_index == 2)
+	{
+		
+	}
 }
+
 void IO_Init(void)
 {
+	if(i2c_index == 0)
+	{
 	GPIO_InitTypeDef GPIO_InitStructure;
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);//PA2/PA3
 
@@ -555,7 +555,17 @@ void IO_Init(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOD, &GPIO_InitStructure);
 	GPIO_ResetBits(GPIOD, GPIO_Pin_0| GPIO_Pin_3); 
+	}
+	else if(i2c_index == 1)
+	{
+		
+	}
+	else if(i2c_index == 2)
+	{
+		
+	}
 }
+
 void co2_init(void)
 {
 	U8_T i;

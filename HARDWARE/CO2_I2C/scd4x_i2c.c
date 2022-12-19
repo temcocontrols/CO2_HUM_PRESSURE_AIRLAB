@@ -69,7 +69,7 @@ int16_t scd4x_read_measurement_ticks(uint16_t* co2, uint16_t* temperature,
     if (error) {
         return error;
     }
-    //sensirion_sleep_usec(1000);
+    sensirion_sleep_usec(10000);
 		
     error = sensirion_i2c_read_data_inplace(SCD4X_I2C_ADDRESS, &buffer[0], 6);
     if (error) {

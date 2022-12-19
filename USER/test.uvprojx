@@ -1047,6 +1047,16 @@
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\CO2_I2C\sensirion_i2c.c</FilePath>
             </File>
+            <File>
+              <FileName>stc3x_i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\CO2_I2C\stc3x_i2c.c</FilePath>
+            </File>
+            <File>
+              <FileName>stc3x_i2c_example_usage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\CO2_I2C\stc3x_i2c_example_usage.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

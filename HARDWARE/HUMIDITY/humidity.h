@@ -63,6 +63,7 @@ extern uint8 hum_heat_status;
 
 extern int16 external_operation_value;
 extern uint8 external_operation_flag;
+extern uint8 current_i2c;
 
 
 
